@@ -88,6 +88,18 @@ extends Resource
 @export var realistic_elevator_ref_speed: float = 260.0 / 3.6
 @export var realistic_elevator_exponent: float = 1.0
 
+@export_group("Kampf (M2)")
+## Bewaffnung (Agent A: Ressource mit GunMountDef-Liste). Fehlt die Datei: unbewaffnet.
+@export_file("*.tres") var loadout_path: String = ""
+## Schadensprofil (Agent B: HP je Zone, Wirkungen). Fehlt die Datei: DamageModel.DEFAULT_HP.
+@export_file("*.tres") var damage_profile_path: String = ""
+## Aus dem GLB extrahierte Marker (gun_*, hardpoint_*, Zonen, Ruder-Pivots; Agent B, Paket 3).
+@export_file("*.tres") var markers_path: String = ""
+## Sicht aus dem Cockpit (Spotting.aircraft_visibility), 1 = Standard-Jäger.
+@export var cockpit_visibility: float = 1.0
+## Besatzung inkl. Pilot (Beobachter verbessern die Erkennungsweite).
+@export var crew_count: int = 1
+
 @export_group("Start")
 ## Höhe des Schwerpunkts über Grund im Stand (für Spawn auf der Piste).
 @export var ground_height: float = 1.62

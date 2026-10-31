@@ -17,6 +17,8 @@ var surfaces: Array[AeroSurface] = []
 var engine: PropEngine
 var gear: LandingGear
 var telemetry := FlightTelemetry.new()
+## Schadens-Hooks (geschrieben vom DamageModel, gelesen nur hier). Neutral = M1.1-Verhalten.
+var modifiers := FlightModifiers.new()
 ## Wenn true, werden Kraftpfeile für das Debug-Overlay gesammelt: [ort, kraft, farbe].
 var collect_debug: bool = false
 var debug_vectors: Array = []
@@ -32,8 +34,9 @@ var _prev_aoa := 0.0
 
 func _init(d: AircraftData) -> void:
 	data = d
-	for s in d.surfaces:
-		surfaces.append(AeroSurface.new(s))
+	for k in d.surfaces.size():
+		surfaces.append(AeroSurface.new(d.surfaces[k], k))
+	modifiers.setup(surfaces.size())
 	engine = PropEngine.new(d)
 	gear = LandingGear.new(d)
 	var cl_ref_sum := 0.0
@@ -111,7 +114,9 @@ func integrate(state: PhysicsDirectBodyState3D, cmd: ControlCommands, exclude: A
 				var k := clampf(dt * maxf(speed, 1.0) / _tail_arm, 0.0, 1.0)
 				_downwash = lerpf(_downwash, target, k)
 			eps = _downwash * s.def.downwash_factor
-		var f := s.compute(-v_point, b, rho, cmd.axis_value(s.def.control_axis), eps)
+		var m := modifiers
+		var c_eff := m.control_command(s.index, cmd.axis_value(s.def.control_axis))
+		var f := s.compute(-v_point, b, rho, c_eff, eps, m.lift_mul(s.index), m.drag_add(s.index))
 		state.apply_force(f, r)
 		aero_total += f
 		if s.def.is_main_wing:
@@ -130,7 +135,8 @@ func integrate(state: PhysicsDirectBodyState3D, cmd: ControlCommands, exclude: A
 
 	# --- Rumpf- und Fahrwerkswiderstand ---
 	var q := 0.5 * rho
-	var drag_area := data.fuselage_drag_area + data.gear_drag_area * gear.extension
+	var drag_area := data.fuselage_drag_area + data.gear_drag_area * gear.extension \
+		+ modifiers.extra_drag_area
 	var fus_local := Vector3(
 		-v_local.x * absf(v_local.x) * q * data.fuselage_side_area * 0.5,
 		-v_local.y * absf(v_local.y) * q * data.fuselage_side_area * 0.5,
@@ -141,7 +147,7 @@ func integrate(state: PhysicsDirectBodyState3D, cmd: ControlCommands, exclude: A
 
 	# --- Antrieb ---
 	var axial := -v_local.z
-	var thrust := engine.update(dt, cmd.throttle, axial, power_factor(xf.origin.y))
+	var thrust := engine.update(dt, cmd.throttle, axial, power_factor(xf.origin.y), modifiers)
 	var thrust_vec := -b.z * thrust
 	var r_eng := b * data.engine_position
 	state.apply_force(thrust_vec, r_eng)
@@ -201,6 +207,7 @@ func integrate(state: PhysicsDirectBodyState3D, cmd: ControlCommands, exclude: A
 		t.g_load = (accel - state.total_gravity).dot(b.y) / g
 	var ray := PhysicsRayQueryParameters3D.create(xf.origin, xf.origin + Vector3.DOWN * 5000.0)
 	ray.exclude = exclude
+	ray.collision_mask = Layers.MASK_GROUND_RAY
 	var hit := state.get_space_state().intersect_ray(ray)
 	t.height_agl = xf.origin.y - hit.position.y if not hit.is_empty() else xf.origin.y
 

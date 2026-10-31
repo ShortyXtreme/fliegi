@@ -24,10 +24,19 @@ func _init(d: AircraftData) -> void:
 	blend_exp = d.prop_blend_exponent
 
 
-func update(dt: float, throttle_cmd: float, axial_speed: float, power_factor: float) -> float:
-	var target := lerpf(idle, 1.0, clampf(throttle_cmd, 0.0, 1.0)) if running else 0.0
+## mods: Schadens-Hook (FlightModifiers) – engine_power_mul, engine_failed. null = intakt.
+func update(dt: float, throttle_cmd: float, axial_speed: float, power_factor: float,
+		mods: FlightModifiers = null) -> float:
+	var on := running
+	if mods != null:
+		power_factor *= mods.engine_power_mul
+		on = on and not mods.engine_failed
+	var target := lerpf(idle, 1.0, clampf(throttle_cmd, 0.0, 1.0)) if on else 0.0
 	throttle_actual = move_toward(throttle_actual, target, response * dt)
 	var v := maxf(axial_speed, 0.0)
+	if power_factor <= 1e-4:
+		last_thrust = 0.0
+		return 0.0
 	var t_static := static_thrust * power_factor
 	var t_power := efficiency * power * power_factor / maxf(v, 1.0)
 	# weiche Minimum-Bildung beider Grenzen

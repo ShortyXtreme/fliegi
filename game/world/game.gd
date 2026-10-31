@@ -2,6 +2,8 @@ class_name Game
 extends Node3D
 ## Hauptszene M1: Testwelt, Spieler-Flugzeug auf der Piste, KI-Flugzeug in der Luft.
 ## Wer welchen Sitz bekommt, entscheidet der Server (offline: wir selbst, Peer 1).
+## M2 (Paket 0): Kampf-Infrastruktur ist angelegt (ProjectileSystem, WeaponFx,
+## SpawnManager, Nationen). Das Szenario „1 gegen 3“ baut Paket 14 hier ein.
 
 const FIGHTER := "res://vehicles/aircraft/data/fighter_t1.tres"
 
@@ -12,16 +14,30 @@ var player: PlayerController
 var ai: AIController
 var cam: CameraRig
 var hud: Hud
+var projectiles: ProjectileSystem
+var weapon_fx: WeaponFx
+var spawn_manager: SpawnManager
 
 
 func _ready() -> void:
+	CombatEvents.reset()
 	world = TestWorld.new()
 	world.name = "World"
 	add_child(world)
+	projectiles = ProjectileSystem.new()
+	projectiles.name = "Projectiles"
+	add_child(projectiles)
+	weapon_fx = WeaponFx.new()
+	weapon_fx.name = "WeaponFx"
+	add_child(weapon_fx)
+	spawn_manager = SpawnManager.new()
+	spawn_manager.name = "SpawnManager"
+	add_child(spawn_manager)
 	var data: AircraftData = load(FIGHTER)
 
 	player_aircraft = Aircraft.create(data)
 	player_aircraft.name = "PlayerAircraft"
+	player_aircraft.nation_id = Nations.BLUE
 	add_child(player_aircraft)
 	player_aircraft.place_on_ground(world.runway_spawn(0), TestWorld.RUNWAY_DIR)
 
@@ -31,6 +47,7 @@ func _ready() -> void:
 	ai_data.accent_color = Color(0.9, 0.9, 0.85)
 	ai_aircraft = Aircraft.create(ai_data)
 	ai_aircraft.name = "AIAircraft"
+	ai_aircraft.nation_id = Nations.RED
 	add_child(ai_aircraft)
 	var b := Basis.looking_at(Vector3(-1, 0, 0), Vector3.UP)
 	ai_aircraft.place(Transform3D(b, Vector3(900, 350, -1200)), 85.0, 0.8, false)
@@ -47,6 +64,7 @@ func _ready() -> void:
 	if Authority.is_server():
 		player_aircraft.pilot_seat.possess(player)
 		ai_aircraft.pilot_seat.possess(ai)
+		spawn_manager.register(player_aircraft, player, func(): _on_reset(false))
 
 	cam = CameraRig.new()
 	cam.name = "CameraRig"

@@ -86,6 +86,7 @@ func integrate(state: PhysicsDirectBodyState3D, cmd: ControlCommands, exclude: A
 		var length := w.rest_length + w.radius
 		var q := PhysicsRayQueryParameters3D.create(top, top + down * length)
 		q.exclude = exclude
+		q.collision_mask = Layers.MASK_GEAR_RAY
 		var hit := space.intersect_ray(q)
 		if hit.is_empty():
 			compression[i] = 0.0
@@ -142,6 +143,7 @@ func _belly(state: PhysicsDirectBodyState3D, exclude: Array[RID], debug) -> void
 		var top := p + Vector3.UP * 1.0
 		var q := PhysicsRayQueryParameters3D.create(top, p + Vector3.DOWN * 0.05)
 		q.exclude = exclude
+		q.collision_mask = Layers.MASK_GEAR_RAY
 		var hit := space.intersect_ray(q)
 		if hit.is_empty():
 			belly_comp[i] = 0.0

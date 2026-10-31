@@ -1,5 +1,22 @@
 # Änderungsprotokoll Flugkern
 
+## M2 Paket 0 „Vertragsschnitt“ (31.10.2026)
+
+Grundlage: `docs/plan_m2.md` §7. Die Schnittstellen und die Dateien je Agent stehen in `docs/m2_vertrag.md`. Die Flugphysik ist unverändert, alle M1.1-Messwerte sind identisch.
+
+### Neu
+- **Kern:** `Nations` (Blau/Rot, Diplomatie-Matrix, `is_hostile`), `CombatEvents` (Bus mit 6 Signalen, Ereignis-Log und Log-Hash), `Layers` (Physik-Layer und Masken, Namen in `project.godot`), `Spotting` (Erkennungsweite nach Entscheidung 2) mit `RadarStation`-Stub, `MatchRules` (Lobby-Werte), `WorldGround.height_at`, `WorldOrigin` (Stub).
+- **PilotIntent:** `fire_primary`, `fire_secondary`, `eject`, als Bits in `to_array()[8]` (alte Arrays bleiben lesbar).
+- **Flugzeug:** `nation_id`, `entity_id`, `crew_level`, `pilot`, `weapons` (WeaponSystem), `damage` (DamageModel), Signal `eject_requested(aircraft, allowed)`. Kollisions-Layer `AIRCRAFT`. Die Raycasts für Fahrwerk und Höhe über Grund ignorieren andere Flugzeuge.
+- **Schadens-Hooks:** `FlightModifiers` mit Auftriebs-, Widerstands- und Ruderfaktor je Fläche, klemmendem Ruder, Motorleistung, Motorausfall und Zusatzwiderstand. Angebunden in `FlightModel`, `AeroSurface.compute` und `PropEngine.update`.
+- **Stubs:** `WeaponSystem`, `ProjectileSystem`, `WeaponFx`, `DamageModel`, `HitboxSet`, `CombatHud` (in `hud.gd` registriert), `AIPilotBrain`, `TerrainWorld`, `SpawnManager`, `PilotRecord`. Die Hauptszene legt ProjectileSystem, WeaponFx und SpawnManager an. Spieler = Blau, KI = Rot.
+- **Tests:** Der Läufer findet Testdateien in `tests/suites/` automatisch (Basisklasse `TestSuite`) und unterstützt die Suiten `fast` (Standard), `slow` und `all` sowie `--file=` und `--list`. Die 19 M1-Tests liegen jetzt in `tests/suites/test_flight_m1.gd`. Neu sind 8 Vertragstests in `test_contract_m2.gd`: Nationen, Bus, Spotting, Modifier-Hooks, Kampf-Hooks, Belegungskonflikte, Feuer/Notausstieg-Halten, Hauptszene. Der Intent-Roundtrip prüft jetzt auch die Tasten-Bits.
+
+### Eingabe (Entscheidung 1)
+- **Xbox:** RT = Feuer, LT = Sekundär, LB/RB = Seitenruder (digital mit Rampe), Steuerkreuz ↑/↓ = Gas, **Steuerkreuz → = Fahrwerk** (vorher ↓), Steuerkreuz ← 1 s halten = Notausstieg. So gibt es keine Doppelbelegung und keine Unterscheidung zwischen kurzem und langem Drücken.
+- **Tastatur/Maus:** Leertaste oder LMT = Feuer (LMT nur bei gefangener Maus, der erste Klick fängt nur), V oder mittlere Maustaste = Sekundär, J 1 s halten = Notausstieg.
+- F1-Hilfe und README sind aktualisiert. Die Waffen feuern erst ab Paket 2. Der Notausstieg meldet bis Paket 4/6 immer „gesperrt“.
+
 ## M1.1 (31.10.2026)
 
 Anlass: Tester-Feedback „Strömungsabriss beim Hochziehen kommt zu früh“ (Maus+Tastatur, Arcade, Mouse-Aim) und „Flugzeug rollt beim Start rückwärts“. Grundlage: `docs/diagnose_stall.md`, `docs/recherche_flugphysik_spielgefuehl.md`.

@@ -3,23 +3,26 @@ extends CanvasLayer
 ## Einfaches HUD: Fahrt, Höhe, Gas, Anstellwinkel, Stall-Warnung, Modus, FPS.
 ## F3: Debug-Overlay mit Kräften (Text + 3D-Pfeile), F1: Steuerungshilfe.
 
-const VERSION := "M1.1"
-const HELP_TEXT := """[b]STEUERUNG[/b]  Flugkern M1.1  (F1 / Xbox-View-Taste schließt)
+const VERSION := "M2-dev"
+const HELP_TEXT := """[b]STEUERUNG[/b]  Flugkern M2 (Vorschau)  (F1 / Xbox-View-Taste schließt)
 [b]Tastatur[/b]
   W / S  ........ Nase runter / hoch      A / D ..... rollen links / rechts
   Q / E  ........ Seitenruder             Shift / Strg .. Gas mehr / weniger
   F  ............ Klappen (0 / 50 / 100 %) B ........ Bremsen (halten / Parkbremse lösen)
   G  ............ Fahrwerk ein / aus (ca. 6 s, nicht am Boden, max. 300 km/h ausgefahren)
+  Leertaste ..... Feuer                   V ......... Sekundärwaffe
+  J (1 s halten)  Notausstieg (nur bei schwerem Schaden)
   C  ............ Kamera wechseln         X ......... Arcade / Realistisch
   M  ............ Maus-Zielsteuerung an/aus  R / T ... Neustart Piste / Luft
   F3 ............ Debug-Kräfte             Esc ...... Maus freigeben
-[b]Maus[/b] (Linksklick fängt die Maus)
+[b]Maus[/b] (erster Linksklick fängt die Maus, danach feuert Linksklick)
   Arcade + Maus-Ziel: Maus zielt, Flugzeug folgt dem Kreis. Tastatur übersteuert.
-  Rechte Maustaste halten: umsehen.  Mausrad: Orbit-Zoom.
+  Rechte Maustaste halten: umsehen.  Mittlere Taste: Sekundär.  Mausrad: Orbit-Zoom.
 [b]Xbox-Controller[/b]
-  Linker Stick .. Nicken / Rollen         LT / RT ... Seitenruder links / rechts
-  LB / RB ....... Gas weniger / mehr      Steuerkreuz hoch: Gas mehr
-  Steuerkreuz runter: Fahrwerk ein / aus
+  Linker Stick .. Nicken / Rollen         RT / LT ... Feuer / Sekundärwaffe
+  LB / RB ....... Seitenruder links / rechts
+  Steuerkreuz hoch / runter: Gas mehr / weniger (halten)
+  Steuerkreuz rechts: Fahrwerk     Steuerkreuz links 1 s halten: Notausstieg
   A ............. Klappen                 B ......... Bremsen
   Y ............. Kamera                  X ......... Arcade / Realistisch
   Rechter Stick . umsehen (Klick: zurück) Start ..... Neustart Piste
@@ -30,6 +33,8 @@ var aircraft: Aircraft
 var player: PlayerController
 var camera_rig: CameraRig
 var debug_visible := false
+## Kampf-HUD (ui/combat/, Agent D). Einziger Registrierungspunkt, siehe _ready().
+var combat: CombatHud
 
 var _info: Label
 var _warn: Label
@@ -92,6 +97,7 @@ func _ready() -> void:
 	_help.text = HELP_TEXT
 	_help.visible = true   # beim ersten Start sichtbar
 	add_child(_help)
+	combat = CombatHud.create(self); add_child(combat)   # M2-Vertrag: einzige Kampf-HUD-Zeile
 	_aim_marker = _make_circle(14.0, Color(1, 1, 1, 0.9))
 	_nose_marker = _make_cross(10.0, Color(0.4, 1.0, 0.4, 0.9))
 	_debug_mesh = ImmediateMesh.new()

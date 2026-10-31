@@ -195,3 +195,6 @@ realistic_elevator_ref_speed = 66.66666666666667
 realistic_elevator_exponent = 1.5
 ground_height = 1.655
 ground_pitch_deg = 12.4
+loadout_path = "res://weapons/data/loadout_fighter_t1.tres"
+damage_profile_path = "res://vehicles/aircraft/damage/data/damage_profile_t1.tres"
+markers_path = "res://vehicles/aircraft/data/markers/fighter_t1_markers.tres"

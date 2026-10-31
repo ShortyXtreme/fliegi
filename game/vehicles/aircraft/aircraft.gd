@@ -3,25 +3,49 @@ extends RigidBody3D
 ## Flugzeug: RigidBody mit FlightModel. Wird komplett im Code aufgebaut:
 ##   var a := Aircraft.create(load("res://vehicles/aircraft/data/fighter_t1.tres"))
 ## Eingaben kommen ausschließlich über den Pilotensitz (Seat -> PilotIntent).
+##
+## M2-Vertrag (Paket 0): feste Aufrufstellen für Kampfsysteme, die Inhalte liegen in
+## eigenen Dateien (weapons/, vehicles/aircraft/damage/). Reihenfolge pro Physik-Tick:
+##   Seat.poll -> damage.filter_intent -> eject-Flanke -> weapons.tick -> damage.tick
+## In _integrate_forces liest FlightModel die FlightModifiers (damage.modifiers).
 
 signal crashed(aircraft: Aircraft)
+## Pilot hat Notausstieg verlangt (steigende Flanke von intent.eject).
+## allowed = damage.can_eject(); bei false zeigt das HUD „gesperrt“.
+signal eject_requested(aircraft: Aircraft, allowed: bool)
+
+static var _next_entity_id := 1
 
 var data: AircraftData
 var flight: FlightModel
 var assist: FlightAssist
 var pilot_seat: Seat
 var visual: AircraftVisual
+## Nation (core/nations.gd). Freund/Feind nur über Nations.is_hostile().
+var nation_id: int = Nations.BLUE
+## Eindeutige Kennung je Instanz (Ereignis-Log, Netz, Seeds).
+var entity_id: int = 0
+## Besatzungslevel für Spotting (PilotRecord.level; bis Paket 6 fest 1).
+var crew_level: int = 1
+## Aktueller Pilot (characters/pilot_record.gd) oder null. Setzt SpawnManager (Paket 6).
+var pilot: PilotRecord = null
+## Kampfsysteme (Stubs aus Paket 0).
+var weapons: WeaponSystem
+var damage: DamageModel
 ## Vom Server erlaubte Hilfen-Modi (Lobby-Einstellung).
 var allowed_assist_modes: Array[int] = [FlightAssist.Mode.ARCADE, FlightAssist.Mode.REALISTIC]
 var assist_mode: int = FlightAssist.Mode.ARCADE
 
 var _intent := PilotIntent.new()
 var _exclude: Array[RID] = []
+var _eject_prev := false
 
 
 static func create(d: AircraftData, with_visual: bool = true) -> Aircraft:
 	var a := Aircraft.new()
 	a.data = d
+	a.entity_id = _next_entity_id
+	_next_entity_id += 1
 	a._build(with_visual)
 	return a
 
@@ -44,12 +68,16 @@ func _build(with_visual: bool) -> void:
 	physics_material_override = pm
 	contact_monitor = true
 	max_contacts_reported = 4
+	collision_layer = Layers.AIRCRAFT
+	collision_mask = Layers.MASK_AIRCRAFT
 
 	_add_box(data.fuselage_box_center, data.fuselage_box_size)
 	_add_box(data.wing_box_center, data.wing_box_size)
 
 	flight = FlightModel.new(data)
 	assist = FlightAssist.new(data)
+	damage = DamageModel.new(self, flight.modifiers)
+	weapons = WeaponSystem.new(self)
 
 	pilot_seat = Seat.new()
 	pilot_seat.name = "PilotSeat"
@@ -80,6 +108,12 @@ func _ready() -> void:
 func _physics_process(dt: float) -> void:
 	var i := pilot_seat.poll(dt)
 	_intent.copy_from(i)
+	damage.filter_intent(_intent, dt)
+	if _intent.eject and not _eject_prev:
+		eject_requested.emit(self, damage.can_eject())
+	_eject_prev = _intent.eject
+	weapons.tick(_intent, dt)
+	damage.tick(dt)
 	# Server entscheidet, ob der gewünschte Modus erlaubt ist.
 	if Authority.is_server() and _intent.assist_mode in allowed_assist_modes:
 		assist_mode = _intent.assist_mode
@@ -106,6 +140,9 @@ func place(xf: Transform3D, speed: float = 0.0, throttle: float = 0.0,
 	linear_velocity = -xf.basis.z * speed
 	angular_velocity = Vector3.ZERO
 	flight.reset(gear_down)
+	damage.reset()
+	weapons.reset()
+	_eject_prev = false
 	if visual:
 		visual.snap_gear(flight.gear.extension)
 	flight.engine.throttle_actual = throttle
@@ -120,7 +157,13 @@ func place_on_ground(pos: Vector3, heading_dir: Vector3) -> void:
 	place(Transform3D(b, pos + Vector3.UP * data.ground_height), 0.0, 0.0)
 
 
-func _on_body_entered(_body: Node) -> void:
+func is_hostile_to(other: Node) -> bool:
+	var n = other.get("nation_id") if other != null else null
+	return n is int and Nations.is_hostile(nation_id, n)
+
+
+func _on_body_entered(body: Node) -> void:
+	damage.on_impact(body, linear_velocity)
 	var t := flight.telemetry
 	if linear_velocity.length() > 25.0 or t.wheels_in_contact == 0 and absf(t.climb_rate) > 6.0:
 		crashed.emit(self)

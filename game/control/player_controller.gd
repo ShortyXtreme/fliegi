@@ -11,6 +11,8 @@ signal help_toggle_requested
 signal reset_requested(in_air: bool)
 ## Fahrwerkshebel betätigt; accepted = false, wenn Einfahren am Boden verweigert wurde.
 signal gear_toggled(down: bool, accepted: bool)
+## Notausstieg-Taste (J / Steuerkreuz ←): progress 0..1 während des Haltens, 1 = ausgelöst.
+signal eject_hold_changed(progress: float)
 
 const KEY_RAMP := 4.0              # Tastatur-Rampe (Einheiten/s) -> weich statt digital
 const THROTTLE_RATE := 0.6         # Gas pro Sekunde beim Halten
@@ -35,6 +37,12 @@ var look_offset := Vector2.ZERO     # Kamera-Umsehen (rechter Stick / Maus mit R
 var _kb := Vector3.ZERO             # geglättete Tastatur (pitch, roll, yaw)
 var _intent := PilotIntent.new()
 var _manual_override_t := 0.0
+## LMT gedrückt und Maus gefangen (Feuer). Der Klick, der die Maus fängt, feuert nicht.
+var _lmb_fire := false
+var _lmb_swallow := false
+## Haltezeit der Notausstieg-Taste (s); eject_hold_progress 0..1 für das HUD.
+var _eject_t := 0.0
+var eject_hold_progress := 0.0
 
 
 func _init() -> void:
@@ -52,8 +60,8 @@ func mouse_aim_active() -> bool:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		_on_left_mouse(event.pressed)
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var rel: Vector2 = event.relative * MOUSE_SENS
 		if Input.is_action_pressed("mouse_look") or not mouse_aim_active():
@@ -63,6 +71,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_rotate_aim(rel)
 	if event.is_action_pressed("release_mouse"):
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_lmb_fire = false
 	if event.is_action_pressed("flaps_cycle"):
 		flap_index = (flap_index + 1) % FLAP_STEPS.size()
 	if event.is_action_pressed("gear_toggle"):
@@ -86,6 +95,21 @@ func _unhandled_input(event: InputEvent) -> void:
 		reset_requested.emit(false)
 	if event.is_action_pressed("reset_air"):
 		reset_requested.emit(true)
+
+
+## LMT: Ist die Maus nicht gefangen, fängt der Klick sie nur (und feuert nicht, bis
+## losgelassen). Bei gefangener Maus feuert LMT, solange sie gedrückt ist.
+func _on_left_mouse(pressed: bool) -> void:
+	if pressed:
+		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+			_lmb_swallow = true
+			_lmb_fire = false
+		elif not _lmb_swallow:
+			_lmb_fire = true
+	else:
+		_lmb_swallow = false
+		_lmb_fire = false
 
 
 func _rotate_aim(rel: Vector2) -> void:
@@ -125,6 +149,8 @@ func reset_state(t: float = 0.0, gear: bool = true) -> void:
 	gear_down = gear
 	parking_brake = t < PARK_RELEASE_THROTTLE
 	_kb = Vector3.ZERO
+	_eject_t = 0.0
+	eject_hold_progress = 0.0
 	_reset_aim()
 
 
@@ -140,7 +166,7 @@ func compute_intent(dt: float) -> PilotIntent:
 	var joy := Vector3(
 		InputBindings.soft_curve(Input.get_axis("joy_pitch_down", "joy_pitch_up")),
 		InputBindings.soft_curve(Input.get_axis("joy_roll_left", "joy_roll_right")),
-		InputBindings.soft_curve(Input.get_axis("joy_yaw_left", "joy_yaw_right"), 0.3))
+		0.0)   # M2: Seitenruder am Pad über LB/RB (kb_yaw_*, mit Rampe)
 	var manual := _kb + joy
 	var look := Vector2(Input.get_axis("look_right", "look_left"), Input.get_axis("look_down", "look_up"))
 	if look.length() > 0.0:
@@ -185,4 +211,18 @@ func compute_intent(dt: float) -> PilotIntent:
 	i.brakes = maxf(b_key, 1.0 if parking_brake else 0.0)
 	i.gear_down = gear_down
 	i.assist_mode = assist_mode
+	# --- M2: Waffen und Notausstieg ---
+	var lmb_ok := _lmb_fire and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+	i.fire_primary = Input.is_action_pressed("fire_primary") or lmb_ok
+	i.fire_secondary = Input.is_action_pressed("fire_secondary")
+	_update_eject_hold(Input.is_action_pressed("eject_hold"), dt)
+	i.eject = _eject_t >= InputBindings.EJECT_HOLD_TIME
 	return i.clamp_values()
+
+
+func _update_eject_hold(held: bool, dt: float) -> void:
+	_eject_t = _eject_t + dt if held else 0.0
+	var p := clampf(_eject_t / InputBindings.EJECT_HOLD_TIME, 0.0, 1.0)
+	if p != eject_hold_progress:
+		eject_hold_progress = p
+		eject_hold_changed.emit(p)

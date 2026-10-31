@@ -11,6 +11,8 @@ extends RefCounted
 ##  Der Abriss kostet vor allem Widerstand (STALL_DRAG), der Auftrieb bricht nicht weg.
 
 var def: AeroSurfaceDef
+## Index in AircraftData.surfaces (Schlüssel für FlightModifiers).
+var index: int = -1
 var local_basis: Basis
 var area: float
 var lift_slope: float        # korrigiert für Streckung
@@ -39,8 +41,9 @@ var last_force: Vector3 = Vector3.ZERO
 var last_lift_coef: float = 0.0
 
 
-func _init(d: AeroSurfaceDef) -> void:
+func _init(d: AeroSurfaceDef, idx: int = -1) -> void:
 	def = d
+	index = idx
 	local_basis = Basis.from_euler(d.rotation_deg * (PI / 180.0))
 	area = d.area()
 	var ar := d.aspect_ratio
@@ -55,9 +58,11 @@ func _init(d: AeroSurfaceDef) -> void:
 
 ## air_world: Anströmung am Flächenort (Weltkoordinaten, = -Bahngeschwindigkeit).
 ## downwash: Abwindwinkel (rad), um den die Anströmung nach unten gedreht wird.
+## lift_mul / drag_add: Schadens-Hook (FlightModifiers), 1 / 0 = intakt.
+## command ist bereits das wirksame Ruderkommando (FlightModifiers.control_command).
 ## Rückgabe: Kraft in Weltkoordinaten.
 func compute(air_world: Vector3, body_basis: Basis, rho: float, command: float,
-		downwash: float = 0.0) -> Vector3:
+		downwash: float = 0.0, lift_mul: float = 1.0, drag_add: float = 0.0) -> Vector3:
 	var b := body_basis * local_basis
 	var air := b.transposed() * air_world
 	air.x = 0.0  # Spannweitige Anteile ignorieren
@@ -89,13 +94,13 @@ func compute(air_world: Vector3, body_basis: Basis, rho: float, command: float,
 	else:
 		r = _branch(-x, -s_lo, lift_slope)
 		r.x = -r.x
-	var cl := r.x
+	var cl := r.x * lift_mul
 	var t_stall := r.y   # 0..1 Abfall auf das Plateau
 	var t_deep := r.z    # 0..1 ebene Platte
 	var cd_att := def.skin_friction + cl * cl * induced_k \
 		+ def.flap_fraction * pow(sin(defl), 2.0) * 1.2
 	var cd_fp := def.skin_friction + 1.98 * pow(sin(x), 2.0)
-	var cd := lerpf(cd_att + STALL_DRAG * t_stall, cd_fp, t_deep)
+	var cd := lerpf(cd_att + STALL_DRAG * t_stall, cd_fp, t_deep) + drag_add
 
 	var ax := absf(x)
 	var s := s_hi if x >= 0.0 else -s_lo

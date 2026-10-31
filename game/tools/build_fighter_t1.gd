@@ -139,4 +139,8 @@ static func make() -> AircraftData:
 	d.engine_position = Vector3(0, 0, -2.6)
 	d.ground_height = 1.655   # M1.1: Ruhelage (Federn eingefedert) -> kein Nachfedern beim Spawn
 	d.ground_pitch_deg = 12.4
+	# M2: Kampfdaten liegen in eigenen Dateien der Arbeitspakete (Vertrag Paket 0).
+	d.loadout_path = "res://weapons/data/loadout_fighter_t1.tres"
+	d.damage_profile_path = "res://vehicles/aircraft/damage/data/damage_profile_t1.tres"
+	d.markers_path = "res://vehicles/aircraft/data/markers/fighter_t1_markers.tres"
 	return d
