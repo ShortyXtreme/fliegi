@@ -1,0 +1,626 @@
+{
+  "model": "fighter_t1_game.glb",
+  "enemy_model": "fighter_t1_game_enemy.glb",
+  "convention": {
+    "up": "+Y",
+    "forward_nose": "+Z",
+    "left_wing": "+X (Pilot links)",
+    "units": "m",
+    "origin": "Schwerpunkt (28 % MAC, MAC = 1.688 m)",
+    "angles": "Grad; Rotation um die angegebene LOKALE Achse des Knotens, Ausgangslage = 0 (Transform aus dem GLB beibehalten und relativ drehen, z.B. node.transform.basis = rest_basis * Basis(axis, deg_to_rad(a)))"
+  },
+  "ground": {
+    "root_rotation_x_deg": -12.723,
+    "nose_up_deg": 12.723,
+    "origin_height_m": 1.698,
+    "note": "Dreipunktlage: Wurzel um X drehen, dann auf Hoehe origin_height_m ueber Boden setzen"
+  },
+  "parts": {
+    "aileron_L": {
+      "node": "aileron_L",
+      "parent": "wing_L",
+      "pivot": [
+        2.912,
+        -0.0146,
+        -0.7208
+      ],
+      "type": "rotate",
+      "axis_local": "x",
+      "axis_model": [
+        -0.9878,
+        -0.0996,
+        -0.12
+      ],
+      "min_deg": -20,
+      "max_deg": 15,
+      "sign": "positiv = Hinterkante nach unten"
+    },
+    "flap_L": {
+      "node": "flap_L",
+      "parent": "wing_L",
+      "pivot": [
+        0.632,
+        -0.2392,
+        -0.9977
+      ],
+      "type": "rotate",
+      "axis_local": "x",
+      "axis_model": [
+        -0.988,
+        -0.0972,
+        -0.12
+      ],
+      "min_deg": 0,
+      "max_deg": 40,
+      "sign": "positiv = Klappe nach unten (Landung 40)"
+    },
+    "gear_main_L": {
+      "node": "gear_main_L",
+      "parent": "wing_L",
+      "pivot": [
+        1.85,
+        -0.14,
+        0.0506
+      ],
+      "type": "rotate",
+      "axis_local": "x",
+      "axis_model": [
+        0.1479,
+        -0.1301,
+        -0.9804
+      ],
+      "extended_deg": 0.0,
+      "retracted_deg": 80.88,
+      "sign": "positiv = einfahren (nach innen in die Fluegelwurzel)",
+      "children": [
+        "gear_door_L",
+        "wheel_main_L"
+      ],
+      "note": "Bein + Klappe + Rad; Pivot am oberen Gelenk im Fluegel"
+    },
+    "gear_door_L": {
+      "node": "gear_door_L",
+      "parent": "gear_main_L",
+      "pivot": [
+        1.85,
+        -0.14,
+        0.0506
+      ],
+      "type": "fixed_to_parent",
+      "note": "Beinklappe, bewegt sich mit gear_main"
+    },
+    "wheel_main_L": {
+      "node": "wheel_main_L",
+      "parent": "gear_main_L",
+      "pivot": [
+        1.7,
+        -1.48,
+        0.3506
+      ],
+      "type": "spin",
+      "axis_local": "x",
+      "radius_m": 0.34,
+      "sign": "positiv = Rollen vorwaerts"
+    },
+    "aileron_R": {
+      "node": "aileron_R",
+      "parent": "wing_R",
+      "pivot": [
+        -2.912,
+        -0.0146,
+        -0.7208
+      ],
+      "type": "rotate",
+      "axis_local": "x",
+      "axis_model": [
+        -0.9878,
+        0.0996,
+        0.12
+      ],
+      "min_deg": -20,
+      "max_deg": 15,
+      "sign": "positiv = Hinterkante nach unten"
+    },
+    "flap_R": {
+      "node": "flap_R",
+      "parent": "wing_R",
+      "pivot": [
+        -0.632,
+        -0.2392,
+        -0.9977
+      ],
+      "type": "rotate",
+      "axis_local": "x",
+      "axis_model": [
+        -0.988,
+        0.0972,
+        0.12
+      ],
+      "min_deg": 0,
+      "max_deg": 40,
+      "sign": "positiv = Klappe nach unten (Landung 40)"
+    },
+    "gear_main_R": {
+      "node": "gear_main_R",
+      "parent": "wing_R",
+      "pivot": [
+        -1.85,
+        -0.14,
+        0.0506
+      ],
+      "type": "rotate",
+      "axis_local": "x",
+      "axis_model": [
+        0.1479,
+        0.1301,
+        0.9804
+      ],
+      "extended_deg": 0.0,
+      "retracted_deg": 80.88,
+      "sign": "positiv = einfahren (nach innen in die Fluegelwurzel)",
+      "children": [
+        "gear_door_R",
+        "wheel_main_R"
+      ],
+      "note": "Bein + Klappe + Rad; Pivot am oberen Gelenk im Fluegel"
+    },
+    "gear_door_R": {
+      "node": "gear_door_R",
+      "parent": "gear_main_R",
+      "pivot": [
+        -1.85,
+        -0.14,
+        0.0506
+      ],
+      "type": "fixed_to_parent",
+      "note": "Beinklappe, bewegt sich mit gear_main"
+    },
+    "wheel_main_R": {
+      "node": "wheel_main_R",
+      "parent": "gear_main_R",
+      "pivot": [
+        -1.7,
+        -1.48,
+        0.3506
+      ],
+      "type": "spin",
+      "axis_local": "x",
+      "radius_m": 0.34,
+      "sign": "positiv = Rollen vorwaerts"
+    },
+    "elevator": {
+      "node": "elevator",
+      "parent": "fuselage",
+      "pivot": [
+        0.0,
+        0.23,
+        -5.5994
+      ],
+      "type": "rotate",
+      "axis_local": "x",
+      "axis_model": [
+        -1.0,
+        0.0,
+        -0.0
+      ],
+      "min_deg": -25,
+      "max_deg": 20,
+      "sign": "positiv = Hinterkante unten (Nase runter); beide Haelften in einem Objekt"
+    },
+    "rudder": {
+      "node": "rudder",
+      "parent": "fuselage",
+      "pivot": [
+        0.0,
+        0.432,
+        -5.8172
+      ],
+      "type": "rotate",
+      "axis_local": "y",
+      "axis_model": [
+        0.0,
+        0.987,
+        -0.161
+      ],
+      "min_deg": -25,
+      "max_deg": 25,
+      "sign": "positiv = Hinterkante nach rechts (-X) -> Gieren nach rechts"
+    },
+    "tailwheel": {
+      "node": "tailwheel",
+      "parent": "fuselage",
+      "pivot": [
+        0.0,
+        0.12,
+        -5.5994
+      ],
+      "type": "rotate",
+      "axis_local": "y",
+      "axis_model": [
+        0.0,
+        0.9487,
+        0.3162
+      ],
+      "min_deg": -35,
+      "max_deg": 35,
+      "sign": "positiv = Rad schwenkt nach +X (Pilot links); frei schwenkend oder an Seitenruder koppeln (gleiches Vorzeichen wie rudder = Gegenrichtung beachten)",
+      "children": [
+        "wheel_tail"
+      ]
+    },
+    "wheel_tail": {
+      "node": "wheel_tail",
+      "parent": "tailwheel",
+      "pivot": [
+        0.0,
+        -0.33,
+        -5.7394
+      ],
+      "type": "spin",
+      "axis_local": "x",
+      "radius_m": 0.115,
+      "sign": "positiv = Rollen vorwaerts"
+    },
+    "propeller": {
+      "node": "propeller",
+      "parent": "fuselage",
+      "pivot": [
+        0.0,
+        0.035,
+        2.9606
+      ],
+      "type": "spin",
+      "axis_local": "z",
+      "axis_model": [
+        0,
+        0,
+        1
+      ],
+      "sign": "positiv um +Z (von vorne gesehen gegen den Uhrzeigersinn, aus dem Cockpit im Uhrzeigersinn)",
+      "children": [
+        "prop_blades",
+        "prop_spinner"
+      ],
+      "radius_m": 1.53,
+      "blades": 3
+    },
+    "prop_disc": {
+      "node": "prop_disc",
+      "parent": "fuselage",
+      "pivot": [
+        0.0,
+        0.035,
+        2.9606
+      ],
+      "type": "toggle",
+      "note": "halbtransparente Scheibe; bei hoher Drehzahl einblenden und prop_blades ausblenden. Standard: sichtbar -> im Spiel per Code setzen."
+    },
+    "canopy": {
+      "node": "canopy",
+      "parent": "fuselage",
+      "pivot": [
+        0.0,
+        0.46,
+        -0.6794
+      ],
+      "type": "translate",
+      "axis_local": "z",
+      "closed_m": 0.0,
+      "open_m": -0.55,
+      "sign": "Haube gleitet nach hinten: position.z von 0 bis -0.55"
+    },
+    "pilot": {
+      "node": "pilot",
+      "parent": "fuselage",
+      "type": "toggle",
+      "note": "einfache Pilotenfigur, ausblendbar"
+    }
+  },
+  "markers": {
+    "dmg_engine": {
+      "pos": [
+        0.0,
+        0.05,
+        1.8006
+      ],
+      "half_extents": [
+        0.45,
+        0.45,
+        0.85
+      ]
+    },
+    "dmg_fuel_tank_L": {
+      "pos": [
+        1.15,
+        -0.22,
+        -0.0494
+      ],
+      "half_extents": [
+        0.5,
+        0.12,
+        0.45
+      ]
+    },
+    "dmg_fuel_tank_R": {
+      "pos": [
+        -1.15,
+        -0.22,
+        -0.0494
+      ],
+      "half_extents": [
+        0.5,
+        0.12,
+        0.45
+      ]
+    },
+    "dmg_cockpit": {
+      "pos": [
+        0.0,
+        0.55,
+        -1.1994
+      ],
+      "half_extents": [
+        0.35,
+        0.45,
+        0.8
+      ]
+    },
+    "dmg_wing_L": {
+      "pos": [
+        3.0,
+        -0.05,
+        -0.1494
+      ],
+      "half_extents": [
+        2.35,
+        0.25,
+        0.85
+      ]
+    },
+    "dmg_wing_R": {
+      "pos": [
+        -3.0,
+        -0.05,
+        -0.1494
+      ],
+      "half_extents": [
+        2.35,
+        0.25,
+        0.85
+      ]
+    },
+    "dmg_tail": {
+      "pos": [
+        0.0,
+        0.65,
+        -5.5494
+      ],
+      "half_extents": [
+        1.85,
+        0.9,
+        0.75
+      ]
+    },
+    "gun_wing_L": {
+      "pos": [
+        2.35,
+        -0.0682,
+        0.8904
+      ],
+      "fire_dir": [
+        0,
+        0,
+        1
+      ],
+      "caliber_mm": 7.9
+    },
+    "ammo_bay_L": {
+      "pos": [
+        2.35,
+        0.0507,
+        -0.0796
+      ]
+    },
+    "hardpoint_wing_L": {
+      "pos": [
+        2.75,
+        -0.1065,
+        0.0506
+      ],
+      "max_kg": 50
+    },
+    "wingtip_L": {
+      "pos": [
+        5.3232,
+        0.2279,
+        -0.0089
+      ]
+    },
+    "exhaust_L": {
+      "pos": [
+        0.5147,
+        0.19,
+        1.7006
+      ],
+      "dir": [
+        1,
+        -0.1,
+        0.1
+      ]
+    },
+    "contact_main_L": {
+      "pos": [
+        1.7,
+        -1.82,
+        0.3506
+      ]
+    },
+    "gun_wing_R": {
+      "pos": [
+        -2.35,
+        -0.0682,
+        0.8904
+      ],
+      "fire_dir": [
+        0,
+        0,
+        1
+      ],
+      "caliber_mm": 7.9
+    },
+    "ammo_bay_R": {
+      "pos": [
+        -2.35,
+        0.0507,
+        -0.0796
+      ]
+    },
+    "hardpoint_wing_R": {
+      "pos": [
+        -2.75,
+        -0.1067,
+        0.0506
+      ],
+      "max_kg": 50
+    },
+    "wingtip_R": {
+      "pos": [
+        -5.3232,
+        0.2279,
+        -0.0089
+      ]
+    },
+    "exhaust_R": {
+      "pos": [
+        -0.5147,
+        0.19,
+        1.7006
+      ],
+      "dir": [
+        -1,
+        -0.1,
+        0.1
+      ]
+    },
+    "contact_main_R": {
+      "pos": [
+        -1.7,
+        -1.82,
+        0.3506
+      ]
+    },
+    "hardpoint_center": {
+      "pos": [
+        0.0,
+        -0.5512,
+        0.9506
+      ],
+      "max_kg": 250
+    },
+    "fuel_port": {
+      "pos": [
+        0.0,
+        0.5814,
+        0.2506
+      ]
+    },
+    "contact_tail": {
+      "pos": [
+        0.0,
+        -0.445,
+        -5.7394
+      ]
+    },
+    "cam_cockpit": {
+      "pos": [
+        0.0,
+        0.9,
+        -1.4794
+      ]
+    },
+    "cg": {
+      "pos": [
+        0.0,
+        0.0,
+        -0.0
+      ]
+    }
+  },
+  "collision": [
+    "col_fuselage-convcolonly",
+    "col_wing_L-convcolonly",
+    "col_wing_R-convcolonly",
+    "col_stabilizer-convcolonly",
+    "col_fin-convcolonly"
+  ],
+  "materials": {
+    "M_Fuselage": {
+      "albedo": "fighter_t1_fus_albedo.png",
+      "normal": "fighter_t1_fus_normal.png",
+      "orm": "fighter_t1_fus_orm.png",
+      "enemy_albedo": "fighter_t1_enemy_fus_albedo.png"
+    },
+    "M_Wings": {
+      "albedo": "fighter_t1_wing_albedo.png",
+      "normal": "fighter_t1_wing_normal.png",
+      "orm": "fighter_t1_wing_orm.png",
+      "enemy_albedo": "fighter_t1_enemy_wing_albedo.png"
+    },
+    "M_Details": {
+      "albedo": "fighter_t1_detail_albedo.png",
+      "normal": "fighter_t1_detail_normal.png",
+      "orm": "fighter_t1_detail_orm.png",
+      "enemy_albedo": "fighter_t1_enemy_detail_albedo.png"
+    },
+    "M_Insignia": {
+      "albedo": "insignia_own.png",
+      "enemy_albedo": "insignia_enemy.png",
+      "note": "Abzeichen-Atlas 1024x512: links Rundabzeichen, rechts Leitwerksmarkierung; Nation = Textur tauschen"
+    },
+    "M_PropDisc": {
+      "albedo": "prop_disc.png"
+    },
+    "M_Glass": {}
+  },
+  "triangles": {
+    "total": 17784,
+    "per_node": {
+      "aileron_L": 140,
+      "aileron_R": 140,
+      "canopy": 998,
+      "decal_fin_L": 32,
+      "decal_fin_R": 32,
+      "decal_fuselage_L": 128,
+      "decal_fuselage_R": 128,
+      "decal_wing_L_bottom": 128,
+      "decal_wing_L_top": 128,
+      "decal_wing_R_bottom": 128,
+      "decal_wing_R_top": 128,
+      "elevator": 248,
+      "flap_L": 140,
+      "flap_R": 140,
+      "fuselage": 6914,
+      "gear_door_L": 12,
+      "gear_door_R": 12,
+      "gear_main_L": 128,
+      "gear_main_R": 128,
+      "pilot": 336,
+      "prop_blades": 1416,
+      "prop_disc": 32,
+      "prop_spinner": 668,
+      "rudder": 124,
+      "stabilizer": 1296,
+      "tailwheel": 48,
+      "wheel_main_L": 540,
+      "wheel_main_R": 540,
+      "wheel_tail": 292,
+      "wing_L": 1340,
+      "wing_R": 1320
+    }
+  },
+  "lod": "Nur LOD0 geliefert; Godot erzeugt LODs beim Import (mesh/generate_lods = an).",
+  "file_sizes_mb": {
+    "fighter_t1_game.glb": 12.47,
+    "fighter_t1_game_enemy.glb": 12.77
+  }
+}
