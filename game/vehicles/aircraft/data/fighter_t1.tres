@@ -1,0 +1,197 @@
+[gd_resource type="Resource" script_class="AircraftData" format=3]
+
+[ext_resource type="Script" path="res://vehicles/aircraft/data/aircraft_data.gd" id="1_xbbnb"]
+[ext_resource type="Script" path="res://vehicles/aircraft/data/aero_surface_def.gd" id="2_46qjq"]
+[ext_resource type="Script" path="res://vehicles/aircraft/data/wheel_def.gd" id="3_hdkml"]
+
+[sub_resource type="Resource" id="Resource_3a0u3"]
+script = ExtResource("2_46qjq")
+name = "wing_R_root"
+position = Vector3(1.35, -0.18189031, 0.05)
+rotation_deg = Vector3(2, 0, 5)
+span = 1.5
+chord = 2.15
+aspect_ratio = 7.0
+zero_lift_aoa_deg = -2.5
+stall_angle_high_deg = 16.0
+stall_angle_low_deg = -14.0
+control_axis = 4
+max_deflection_deg = 35.0
+is_main_wing = true
+
+[sub_resource type="Resource" id="Resource_n5ka2"]
+script = ExtResource("2_46qjq")
+name = "wing_R_mid"
+position = Vector3(2.9, -0.046282876, 0.05)
+rotation_deg = Vector3(2, 0, 5)
+span = 1.6
+chord = 1.85
+aspect_ratio = 7.0
+zero_lift_aoa_deg = -2.5
+stall_angle_high_deg = 16.0
+stall_angle_low_deg = -14.0
+control_axis = 4
+max_deflection_deg = 35.0
+is_main_wing = true
+
+[sub_resource type="Resource" id="Resource_pk8ck"]
+script = ExtResource("2_46qjq")
+name = "wing_R_tip"
+position = Vector3(4.5, 0.093698986, 0.05)
+rotation_deg = Vector3(0.5, 0, 5)
+span = 1.6
+chord = 1.5
+aspect_ratio = 7.0
+zero_lift_aoa_deg = -2.5
+stall_angle_high_deg = 16.0
+stall_angle_low_deg = -14.0
+control_axis = 2
+control_sign = -1.0
+max_deflection_deg = 18.0
+is_main_wing = true
+
+[sub_resource type="Resource" id="Resource_ap67j"]
+script = ExtResource("2_46qjq")
+name = "wing_L_root"
+position = Vector3(-1.35, -0.18189031, 0.05)
+rotation_deg = Vector3(2, 0, -5)
+span = 1.5
+chord = 2.15
+aspect_ratio = 7.0
+zero_lift_aoa_deg = -2.5
+stall_angle_high_deg = 16.0
+stall_angle_low_deg = -14.0
+control_axis = 4
+max_deflection_deg = 35.0
+is_main_wing = true
+
+[sub_resource type="Resource" id="Resource_cqd7r"]
+script = ExtResource("2_46qjq")
+name = "wing_L_mid"
+position = Vector3(-2.9, -0.046282876, 0.05)
+rotation_deg = Vector3(2, 0, -5)
+span = 1.6
+chord = 1.85
+aspect_ratio = 7.0
+zero_lift_aoa_deg = -2.5
+stall_angle_high_deg = 16.0
+stall_angle_low_deg = -14.0
+control_axis = 4
+max_deflection_deg = 35.0
+is_main_wing = true
+
+[sub_resource type="Resource" id="Resource_bpmv4"]
+script = ExtResource("2_46qjq")
+name = "wing_L_tip"
+position = Vector3(-4.5, 0.093698986, 0.05)
+rotation_deg = Vector3(0.5, 0, -5)
+span = 1.6
+chord = 1.5
+aspect_ratio = 7.0
+zero_lift_aoa_deg = -2.5
+stall_angle_high_deg = 16.0
+stall_angle_low_deg = -14.0
+control_axis = 2
+max_deflection_deg = 18.0
+is_main_wing = true
+
+[sub_resource type="Resource" id="Resource_nhwu5"]
+script = ExtResource("2_46qjq")
+name = "htail_R"
+position = Vector3(1, 0.14, 5.45)
+rotation_deg = Vector3(-0.5, 0, 0)
+span = 1.8
+aspect_ratio = 4.5
+zero_lift_aoa_deg = 0.0
+stall_angle_high_deg = 18.0
+stall_angle_low_deg = -16.0
+flap_fraction = 0.38
+control_axis = 1
+control_sign = -1.0
+max_deflection_deg = 24.0
+downwash_factor = 1.0
+
+[sub_resource type="Resource" id="Resource_yi43n"]
+script = ExtResource("2_46qjq")
+name = "htail_L"
+position = Vector3(-1, 0.14, 5.45)
+rotation_deg = Vector3(-0.5, 0, 0)
+span = 1.8
+aspect_ratio = 4.5
+zero_lift_aoa_deg = 0.0
+stall_angle_high_deg = 18.0
+stall_angle_low_deg = -16.0
+flap_fraction = 0.38
+control_axis = 1
+control_sign = -1.0
+max_deflection_deg = 24.0
+downwash_factor = 1.0
+
+[sub_resource type="Resource" id="Resource_gtexy"]
+script = ExtResource("2_46qjq")
+name = "vtail"
+position = Vector3(0, 0.8, 5.5)
+rotation_deg = Vector3(0, 0, 90)
+span = 1.4
+chord = 1.2
+aspect_ratio = 2.0
+zero_lift_aoa_deg = 0.0
+stall_angle_high_deg = 18.0
+stall_angle_low_deg = -16.0
+flap_fraction = 0.4
+control_axis = 3
+max_deflection_deg = 25.0
+
+[sub_resource type="Resource" id="Resource_ipxhk"]
+script = ExtResource("3_hdkml")
+name = "main_R"
+position = Vector3(1.55, -1, -0.6)
+radius = 0.34
+has_brake = true
+brake_friction = 0.45
+
+[sub_resource type="Resource" id="Resource_ynnu8"]
+script = ExtResource("3_hdkml")
+name = "main_L"
+position = Vector3(-1.55, -1, -0.6)
+radius = 0.34
+has_brake = true
+brake_friction = 0.45
+
+[sub_resource type="Resource" id="Resource_it4l4"]
+script = ExtResource("3_hdkml")
+name = "tail"
+position = Vector3(0, -0.1, 5.84)
+rest_length = 0.3
+radius = 0.12
+spring = 30000.0
+damper = 4000.0
+steer_max_deg = 25.0
+lateral_friction = 0.7
+retractable = false
+
+[resource]
+script = ExtResource("1_xbbnb")
+display_name = "Jäger T1 \"Falke\""
+inertia = Vector3(8000, 13000, 6000)
+static_thrust_n = 11500.0
+prop_blend_exponent = 2.5
+surfaces = Array[ExtResource("2_46qjq")]([SubResource("Resource_3a0u3"), SubResource("Resource_n5ka2"), SubResource("Resource_pk8ck"), SubResource("Resource_ap67j"), SubResource("Resource_cqd7r"), SubResource("Resource_bpmv4"), SubResource("Resource_nhwu5"), SubResource("Resource_yi43n"), SubResource("Resource_gtexy")])
+fuselage_drag_area = 0.17
+fuselage_side_area = 4.0
+wheels = Array[ExtResource("3_hdkml")]([SubResource("Resource_ipxhk"), SubResource("Resource_ynnu8"), SubResource("Resource_it4l4")])
+belly_points = PackedVector3Array(0, -0.55, -2, 0, -0.55, 0.3, 0, -0.45, 3.5)
+fuselage_box_center = Vector3(0, 0.1, 1.3)
+fuselage_box_size = Vector3(1.05, 0.9, 8.4)
+wing_box_center = Vector3(0, -0.2, 0.6)
+wing_box_size = Vector3(10.7, 0.3, 2.2)
+model_path = "res://vehicles/aircraft/models/fighter_t1.glb"
+model_offset = Vector3(0, 0, 1.5)
+model_rotation_deg = Vector3(0, 180, 0)
+cockpit_eye = Vector3(0, 0.88, 1.45)
+propeller_position = Vector3(0, -0.06, -2.9)
+elevator_per_aoa = 0.038
+realistic_elevator_ref_speed = 66.66666666666667
+realistic_elevator_exponent = 1.5
+ground_height = 1.655
+ground_pitch_deg = 12.4

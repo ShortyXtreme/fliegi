@@ -1,0 +1,188 @@
+class_name PlayerController
+extends Controller
+## Lokaler Mensch: Tastatur, Xbox-Gamepad, Maus. Erzeugt ausschließlich PilotIntents.
+## Maus-Zielsteuerung (Mouse-Aim, Standard im Arcade-Modus): Die Maus bewegt einen
+## Zielpunkt im Raum, der Autopilot-Helfer erzeugt daraus Knüppelwerte. Jede manuelle
+## Eingabe (Tastatur/Stick) übersteuert den Mausflug sofort.
+
+signal camera_next_requested
+signal debug_toggle_requested
+signal help_toggle_requested
+signal reset_requested(in_air: bool)
+## Fahrwerkshebel betätigt; accepted = false, wenn Einfahren am Boden verweigert wurde.
+signal gear_toggled(down: bool, accepted: bool)
+
+const KEY_RAMP := 4.0              # Tastatur-Rampe (Einheiten/s) -> weich statt digital
+const THROTTLE_RATE := 0.6         # Gas pro Sekunde beim Halten
+const FLAP_STEPS := [0.0, 0.5, 1.0]
+const MOUSE_SENS := 0.0025
+## Parkbremse löst sich ab dieser Gasstellung (oder mit B).
+const PARK_RELEASE_THROTTLE := 0.1
+
+var throttle := 0.0
+var flap_index := 0
+## Fahrwerkshebel: true = ausgefahren.
+var gear_down := true
+## Parkbremse: beim Start aktiv, löst sich bei Gas > 10 % oder Taste B.
+var parking_brake := true
+var assist_mode := FlightAssist.Mode.ARCADE
+var mouse_aim_enabled := true
+## Für Tests/Headless: Mouse-Aim aktiv, auch wenn die Maus nicht gefangen ist.
+var force_mouse_aim := false
+## Zielrichtung der Maus (Welt). Wird von Kamera/HUD gelesen.
+var aim_dir := Vector3.FORWARD
+var look_offset := Vector2.ZERO     # Kamera-Umsehen (rechter Stick / Maus mit RMT)
+var _kb := Vector3.ZERO             # geglättete Tastatur (pitch, roll, yaw)
+var _intent := PilotIntent.new()
+var _manual_override_t := 0.0
+
+
+func _init() -> void:
+	InputBindings.setup()
+
+
+func on_possess(s: Seat) -> void:
+	super.on_possess(s)
+	_reset_aim()
+
+
+func mouse_aim_active() -> bool:
+	return mouse_aim_enabled and assist_mode == FlightAssist.Mode.ARCADE \
+		and (force_mouse_aim or Input.mouse_mode == Input.MOUSE_MODE_CAPTURED)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		var rel: Vector2 = event.relative * MOUSE_SENS
+		if Input.is_action_pressed("mouse_look") or not mouse_aim_active():
+			look_offset.x = wrapf(look_offset.x - rel.x, -PI, PI)
+			look_offset.y = clampf(look_offset.y - rel.y, -1.3, 1.3)
+		else:
+			_rotate_aim(rel)
+	if event.is_action_pressed("release_mouse"):
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	if event.is_action_pressed("flaps_cycle"):
+		flap_index = (flap_index + 1) % FLAP_STEPS.size()
+	if event.is_action_pressed("gear_toggle"):
+		toggle_gear()
+	if event.is_action_pressed("assist_toggle"):
+		assist_mode = FlightAssist.Mode.REALISTIC if assist_mode == FlightAssist.Mode.ARCADE \
+			else FlightAssist.Mode.ARCADE
+		_reset_aim()
+	if event.is_action_pressed("mouse_aim_toggle"):
+		mouse_aim_enabled = not mouse_aim_enabled
+		_reset_aim()
+	if event.is_action_pressed("camera_next"):
+		camera_next_requested.emit()
+	if event.is_action_pressed("debug_toggle"):
+		debug_toggle_requested.emit()
+	if event.is_action_pressed("help_toggle"):
+		help_toggle_requested.emit()
+	if event.is_action_pressed("look_reset"):
+		look_offset = Vector2.ZERO
+	if event.is_action_pressed("reset_runway"):
+		reset_requested.emit(false)
+	if event.is_action_pressed("reset_air"):
+		reset_requested.emit(true)
+
+
+func _rotate_aim(rel: Vector2) -> void:
+	var up := Vector3.UP
+	var right := aim_dir.cross(up).normalized()
+	aim_dir = aim_dir.rotated(up, -rel.x).normalized()
+	var new_dir := aim_dir.rotated(right, -rel.y).normalized()
+	if absf(new_dir.dot(up)) < 0.98:
+		aim_dir = new_dir
+
+
+func _reset_aim() -> void:
+	var v := get_vehicle()
+	if v:
+		aim_dir = -v.global_transform.basis.z
+		var a := v as Aircraft
+		if a and a.telemetry().on_ground:
+			# Am Boden zeigt die Nase ~12° hoch (Spornrad): Ziel auf leicht über Horizont legen.
+			aim_dir.y = 0.0
+			aim_dir = (aim_dir.normalized() + Vector3.UP * 0.1).normalized()
+
+
+## Fahrwerkshebel umlegen. Am Boden (Gewicht auf den Rädern) wird Einfahren verweigert.
+func toggle_gear() -> bool:
+	var a := get_vehicle() as Aircraft
+	if gear_down and a != null and a.flight.gear.has_weight_on_wheels():
+		gear_toggled.emit(gear_down, false)
+		return false
+	gear_down = not gear_down
+	gear_toggled.emit(gear_down, true)
+	return true
+
+
+func reset_state(t: float = 0.0, gear: bool = true) -> void:
+	throttle = t
+	flap_index = 0
+	gear_down = gear
+	parking_brake = t < PARK_RELEASE_THROTTLE
+	_kb = Vector3.ZERO
+	_reset_aim()
+
+
+func compute_intent(dt: float) -> PilotIntent:
+	var i := _intent
+	# Tastatur: digitale Tasten mit Rampe glätten
+	var kb_target := Vector3(
+		Input.get_action_strength("kb_pitch_up") - Input.get_action_strength("kb_pitch_down"),
+		Input.get_action_strength("kb_roll_right") - Input.get_action_strength("kb_roll_left"),
+		Input.get_action_strength("kb_yaw_right") - Input.get_action_strength("kb_yaw_left"))
+	_kb = _kb.move_toward(kb_target, KEY_RAMP * dt)
+	# Gamepad: Deadzone in der InputMap, hier weiche Kurve
+	var joy := Vector3(
+		InputBindings.soft_curve(Input.get_axis("joy_pitch_down", "joy_pitch_up")),
+		InputBindings.soft_curve(Input.get_axis("joy_roll_left", "joy_roll_right")),
+		InputBindings.soft_curve(Input.get_axis("joy_yaw_left", "joy_yaw_right"), 0.3))
+	var manual := _kb + joy
+	var look := Vector2(Input.get_axis("look_right", "look_left"), Input.get_axis("look_down", "look_up"))
+	if look.length() > 0.0:
+		look_offset = look_offset.lerp(Vector2(look.x * 2.6, look.y * 1.2), 1.0 - exp(-8.0 * dt))
+	elif not Input.is_action_pressed("mouse_look") and not mouse_aim_active():
+		look_offset = look_offset.lerp(Vector2.ZERO, 1.0 - exp(-3.0 * dt))
+
+	var stick := manual
+	var v := get_vehicle() as Aircraft
+	if mouse_aim_active() and v != null:
+		if manual.length() > 0.05:
+			_manual_override_t = 0.4
+		_manual_override_t -= dt
+		if _manual_override_t > 0.0:
+			_reset_aim()
+		else:
+			var b := v.global_transform.basis
+			var s := Autopilot.steer_to_direction(b, aim_dir)
+			var t := v.telemetry()
+			if t.on_ground:
+				# Am Boden: nicht nach vorn drücken (Spornrad -> Überschlag), Flügel waagerecht,
+				# Richtung über Seitenruder/Heckrad zur Maus hin.
+				s.x = clampf(s.x, -0.1, 1.0)
+				s.y = clampf(b.x.y * 2.5, -1.0, 1.0)
+				s.z = Autopilot.hold_heading(b, -t.angular_velocity_local.y, aim_dir)
+			stick = Vector3(s.x, s.y, s.z if t.on_ground else 0.0) + Vector3(0, 0, manual.z)
+		if not Input.is_action_pressed("mouse_look"):
+			look_offset = look_offset.lerp(Vector2.ZERO, 1.0 - exp(-6.0 * dt))
+	elif v != null:
+		aim_dir = -v.global_transform.basis.z
+
+	throttle = clampf(throttle + (Input.get_action_strength("throttle_up")
+		- Input.get_action_strength("throttle_down")) * THROTTLE_RATE * dt, 0.0, 1.0)
+	i.pitch = stick.x
+	i.roll = stick.y
+	i.yaw = stick.z
+	i.throttle = throttle
+	i.flaps = FLAP_STEPS[flap_index]
+	var b_key := Input.get_action_strength("brakes")
+	if parking_brake and (throttle > PARK_RELEASE_THROTTLE or b_key > 0.5):
+		parking_brake = false
+	i.brakes = maxf(b_key, 1.0 if parking_brake else 0.0)
+	i.gear_down = gear_down
+	i.assist_mode = assist_mode
+	return i.clamp_values()
