@@ -1,0 +1,9 @@
+# Godot
+.godot/
+*.import.tmp
+# Builds und Werkzeuge
+builds/
+tools_bin/
+*.zip
+# Mess-Ausgaben
+game/tests/diag/out*/
