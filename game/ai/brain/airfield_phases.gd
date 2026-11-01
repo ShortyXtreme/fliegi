@@ -94,6 +94,7 @@ func setup(a_layout: AirfieldLayout, a_runway: RunwayControl, spot: int,
 	runway = a_runway
 	parking_index = spot
 	set_phase(start)
+	_aircraft = null   # beim nächsten tick neu anmelden
 
 
 func tick(a: Node, i: PilotIntent, dt: float) -> bool:
@@ -169,7 +170,8 @@ func _parked(a: Aircraft, i: PilotIntent, _dt: float) -> bool:
 		return true
 	var fuel := a.telemetry().fuel_fraction
 	var ready := fuel >= MIN_FUEL and ammo_fraction(a) >= MIN_AMMO
-	var scramble := phase_time >= scramble_timeout and fuel > 0.02
+	var scramble := phase_time >= scramble_timeout and fuel > RTB_FUEL + 0.05 \
+			and ammo_fraction(a) >= RTB_AMMO * 2.0
 	if (ready or scramble) and phase_time > 1.0:
 		scrambled = not ready
 		set_phase(Phase.TAXI_OUT)
@@ -630,6 +632,29 @@ func _level_turn(a: Aircraft, i: PilotIntent, dir: Vector3, max_bank: float) -> 
 func _release() -> void:
 	if runway != null and _aircraft != null:
 		runway.release(_aircraft)
+
+
+## Lebende Flugzeuge mit Flugplatz-Phasen.
+static func fleet() -> Array:
+	var out := []
+	for w in _fleet:
+		var o = w.get_ref()
+		if o != null and is_instance_valid(o):
+			out.append(o)
+	return out
+
+
+## Abstellplätze von layout, zu denen gerade eine KI zurückkehrt (RTB … TAXI_IN).
+static func reserved_spots(l: AirfieldLayout, exclude: Node = null) -> Array:
+	var out := []
+	for a in fleet():
+		if a == exclude:
+			continue
+		var ph = a.get_meta("airfield_phases", null)
+		if ph is AirfieldPhases and ph.layout == l and ph.phase in [Phase.RTB, Phase.PATTERN,
+				Phase.LANDING, Phase.TAXI_IN]:
+			out.append(ph.parking_index)
+	return out
 
 
 static func _register(a: Aircraft) -> void:
