@@ -4,6 +4,12 @@ extends Node3D
 ## oder zur Laufzeit per GLTFDocument), sonst wird ein Platzhalter aus Primitiven
 ## gebaut, der direkt aus den Aero-Flächen abgeleitet ist (Geometrie = Physik).
 ## Ruder und Propeller werden im Platzhalter animiert.
+##
+## Paket 11 (Agent B): Spielmodell fighter_t1_game.glb mit Rig (art/models/fighter_t1_rig.json).
+## Ist die Datei vorhanden, wird sie statt model_path benutzt (Gegner/Rot: *_enemy.glb).
+## Animiert: Querruder, Klappen, Höhen-/Seitenruder (inkl. klemmender Ruder aus den
+## FlightModifiers), Fahrwerk, Spornrad, Räder, Propeller + Propellerscheibe, Haube, Pilot.
+## Schadenseffekte (Rauch/Öl/Brand/Leck) über DamageFx.
 
 var data: AircraftData
 var model_root: Node3D
@@ -14,9 +20,62 @@ var _prop_angle := 0.0
 var _gear_pivots: Array = []    # [pivot: Node3D, Klapprichtung (+1/-1)]
 var _gear_shown := 1.0
 
+## Spielmodell mit Rig (relativ zum Projektordner game/). Paket 14: in res:// übernehmen.
+const RIG_MODEL := "../art/models/fighter_t1_game.glb"
+const RIG_MODEL_ENEMY := "../art/models/fighter_t1_game_enemy.glb"
+## Rig-Daten aus fighter_t1_rig.json (Achsen lokal, Grad).
+const RIG := {
+	"aileron_L": [Vector3.RIGHT, -20.0, 15.0], "aileron_R": [Vector3.RIGHT, -20.0, 15.0],
+	"flap_L": [Vector3.RIGHT, 0.0, 40.0], "flap_R": [Vector3.RIGHT, 0.0, 40.0],
+	"elevator": [Vector3.RIGHT, -25.0, 20.0], "rudder": [Vector3.UP, -25.0, 25.0],
+	"tailwheel": [Vector3.UP, -35.0, 35.0],
+	"gear_main_L": [Vector3.RIGHT, 0.0, 80.88], "gear_main_R": [Vector3.RIGHT, 0.0, 80.88],
+	"wheel_main_L": [Vector3.RIGHT, 0.34], "wheel_main_R": [Vector3.RIGHT, 0.34],
+	"wheel_tail": [Vector3.RIGHT, 0.115],
+}
+const CANOPY_OPEN_Z := -0.55
+static var _rig_cache := {}
+
+## true = Spielmodell mit Rig geladen.
+var using_rig := false
+## Teilname -> {"node": Node3D, "rest": Transform3D}
+var rig_parts := {}
+var fx: DamageFx
+var _built := false
+var _canopy_open := 0.0
+var _wheel_angle := 0.0
+var _aircraft: Node3D
+
 
 func build(d: AircraftData) -> void:
 	data = d
+	_aircraft = get_parent() as Node3D
+	# Nation steht erst fest, wenn das Flugzeug im Baum ist -> Aufbau dort.
+	if is_inside_tree():
+		_build_now()
+
+
+func _ready() -> void:
+	if data != null and not _built:
+		_build_now()
+
+
+func _build_now() -> void:
+	_built = true
+	var d := data
+	_aircraft = get_parent() as Node3D
+	var enemy: bool = _aircraft != null and _aircraft.get("nation_id") is int and _aircraft.nation_id != Nations.BLUE
+	model_root = _load_rig_model(RIG_MODEL_ENEMY if enemy else RIG_MODEL)
+	if model_root != null:
+		using_placeholder = false
+		using_rig = true
+		model_root.rotation_degrees = Vector3(0, 180, 0)   # Rig: Nase +Z, Godot: Nase -Z
+		add_child(model_root)
+		_setup_rig()
+		for n in model_root.find_children("*", "MeshInstance3D", true, false):
+			(n as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		_setup_fx()
+		return
 	model_root = _load_model(d.model_path)
 	if model_root != null:
 		using_placeholder = false
@@ -36,6 +95,129 @@ func build(d: AircraftData) -> void:
 		model_root.name = "Placeholder"
 		add_child(model_root)
 		_build_placeholder()
+	_setup_fx()
+
+
+func _setup_fx() -> void:
+	var dm = _aircraft.get("damage") if _aircraft != null else null
+	if dm is DamageModel:
+		fx = DamageFx.new()
+		add_child(fx)
+		fx.setup(dm)
+
+
+## GLB einmal je Pfad laden (Laufzeit-Import ~2,5 s), danach duplizieren.
+static func _load_rig_model(rel: String) -> Node3D:
+	if not _rig_cache.has(rel):
+		var abs_path := ProjectSettings.globalize_path("res://").path_join(rel).simplify_path()
+		var scene: PackedScene = null
+		if FileAccess.file_exists(abs_path):
+			var doc := GLTFDocument.new()
+			var st := GLTFState.new()
+			if doc.append_from_file(abs_path, st) == OK:
+				var root := doc.generate_scene(st)
+				if root != null:
+					for n in root.find_children("*", "", true, false):
+						n.owner = root
+					scene = PackedScene.new()
+					if scene.pack(root) != OK:
+						scene = null
+					root.free()
+		_rig_cache[rel] = scene
+	var sc: PackedScene = _rig_cache[rel]
+	return sc.instantiate() as Node3D if sc != null else null
+
+
+func _setup_rig() -> void:
+	for part in ["aileron_L", "aileron_R", "flap_L", "flap_R", "elevator", "rudder", "tailwheel",
+			"gear_main_L", "gear_main_R", "wheel_main_L", "wheel_main_R", "wheel_tail",
+			"propeller", "prop_disc", "prop_blades", "canopy", "pilot"]:
+		var n := model_root.find_child(part, true, false) as Node3D
+		if n != null:
+			rig_parts[part] = {"node": n, "rest": n.transform}
+	_prop = rig_parts.propeller.node if rig_parts.has("propeller") else null
+
+
+## Teil um seine lokale Rig-Achse drehen (Grad, auf Rig-Grenzen begrenzt).
+func _rig_rotate(part: String, deg: float) -> void:
+	if not rig_parts.has(part):
+		return
+	var r: Array = RIG[part]
+	var e: Dictionary = rig_parts[part]
+	var a := clampf(deg, r[1], r[2])
+	(e.node as Node3D).transform.basis = (e.rest as Transform3D).basis * Basis(r[0], deg_to_rad(a))
+
+
+func _rig_spin(part: String, angle: float, axis: Vector3) -> void:
+	if rig_parts.has(part):
+		var e: Dictionary = rig_parts[part]
+		(e.node as Node3D).transform.basis = (e.rest as Transform3D).basis * Basis(axis, angle)
+
+
+## Ruderausschlag -1..1 -> Grad (positiv bis max, negativ bis min).
+static func _deflect(v: float, r: Array) -> float:
+	return v * r[2] if v >= 0.0 else -v * r[1]
+
+
+## Effektives Ruderkommando wie im Flugmodell (klemmende/abgeschossene Ruder sichtbar).
+func _surface_cmd(axis: int, side: int, cmd: float) -> float:
+	var mods: FlightModifiers = _aircraft.flight.modifiers if _aircraft != null and _aircraft.get("flight") != null else null
+	if mods == null or data == null:
+		return cmd
+	for i in data.surfaces.size():
+		var s: AeroSurfaceDef = data.surfaces[i]
+		if s.control_axis == axis and (side == 0 or signf(s.position.x) == side) and i < mods.lift.size():
+			return mods.control_command(i, cmd * s.control_sign) * s.control_sign
+	return cmd
+
+
+func _update_rig(t: FlightTelemetry, dt: float) -> void:
+	var c := t.commands
+	if c != null:
+		# Querruder: rechts rollen -> rechtes Querruder hoch (Hinterkante oben), linkes runter.
+		# Godot +X = rechte Fläche = Rig wing_R (Rig -X).
+		var ar := _surface_cmd(AeroSurfaceDef.ControlAxis.ROLL, 1, c.aileron)
+		var al := _surface_cmd(AeroSurfaceDef.ControlAxis.ROLL, -1, c.aileron)
+		_rig_rotate("aileron_L", _deflect(al, RIG.aileron_L))
+		_rig_rotate("aileron_R", _deflect(-ar, RIG.aileron_R))
+		var fl := clampf(c.flaps, 0.0, 1.0) * 40.0
+		_rig_rotate("flap_L", fl)
+		_rig_rotate("flap_R", fl)
+		# Höhenruder: Nase hoch -> Hinterkante hoch (negativ)
+		var el := _surface_cmd(AeroSurfaceDef.ControlAxis.PITCH, 0, c.elevator)
+		_rig_rotate("elevator", _deflect(-el, RIG.elevator))
+		# Seitenruder: Nase rechts -> Hinterkante rechts (positiv)
+		var ru := _surface_cmd(AeroSurfaceDef.ControlAxis.YAW, 0, c.rudder)
+		_rig_rotate("rudder", _deflect(ru, RIG.rudder))
+		_rig_rotate("tailwheel", -ru * 35.0)
+	# Fahrwerk (eingefahren = 80,88°), Räder drehen am Boden
+	var u := 1.0 - t.gear_extension
+	_rig_rotate("gear_main_L", 80.88 * u * u * (3.0 - 2.0 * u))
+	_rig_rotate("gear_main_R", 80.88 * u * u * (3.0 - 2.0 * u))
+	if t.wheels_in_contact > 0:
+		_wheel_angle += t.airspeed * dt
+	_rig_spin("wheel_main_L", _wheel_angle / 0.34, Vector3.RIGHT)
+	_rig_spin("wheel_main_R", _wheel_angle / 0.34, Vector3.RIGHT)
+	_rig_spin("wheel_tail", _wheel_angle / 0.115, Vector3.RIGHT)
+	# Propeller: Drehzahl ~ Gas; ab hoher Drehzahl Scheibe statt Blätter
+	_prop_angle = fmod(_prop_angle + dt * (6.0 + 140.0 * t.throttle_actual), TAU)
+	_rig_spin("propeller", _prop_angle, Vector3.BACK)
+	var disc := t.throttle_actual > 0.35
+	if rig_parts.has("prop_disc"):
+		rig_parts.prop_disc.node.visible = disc
+	if rig_parts.has("prop_blades"):
+		rig_parts.prop_blades.node.visible = not disc
+	# Haube: am Boden langsam -> offen; Pilot ausgestiegen -> Haube und Pilot weg
+	var dm = _aircraft.get("damage") if _aircraft != null else null
+	var gone: bool = dm is DamageModel and dm.pilot_state == DamageModel.PilotState.EJECTED
+	var want := 1.0 if t.on_ground and t.airspeed < 8.0 and t.throttle_actual < 0.3 else 0.0
+	_canopy_open = move_toward(_canopy_open, want, dt * 0.8)
+	if rig_parts.has("canopy"):
+		var e: Dictionary = rig_parts.canopy
+		e.node.position = (e.rest as Transform3D).origin + Vector3(0, 0, CANOPY_OPEN_Z * _canopy_open)
+		e.node.visible = not gone and not _cockpit_view
+	if rig_parts.has("pilot"):
+		rig_parts.pilot.node.visible = not gone and not _cockpit_view
 
 
 func _fit_span(span: float) -> void:
@@ -199,7 +381,13 @@ func _build_surface(s: AeroSurfaceDef, body: Material, accent: Material) -> void
 
 ## Cockpit-Ansicht: Kabinenglas (Mesh-Name "Canopy" bzw. Platzhalter) ausblenden,
 ## damit die Sicht von innen nicht getönt/verdeckt ist.
+var _cockpit_view := false
+
+
 func set_cockpit_view(on: bool) -> void:
+	_cockpit_view = on
+	if model_root == null:
+		return
 	for n in model_root.find_children("*", "MeshInstance3D", true, false):
 		var nm := String(n.name).to_lower()
 		if nm == "canopy" or nm.begins_with("canopy_glass") or n.get_meta("glass", false):
@@ -207,6 +395,11 @@ func set_cockpit_view(on: bool) -> void:
 
 
 func update_controls(t: FlightTelemetry, dt: float) -> void:
+	if using_rig:
+		_update_rig(t, dt)
+		return
+	if model_root == null:
+		return
 	if not is_equal_approx(_gear_shown, t.gear_extension):
 		_gear_shown = t.gear_extension
 		_apply_gear(_gear_shown)
@@ -281,6 +474,11 @@ static func _xf_rel(n: Node3D, ancestor: Node) -> Transform3D:
 ## Fahrwerksstellung sofort übernehmen (Spawn/Neustart).
 func snap_gear(ext: float) -> void:
 	_gear_shown = ext
+	if using_rig:
+		var u := 1.0 - ext
+		_rig_rotate("gear_main_L", 80.88 * u * u * (3.0 - 2.0 * u))
+		_rig_rotate("gear_main_R", 80.88 * u * u * (3.0 - 2.0 * u))
+		return
 	_apply_gear(ext)
 
 
