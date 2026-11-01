@@ -10,7 +10,7 @@ extends Resource
 ##   Piste x = 0 (±20 m), z = +450 … -450, Schwelle z = +430.
 ##   Rollweg x = -27 von z = -300 bis zum Haltepunkt (-27, 455) im Süden, dann Halbkreis
 ##   (r = 18 m, Mitte (-9, 465)) nach Osten herum auf den Pistenanfang (3, 440).
-##   Abstellplätze x = -45, z = 290 … 430 (Abstand 28 m), Nase nach Süden (+Z), d. h.
+##   Abstellplätze x = -52, z = 290 … 430 (Abstand 28 m), Nase nach Süden (+Z), d. h.
 ##   rollen hinaus und herein fließt immer Richtung Haltepunkt, ohne Wenden.
 ##   Zufahrt (parking_nodes): Rollweg-Knoten 42 m südlich des Platzes (hinaus);
 ##   Einfahrt (parking_in_nodes): Knoten 42 m nördlich (herein).
@@ -169,7 +169,7 @@ static func make_default(index: int, runway_length_m: float, runway_width_m: flo
 	l.runway_start = Vector3(0, 0, sz)
 	l.runway_end = Vector3(0, 0, -half + 20.0)
 	var tx := -27.0                             # Rollweg-Mitte
-	var px := -45.0                             # Abstellplätze
+	var px := -52.0                             # Abstellplätze (25 m neben dem Rollweg)
 	var spacing := 28.0
 	var spots := 6
 	var z0 := sz - (spots - 1) * spacing          # südlichster Platz auf Höhe der Schwelle

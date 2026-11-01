@@ -44,7 +44,7 @@ const GO_AROUND_SINK := 4.0
 const GO_AROUND_CHECK_AGL := 60.0
 ## Rollen: Abstand, ab dem ein Flugzeug vorn zum Anhalten zwingt (m), Kegel (Grad).
 const TAXI_GAP := 38.0
-const TAXI_CONE_DEG := 35.0
+const TAXI_CLEAR := 12.0
 
 var phase: Phase = Phase.COMBAT
 var layout: AirfieldLayout = null
@@ -103,6 +103,7 @@ func tick(a: Node, i: PilotIntent, dt: float) -> bool:
 	if _aircraft != ac:
 		_aircraft = ac
 		_register(ac)
+		ac.set_meta("airfield_phases", self)
 	_ticks += 1
 	phase_time += dt
 	i.fire_primary = false
@@ -130,6 +131,8 @@ func tick(a: Node, i: PilotIntent, dt: float) -> bool:
 		Phase.RTB:
 			return _rtb(ac, i, dt)
 		Phase.PATTERN:
+			if _sub == 3:
+				return _pattern_climbout(ac, i)
 			return _pattern(ac, i, dt)
 		Phase.LANDING:
 			return _landing(ac, i, dt)
@@ -381,9 +384,24 @@ func _lookahead_point(pos: Vector3, dist: float) -> Vector3:
 	return cur
 
 
-## Steht ein anderes Flugzeug am Boden vor uns im Weg?
+## Steht ein anderes Flugzeug am Boden auf unserem Weg (nächste TAXI_GAP m des Pfads)?
 func _blocked(a: Aircraft) -> bool:
+	var pos := layout.to_local(a.global_position)
+	pos.y = 0.0
 	var fwd := _flat(-a.global_transform.basis.z)
+	var samples := PackedVector3Array([pos + fwd * 6.0])
+	var cur := pos
+	var left := TAXI_GAP
+	var k := _path_i + 1
+	while k < _path.size() and left > 0.0:
+		var q := Vector3(_path[k].x, 0, _path[k].z)
+		var l := cur.distance_to(q)
+		var n := int(ceil(minf(l, left) / 4.0))
+		for j in range(1, n + 1):
+			samples.append(cur + (q - cur) * (minf(j * 4.0, l) / maxf(l, 1e-3)))
+		left -= l
+		cur = q
+		k += 1
 	for w in _fleet:
 		var o = w.get_ref()
 		if o == null or o == a or not is_instance_valid(o):
@@ -391,31 +409,194 @@ func _blocked(a: Aircraft) -> bool:
 		var oa := o as Aircraft
 		if oa.telemetry().height_agl > 6.0:
 			continue
-		var to := oa.global_position - a.global_position
-		to.y = 0.0
-		var d := to.length()
-		if d < TAXI_GAP and d > 0.1 and rad_to_deg(fwd.angle_to(to)) < TAXI_CONE_DEG:
-			# Gegenseitig blockiert: der mit der kleineren Kennung fährt.
-			var ofwd := _flat(-oa.global_transform.basis.z)
-			var mutual := rad_to_deg(ofwd.angle_to(-to)) < TAXI_CONE_DEG
-			if mutual and a.entity_id < oa.entity_id:
-				continue
-			return true
+		var op := layout.to_local(oa.global_position)
+		op.y = 0.0
+		if op.distance_to(pos) > TAXI_GAP + 10.0:
+			continue
+		for sp in samples:
+			if sp.distance_to(op) < TAXI_CLEAR:
+				# Gegenseitig blockiert: der mit der kleineren Kennung fährt.
+				var oph = oa.get_meta("airfield_phases", null)
+				if oph is AirfieldPhases and oph != self and oph._path_blocks(op, pos) \
+						and a.entity_id < oa.entity_id:
+					return false
+				return true
 	return false
+
+
+## Liegt p auf meinem nächsten Wegstück (für gegenseitige Blockade)?
+func _path_blocks(me: Vector3, p: Vector3) -> bool:
+	if phase != Phase.TAXI_OUT and phase != Phase.TAXI_IN and phase != Phase.TAKEOFF:
+		return false
+	var dir := Vector3.ZERO
+	if _path_i + 1 < _path.size():
+		dir = Vector3(_path[_path_i + 1].x - me.x, 0, _path[_path_i + 1].z - me.z)
+	var to := p - me
+	return to.length() < TAXI_GAP and dir.length() > 0.1 and to.dot(dir.normalized()) > 0.0
 
 
 # --- Luft (Paket 9b) ----------------------------------------------------------------
 
-func _rtb(_a: Aircraft, _i: PilotIntent, _dt: float) -> bool:
-	return false
+## Platzrunde (lokal, Landerichtung = runway_dir = -Z): Gegenanflug auf x = side·PATTERN_X
+## von Norden nach Süden, Queranflug bei z = FINAL_Z, Endanflug auf der Mittellinie.
+const PATTERN_X := 900.0
+const FINAL_Z := 2500.0
+const TOUCHDOWN_PAST := 60.0          # Aufsetzpunkt hinter der Schwelle (m)
+const GLIDE_DEG := 4.0
+const FLARE_AGL := 7.0
+const DOWNWIND_SPEED := 210.0 / 3.6
+const BASE_SPEED := 180.0 / 3.6
+## Durchstarten, wenn die Piste bis hierhin (m vor dem Aufsetzpunkt) nicht frei ist.
+const RUNWAY_NEEDED := 1300.0
 
 
-func _pattern(_a: Aircraft, _i: PilotIntent, _dt: float) -> bool:
-	return false
+func _field_h() -> float:
+	return WorldGround.height_at(layout.center.x, layout.center.z)
 
 
-func _landing(_a: Aircraft, _i: PilotIntent, _dt: float) -> bool:
-	return false
+func _rtb(a: Aircraft, i: PilotIntent, _dt: float) -> bool:
+	var p := layout.to_local(a.global_position)
+	var side := layout.pattern_side
+	var entry := Vector3(side * PATTERN_X, 0, -600.0)
+	var to := Vector3(entry.x - p.x, 0, entry.z - p.z)
+	var d := to.length()
+	# Höhe: Platzrunde, unterwegs mindestens 150 m über dem Gelände voraus.
+	var want_h := layout.pattern_altitude
+	if d > 2500.0:
+		var fwd := _flat(to)
+		for k in [500.0, 1000.0, 2000.0, 3000.0]:
+			var q: Vector3 = a.global_position + fwd * k
+			want_h = maxf(want_h, WorldGround.height_at(q.x, q.z) - _field_h() + 150.0)
+	_fly(a, i, to, want_h, DOWNWIND_SPEED if d < 4000.0 else 260.0 / 3.6, 35.0)
+	i.gear_down = false
+	i.flaps = 0.0
+	if d < 700.0:
+		set_phase(Phase.PATTERN)
+	return true
+
+
+func _pattern(a: Aircraft, i: PilotIntent, _dt: float) -> bool:
+	var p := layout.to_local(a.global_position)
+	var side := layout.pattern_side
+	match _sub:
+		0:   # Gegenanflug (nach Süden, +Z)
+			var aim := Vector3(side * PATTERN_X, 0, p.z + 900.0)
+			_fly(a, i, Vector3(aim.x - p.x, 0, aim.z - p.z), layout.pattern_altitude, DOWNWIND_SPEED, 30.0)
+			i.gear_down = false
+			if p.z > FINAL_Z - 450.0:
+				_sub = 1
+		1:   # Queranflug (nach Westen), Fahrwerk und Klappen
+			var aim := Vector3(-side * 700.0, 0, FINAL_Z)
+			_fly(a, i, Vector3(aim.x - p.x, 0, aim.z - p.z), 200.0, BASE_SPEED, 30.0)
+			i.gear_down = true
+			i.flaps = 0.5
+			# Kurve auf den Endanflug rechtzeitig einleiten (Kurvenradius bei 35° ~ 400 m)
+			var r_turn := t_speed_sq(a) / (9.81 * tan(deg_to_rad(35.0)))
+			if absf(p.x) < r_turn + 60.0:
+				set_phase(Phase.LANDING)
+	return true
+
+
+func _landing(a: Aircraft, i: PilotIntent, dt: float) -> bool:
+	var t := a.telemetry()
+	var b := a.global_transform.basis
+	var p := layout.to_local(a.global_position)
+	var rdir := layout.runway_dir()
+	var td := layout.runway_start + rdir * TOUCHDOWN_PAST
+	var to_td := (td - p).dot(rdir)                     # m bis zum Aufsetzpunkt (> 0 = davor)
+	var along := (p - layout.runway_start).dot(rdir)
+	var h := a.global_position.y - _field_h()
+	i.gear_down = true
+	match _sub:
+		0:   # Endanflug
+			if runway != null and not runway.request(a) and to_td < RUNWAY_NEEDED:
+				return _go_around(a, i, "Piste belegt")
+			i.flaps = 1.0 if t.airspeed < 210.0 / 3.6 else 0.5
+			var gp := maxf(to_td * tan(deg_to_rad(GLIDE_DEG)), 0.0) + 2.0
+			var want_vs := -t.airspeed * tan(deg_to_rad(GLIDE_DEG)) + clampf((gp - h) * 0.2, -2.5, 2.5)
+			want_vs = clampf(want_vs, -4.0 if t.height_agl > GO_AROUND_CHECK_AGL + 30.0 else -3.3, 2.0)
+			i.throttle = clampf(0.3 + (APPROACH_SPEED - t.airspeed) * 0.06, 0.0, 1.0)
+			i.pitch = clampf((want_vs - t.climb_rate) * 0.12, -1.0, 1.0)
+			var aim := layout.runway_start + rdir * (along + clampf(to_td * 0.2, 120.0, 500.0))
+			var lat_bank := 35.0 if t.height_agl > 100.0 else (14.0 if t.height_agl > 40.0 else 6.0)
+			_level_turn(a, i, Vector3(aim.x - p.x, 0, aim.z - p.z), lat_bank)
+			var lat := absf(p.x - layout.runway_start.x)
+			if t.height_agl < GO_AROUND_CHECK_AGL and t.height_agl > FLARE_AGL + 3.0 \
+					and t.climb_rate < -GO_AROUND_SINK:
+				return _go_around(a, i, "Sinkrate")
+			if t.height_agl < 40.0 and lat > layout.runway_width * 0.5:
+				return _go_around(a, i, "Versatz")
+			if to_td < -350.0 and not t.on_ground:
+				return _go_around(a, i, "zu lang")
+			if t.height_agl < FLARE_AGL:
+				_sub = 1
+		1:   # Abfangen
+			i.flaps = 1.0
+			i.throttle = 0.0
+			var want_vs := -0.7 if t.height_agl > 1.0 else -0.3
+			i.pitch = clampf((want_vs - t.climb_rate) * 0.15, -1.0, 1.0)
+			var aim := layout.runway_start + rdir * (along + 300.0)
+			_level_turn(a, i, Vector3(aim.x - p.x, 0, aim.z - p.z), 4.0)
+			i.yaw = _roll_yaw(a, layout.to_scene(aim) - a.global_position) * 0.5
+			if t.wheels_in_contact > 0:
+				_sub = 2
+			if to_td < -450.0:
+				return _go_around(a, i, "zu lang")
+		2:   # Ausrollen und Bremsen, Knüppel gezogen (Spornrad unten)
+			i.flaps = 1.0
+			i.throttle = 0.0
+			i.pitch = 0.7
+			var aim := layout.runway_start + rdir * (along + 80.0)
+			i.yaw = _roll_yaw(a, layout.to_scene(aim) - a.global_position)
+			i.roll = clampf(b.x.y * 2.5, -1.0, 1.0)
+			var herr := absf(rad_to_deg(_flat(-b.z).angle_to(rdir)))
+			i.brakes = clampf((25.0 - t.airspeed) * 0.08, 0.0, 0.6) if herr < 8.0 else 0.0
+			if t.airspeed < 6.0:
+				set_phase(Phase.TAXI_IN)
+	i.clamp_values()
+	return true
+
+
+static func t_speed_sq(a: Aircraft) -> float:
+	return a.telemetry().airspeed * a.telemetry().airspeed
+
+
+func _go_around(a: Aircraft, i: PilotIntent, why: String) -> bool:
+	go_arounds += 1
+	if trace_enabled:
+		trace.append("%.1f:Durchstarten (%s)" % [_ticks / 60.0, why])
+	_release()
+	set_phase(Phase.PATTERN)
+	_sub = 3
+	return _pattern_climbout(a, i)
+
+
+## Durchstarten: Vollgas, steigen auf Pistenkurs, dann Gegenanflug.
+func _pattern_climbout(a: Aircraft, i: PilotIntent) -> bool:
+	var t := a.telemetry()
+	i.throttle = 1.0
+	i.flaps = 0.5 if t.airspeed < 190.0 / 3.6 else 0.0
+	i.gear_down = t.height_agl < 30.0
+	var rdir := layout.runway_dir()
+	_fly(a, i, rdir, layout.pattern_altitude, 210.0 / 3.6, 15.0, 5.0)
+	i.gear_down = t.height_agl < 30.0
+	var p := layout.to_local(a.global_position)
+	if t.height_agl > 150.0 and (p - layout.runway_start).dot(rdir) > 1200.0:
+		set_phase(Phase.RTB)
+	return true
+
+
+## Kurs dir (waagerecht) mit Höhe want_h über Platz und Fahrt v fliegen.
+func _fly(a: Aircraft, i: PilotIntent, dir: Vector3, want_h: float, v: float,
+		max_bank: float, max_vs: float = 8.0) -> void:
+	var t := a.telemetry()
+	var h := a.global_position.y - _field_h()
+	var want_vs := clampf((want_h - h) * 0.08, -max_vs, max_vs)
+	i.pitch = clampf((want_vs - t.climb_rate) * 0.1, -1.0, 1.0)
+	i.throttle = clampf(0.55 + (v - t.airspeed) * 0.05, 0.15, 1.0)
+	if t.airspeed > 200.0 / 3.6:
+		i.flaps = 0.0
+	_level_turn(a, i, dir, max_bank)
 
 
 # --- Hilfen -------------------------------------------------------------------------
