@@ -6,6 +6,9 @@
 script = ExtResource("1")
 display_name = "Erfahren"
 reaction_time = 0.5
+tracking_delay = 0.18
+fire_max_miss_m = 4.0
+fire_max_miss_frontal_m = 2.5
 aim_error_mrad = 6.0
 g_use = 0.8
 maneuvers = 3

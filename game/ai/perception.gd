@@ -26,6 +26,10 @@ class Contact:
 	var pos := Vector3.ZERO
 	var vel := Vector3.ZERO
 	var acc := Vector3.ZERO
+	## Zielen (kürzere Nachführ-Verzögerung, siehe AIDifficulty.tracking_delay)
+	var aim_pos := Vector3.ZERO
+	var aim_vel := Vector3.ZERO
+	var aim_acc := Vector3.ZERO
 	var visible_time := 0.0
 	var lost_time := 0.0
 	var known := false
@@ -58,8 +62,22 @@ class Contact:
 		if _n - d >= 2:
 			acc = acc.lerp((_ring_vel[i] - _ring_vel[j]) / dt, 0.2)
 
+	func sample_aim(delay: int, dt: float) -> void:
+		var d := clampi(delay, 0, mini(_n - 1, BUFFER - 2))
+		var i := (_n - 1 - d) % BUFFER
+		var j := (_n - 2 - d + BUFFER) % BUFFER
+		aim_pos = _ring_pos[i]
+		aim_vel = _ring_vel[i]
+		if _n - d >= 2:
+			aim_acc = aim_acc.lerp((_ring_vel[i] - _ring_vel[j]) / dt, 0.25)
+
+	## Zielpunkt für das Anvisieren, um die Nachführ-Verzögerung t vorausgerechnet.
+	func aim_extrapolated(t: float) -> Vector3:
+		return aim_pos + aim_vel * t + aim_acc * (0.5 * t * t)
+
 var owner: Node3D
 var reaction_time := 0.5
+var tracking_delay := 0.18
 ## Bekannte Ziele: Node -> Contact
 var contacts := {}
 ## Optional feste Kandidatenliste (Tests); sonst ProjectileSystem.targets().
@@ -139,6 +157,7 @@ func update(dt: float) -> void:
 			if c.lost_time > MEMORY:
 				c.known = false
 		c.sample(delay, dt)
+		c.sample_aim(int(round(tracking_delay / dt)), dt)
 	for n in contacts.keys():
 		if not seen.has(n):
 			contacts.erase(n)

@@ -41,6 +41,9 @@ const FUEL_DENSITY := 0.72
 
 var _intent := PilotIntent.new()
 var _fuel_mass_applied := 0.0
+## Physik-Tick der letzten Platzierung: Kontakte aus der Erzeugungs-/Vorposition in den
+## ersten Ticks danach ignorieren (Jolt meldet sie sonst als Aufprall).
+var _placed_frame := -100
 var _exclude: Array[RID] = []
 var _eject_prev := false
 
@@ -163,6 +166,7 @@ func telemetry() -> FlightTelemetry:
 func place(xf: Transform3D, speed: float = 0.0, throttle: float = 0.0,
 		gear_down: bool = true) -> void:
 	freeze = false
+	_placed_frame = Engine.get_physics_frames()
 	_fuel_mass_applied = 0.0
 	mass = data.mass
 	global_transform = xf
@@ -192,6 +196,8 @@ func is_hostile_to(other: Node) -> bool:
 
 
 func _on_body_entered(body: Node) -> void:
+	if Engine.get_physics_frames() - _placed_frame < 3:
+		return
 	damage.on_impact(body, linear_velocity)
 	var t := flight.telemetry
 	if linear_velocity.length() > 25.0 or t.wheels_in_contact == 0 and absf(t.climb_rate) > 6.0:

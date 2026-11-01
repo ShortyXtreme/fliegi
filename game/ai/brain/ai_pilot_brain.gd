@@ -72,7 +72,16 @@ var _scissor_timer := 0.0
 var _ground_clear_time := 0.0
 var _started := false
 var _was_ahead := true
+## Nach jedem Vorbeiflug zufällig (je Seed): vertikal statt flach kurven (bricht Symmetrie).
 var _vertical_pref := false
+## Patt im Kurvenkampf (beide drehen gleich, keiner kommt ans Heck): nach NEUTRAL_MAX s
+## Taktikwechsel für BREAK_TIME s (0 = vertikal, 1 = Umkehrkurve/One-Circle, 2 = Extend).
+const NEUTRAL_MAX := 8.0
+const BREAK_TIME := 5.0
+var _neutral_time := 0.0
+var _breaker := -1
+var _breaker_time := 0.0
+var _breaker_side := Vector3.ZERO
 ## Ab diesem Winkel Ziel–Nase: Kurvenkampf statt direktem Anzielen (Grad).
 const TURN_FIGHT_DEG := 45.0
 
@@ -90,6 +99,7 @@ func _start(a: Aircraft) -> void:
 		difficulty = _diff
 	_rng.seed = hash(rng_seed) ^ 0x5eed
 	perception = AIPerception.new(a, _diff.reaction_time)
+	perception.tracking_delay = _diff.tracking_delay
 	if patrol_center == Vector3.INF:
 		patrol_center = a.global_position
 	if home == Vector3.INF:
@@ -246,7 +256,7 @@ func _decide(a: Aircraft, dt: float) -> int:
 		return State.EVADE
 	# 4) Energie
 	var v := a.telemetry().airspeed
-	if v < ENERGY_LOW or state == State.ENERGY and v < ENERGY_OK:
+	if (v < ENERGY_LOW or state == State.ENERGY and v < ENERGY_OK) and not _offensive(a, v):
 		return State.ENERGY
 	# 5) Kampf
 	if target == null:
@@ -256,6 +266,18 @@ func _decide(a: Aircraft, dt: float) -> int:
 			or d > ENGAGE_RANGE * 1.3:
 		return State.APPROACH
 	return State.FIRE if _burst_left > 0.0 or _fire_window(a) else State.PURSUIT
+
+
+## Am Heck des Ziels in Schussnähe: trotz geringer Fahrt (bis ENERGY_MIN) dranbleiben.
+const ENERGY_MIN := 175.0 / 3.6
+func _offensive(a: Aircraft, v: float) -> bool:
+	if target == null or v < ENERGY_MIN:
+		return false
+	var to := target.pos - a.global_position
+	if to.length() > 700.0:
+		return false
+	var aa := rad_to_deg(target.vel.angle_to(to)) if target.vel.length() > 1.0 else 0.0
+	return aa < 60.0 and rad_to_deg((-a.global_transform.basis.z).angle_to(to)) < 30.0
 
 
 func _should_retreat(a: Aircraft) -> bool:
@@ -373,10 +395,28 @@ func _approach_dir(a: Aircraft) -> Vector3:
 	var aim := target.pos + target.vel * lead_t
 	var dir := _flat(aim - a.global_position)
 	var want := target.pos.y + _diff.altitude_advantage
-	# Bei kurzer Entfernung Höhe nicht mehr erzwingen, sondern auf das Ziel zeigen
+	# Bei kurzer Entfernung Höhe nicht mehr erzwingen, sondern auf das Ziel zeigen;
+	# frontal: seitlichen Versatz für den Vorbeiflug aufbauen (Merge-Management)
+	if d < ENGAGE_RANGE * 2.5:
+		var aa := rad_to_deg(target.vel.angle_to(to)) if target.vel.length() > 1.0 else 0.0
+		if aa > 135.0:
+			return (_merge_point(a.global_position, target.pos, target.vel) - a.global_position).normalized()
 	if d < ENGAGE_RANGE * 1.2:
 		return (aim - a.global_position).normalized() + Vector3.UP * 0.05
 	return dir + Vector3.UP * _alt_hold(a, want, 0.3)
+
+
+## Merge-Punkt: neben dem Ziel (MERGE_OFFSET quer zu seiner Flugrichtung, auf unserer
+## Seite, leicht erhöht), damit nach dem Vorbeiflug Raum zum Eindrehen bleibt.
+const MERGE_OFFSET := 450.0
+func _merge_point(pos: Vector3, tp: Vector3, tv: Vector3) -> Vector3:
+	var fwd := tv.normalized() if tv.length() > 1.0 else Vector3.FORWARD
+	var rel := pos - tp
+	var lat := rel - fwd * rel.dot(fwd)
+	lat.y *= 0.3
+	if lat.length() < 5.0:
+		lat = fwd.cross(Vector3.UP) * (1.0 if _rng.randf() < 0.5 else -1.0)
+	return tp + lat.normalized() * MERGE_OFFSET + Vector3.UP * 80.0
 
 
 func _gun_params(a: Aircraft) -> Vector2:
@@ -391,10 +431,11 @@ func _gun_params(a: Aircraft) -> Vector2:
 var _aim_err_rad := -1.0
 func _lead_dir(a: Aircraft) -> Vector3:
 	var g := _gun_params(a)
-	var tp := target.extrapolated(_diff.reaction_time)
-	var tv := target.vel + target.acc * _diff.reaction_time
+	var td := _diff.tracking_delay
+	var tp := target.aim_extrapolated(td)
+	var tv := target.aim_vel + target.aim_acc * td
 	var r := LeadSolver.solve(a.global_position, a.linear_velocity, tp, tv,
-			g.x, g.y, target.acc, _diff.fire_range * 2.0, 4)
+			g.x, g.y, target.aim_acc, _diff.fire_range * 2.0, 4)
 	_aim_err_rad = -1.0
 	if not r.valid:
 		return Vector3.ZERO
@@ -416,54 +457,126 @@ func _lead_dir(a: Aircraft) -> Vector3:
 	return want
 
 
+## Spezifische Energiehöhe (m): Höhe + v²/2g.
+static func _energy_height(pos: Vector3, vel: Vector3) -> float:
+	return pos.y + vel.length_squared() / (2.0 * 9.81)
+
+
+## Verfolgung (Paket 14, BFM): Modus nach Winkel vom Ziel-Heck (AA) und Annäherung mit
+## Hysterese – LAG zum Annähern/Konvertieren ohne Überschießen (hinter das Ziel zielen),
+## PURE zum Halten, LEAD nur nahe dem Schussfenster. Kurvenkampf (Ziel weit seitlich):
+## Auftriebsvektor aufs Ziel, mit Energievorteil vertikal (High-Yo-Yo), mit Rückstand
+## und Höhe Low-Yo-Yo. Schnappschüsse bei Kreuzungen erlaubt, wenn die Ablage passt.
 func _pursuit_dir(a: Aircraft, i: PilotIntent, dt: float) -> Vector3:
 	var pos := a.global_position
-	var to := target.pos - pos
+	var tp := target.aim_pos
+	var tv := target.aim_vel
+	var to := tp - pos
 	var d := to.length()
-	var closing := -(target.vel - a.linear_velocity).dot(to / maxf(d, 1.0))
-	var angle_off := rad_to_deg(target.vel.angle_to(to)) if target.vel.length() > 1.0 else 0.0
-	if d < 120.0 and closing > 5.0 and angle_off < 90.0:
-		pursuit_mode = Pursuit.LAG
-	elif d < _diff.fire_range * 2.0:
-		pursuit_mode = Pursuit.LEAD
-	elif angle_off > 50.0 and angle_off < 135.0:
-		pursuit_mode = Pursuit.LEAD
-	else:
-		pursuit_mode = Pursuit.PURE
-	# Ziel weit seitlich/hinten: Kurvenkampf ohne Spiralsturz. Nach jedem Vorbeiflug
-	# (Merge) zufällig horizontal oder steigend kurven (bricht Symmetrie, je Seed).
+	var los := to / maxf(d, 1.0)
+	var closing := -(tv - a.linear_velocity).dot(los)
+	# AA: 0° = wir genau hinter dem Ziel, 180° = frontal
+	var aa := rad_to_deg(tv.angle_to(to)) if tv.length() > 1.0 else 0.0
 	var nose_off := rad_to_deg((-a.global_transform.basis.z).angle_to(to))
+	var fire_r := _diff.fire_range
+	# Moduswahl mit Hysterese
+	match pursuit_mode:
+		Pursuit.LEAD:
+			if aa > 70.0 or d > fire_r * 2.2 or (d < 90.0 and closing > 10.0):
+				pursuit_mode = Pursuit.LAG if d < 1500.0 else Pursuit.PURE
+		Pursuit.LAG:
+			if aa < 45.0 and d < fire_r * 1.8 and closing < 40.0:
+				pursuit_mode = Pursuit.LEAD
+			elif d > 1800.0:
+				pursuit_mode = Pursuit.PURE
+		_:
+			if aa < 50.0 and d < fire_r * 1.8:
+				pursuit_mode = Pursuit.LEAD
+			elif aa > 60.0 and d < 1500.0:
+				pursuit_mode = Pursuit.LAG
 	var ahead := nose_off < 90.0
 	if _was_ahead and not ahead:
-		_vertical_pref = _rng.randf() < 0.5
 		state_time = 0.0
+		_vertical_pref = _rng.randf() < 0.5
 	_was_ahead = ahead
-	if nose_off > TURN_FIGHT_DEG:
-		var tl := clampf(d / 600.0, 0.2, 1.5)
-		var lead := (target.pos + target.vel * tl - pos).normalized()
-		if a.telemetry().height_agl < 700.0:
-			lead.y = maxf(lead.y, 0.1)
-		if _vertical_pref and a.telemetry().airspeed > 115.0 and state_time < 4.0:
-			lead.y = maxf(lead.y, 0.5)
+	# Schnappschuss: passt die Vorhalt-Lösung schon, direkt darauf (auch bei Kreuzung)
+	var snap := d < fire_r and nose_off < 12.0 and aa < 150.0
+	var dir: Vector3
+	var e_adv := _energy_height(pos, a.linear_velocity) - _energy_height(tp, tv)
+	var t := a.telemetry()
+	# Patt erkennen und mit einem Taktikwechsel brechen
+	if _breaker >= 0:
+		_breaker_time += dt
+		if _breaker_time > BREAK_TIME or (nose_off < 25.0 and aa < 60.0):
+			_breaker = -1
+			_neutral_time = 0.0
+	elif nose_off > 40.0 and aa > 45.0 and d < 1500.0:
+		_neutral_time += dt
+		if _neutral_time > NEUTRAL_MAX:
+			_breaker = _rng.randi() % 3
+			_breaker_time = 0.0
+			_breaker_side = a.global_transform.basis.x * (1.0 if \
+					a.global_transform.basis.x.dot(to) < 0.0 else -1.0)
+	else:
+		_neutral_time = maxf(_neutral_time - dt * 2.0, 0.0)
+	if _breaker >= 0:
+		var fwd := _flat(-a.global_transform.basis.z)
+		var t0 := a.telemetry()
 		i.throttle = 1.0
 		_fire_control(a, i, dt)
-		return lead
-	# Gas: Überschießen vermeiden
-	# Abstand auf ~180 m halten (Gas aus Abstand und Annäherung)
-	i.throttle = clampf(0.7 + (d - 180.0) / 150.0 - closing / 30.0, 0.15, 1.0) \
-			if angle_off < 90.0 else 1.0
-	var dir: Vector3
-	match pursuit_mode:
-		Pursuit.LAG:
-			dir = (target.pos - target.vel * 0.8) - pos
-		Pursuit.PURE:
-			dir = to
-		_:
-			var ld := _lead_dir(a)
-			if ld == Vector3.ZERO:
-				var t := d / 800.0
-				ld = (target.pos + target.vel * t + target.acc * 0.5 * t * t - pos).normalized()
-			dir = ld
+		match _breaker:
+			0:
+				if t0.airspeed > 95.0 and t0.height_agl > 400.0:
+					return (fwd + Vector3.UP * 1.0).normalized()
+				return (to.normalized() + Vector3.UP * 0.2).normalized()
+			1:
+				# Umkehrkurve: weg vom Ziel drehen (One-Circle statt Two-Circle)
+				return (_flat(_breaker_side) + Vector3.UP * 0.15).normalized()
+			_:
+				return (fwd + Vector3.UP * 0.05).normalized()
+	if nose_off > TURN_FIGHT_DEG and not snap:
+		# Kurvenkampf: Nase in Richtung des (leicht vorausberechneten) Ziels ziehen;
+		# bei großem AA hinter das Ziel (Lag), damit wir am Heck herauskommen.
+		var tl := clampf(d / 600.0, 0.2, 1.5)
+		# AA < 90°: Vorhalt (Winkel gewinnen); sonst hinter das Ziel (Lag-Versatz,
+		# verhindert das Frontal-Pendeln und bringt uns ans Heck)
+		var aimp := tp + tv * tl if aa < 90.0 else tp - tv * clampf(d / 400.0, 0.3, 1.2)
+		dir = (aimp - pos).normalized()
+		if (e_adv > 250.0 or _vertical_pref and state_time < 4.0) and t.airspeed > 110.0 \
+				and aa > 60.0:
+			dir.y = maxf(dir.y, 0.45)        # High-Yo-Yo / vertikal: Fahrt in Höhe tauschen
+		elif e_adv < -250.0 and t.height_agl > 900.0 and t.airspeed < 95.0:
+			dir.y = minf(dir.y, -0.25)       # Low-Yo-Yo: Höhe gegen Fahrt
+		# keine absteigende Kreisspirale: unterhalb der Patrouillenhöhe nicht nach unten
+		if pos.y < patrol_altitude - 300.0:
+			dir.y = maxf(dir.y, 0.0 if t.height_agl > 700.0 else 0.15)
+		dir = dir.normalized()
+		i.throttle = 1.0
+		_fire_control(a, i, dt)
+		return dir
+	# Gas: Abstand im Heckbereich auf ~200 m halten, sonst voll
+	i.throttle = clampf(0.75 + (d - 200.0) / 150.0 - closing / 30.0, 0.2, 1.0) \
+			if aa < 70.0 else 1.0
+	if snap:
+		var ls := _lead_dir(a)
+		dir = ls if ls != Vector3.ZERO else los
+	else:
+		match pursuit_mode:
+			Pursuit.LAG:
+				var lag_t := clampf(d / 350.0, 0.4, 1.5)
+				dir = (tp - tv * lag_t) - pos
+				if aa > 135.0 and d > 350.0:
+					dir = _merge_point(pos, tp, tv) - pos
+				if e_adv > 250.0 and closing > 30.0:
+					dir += Vector3.UP * d * 0.25   # Überschießen vermeiden: hoch
+			Pursuit.PURE:
+				dir = to
+			_:
+				var ld := _lead_dir(a)
+				if ld == Vector3.ZERO:
+					var tt := d / 800.0
+					ld = (tp + tv * tt + target.aim_acc * 0.5 * tt * tt - pos).normalized()
+				dir = ld
 	dir = dir.normalized()
 	# Zielfehler (langsam wandernd, je Schwierigkeit)
 	var b := a.global_transform.basis
@@ -472,17 +585,30 @@ func _pursuit_dir(a: Aircraft, i: PilotIntent, dt: float) -> Vector3:
 	return dir
 
 
+var _last_miss := INF
+var _miss_limit := 4.0
 func _fire_window(a: Aircraft) -> bool:
+	_last_miss = INF
 	if target == null:
 		return false
 	var d := a.global_position.distance_to(target.pos)
 	if d > _diff.fire_range or a.weapons == null or a.weapons.ammo() <= 0:
 		return false
+	if d < 50.0:
+		return false
 	var ld := _lead_dir(a)
 	if ld == Vector3.ZERO:
 		return false
 	aim_error_deg = rad_to_deg(_aim_err_rad)
-	return aim_error_deg <= _diff.fire_max_error_deg
+	if aim_error_deg > _diff.fire_max_error_deg:
+		return false
+	# Vorhergesagte Ablage am Ziel (m): Winkelfehler × Entfernung. Frontal strenger.
+	var miss := _aim_err_rad * d
+	var to := a.global_position - target.aim_pos
+	var frontal := target.aim_vel.length() > 1.0 and target.aim_vel.angle_to(to) < deg_to_rad(45.0)
+	_miss_limit = _diff.fire_max_miss_frontal_m if frontal else _diff.fire_max_miss_m
+	_last_miss = miss
+	return miss <= _miss_limit
 
 
 ## Feuerstöße: Stoß 0,5–1,5 s (je Schwierigkeit), dann Pause; Abbruch, wenn das
@@ -492,7 +618,7 @@ func _fire_control(a: Aircraft, i: PilotIntent, dt: float) -> void:
 	_pause_left = maxf(_pause_left - dt, 0.0)
 	if _burst_left > 0.0:
 		if not in_fire_window and (aim_error_deg < 0.0 \
-				or aim_error_deg > _diff.fire_max_error_deg * 2.0):
+				or aim_error_deg > _diff.fire_max_error_deg * 2.0 or _last_miss > _miss_limit * 1.6):
 			_burst_left = 0.0
 		else:
 			_burst_left -= dt

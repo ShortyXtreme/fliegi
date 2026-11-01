@@ -108,6 +108,16 @@ func _build_now() -> void:
 	_setup_fx()
 
 
+static func _strip_collision_proxies(root: Node) -> void:
+	for n in root.find_children("*", "", true, false):
+		if not is_instance_valid(n):
+			continue
+		var nm := String(n.name).to_lower()
+		if n is CollisionObject3D or nm.begins_with("col_") or nm.contains("colonly"):
+			n.get_parent().remove_child(n)
+			n.free()
+
+
 ## Tauscht die Albedo-Texturen gegen die Gegner-Bemalung (Materialien je Pfad gecacht).
 static func _apply_enemy_skin(root: Node) -> void:
 	for n in root.find_children("*", "MeshInstance3D", true, false):
@@ -144,7 +154,16 @@ static func _load_rig_model(rel: String) -> Node3D:
 				else ProjectSettings.globalize_path("res://").path_join(rel).simplify_path()
 		var scene: PackedScene = null
 		if rel.begins_with("res://") and ResourceLoader.exists(rel):
-			scene = load(rel) as PackedScene
+			# Kollisions-Hilfsnetze (col_*, -colonly) entfernen: das Flugzeug kollidiert
+			# über seine eigenen Boxen; sichtbare/physikalische Proxys würden stören.
+			var root := (load(rel) as PackedScene).instantiate()
+			_strip_collision_proxies(root)
+			for n in root.find_children("*", "", true, false):
+				n.owner = root
+			scene = PackedScene.new()
+			if scene.pack(root) != OK:
+				scene = null
+			root.free()
 		elif FileAccess.file_exists(abs_path):
 			var doc := GLTFDocument.new()
 			var st := GLTFState.new()

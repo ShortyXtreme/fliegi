@@ -8,6 +8,13 @@ enum Maneuver { BREAK = 1, SCISSORS = 2, SPIRAL = 4 }
 ## Reaktionsverzögerung der Wahrnehmung (s): Ziel wird erst so spät erkannt und
 ## seine Lage aus einem um diese Zeit verzögerten Puffer gelesen.
 @export var reaction_time := 0.5
+## Visuelle Nachführ-Verzögerung beim Zielen (s): Entscheidungen nutzen reaction_time,
+## das laufende Anvisieren eines erkannten Ziels nur diese kürzere Verzögerung (Paket 14).
+@export var tracking_delay := 0.18
+## Feuern nur, wenn die vorhergesagte Ablage am Ziel kleiner ist (m, ~ halbe Spannweite).
+@export var fire_max_miss_m := 4.0
+## Frontalschuss (Ziel kommt auf uns zu) nur bei dieser kleineren Ablage (m).
+@export var fire_max_miss_frontal_m := 2.5
 ## Zielfehler (mrad, 1σ), langsam wandernd.
 @export var aim_error_mrad := 6.0
 ## Anteil des Nick-Knüppels im Kampf (G-Nutzung); Bodenschutz nutzt immer 100 %.

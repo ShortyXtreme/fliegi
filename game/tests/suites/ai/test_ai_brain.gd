@@ -127,3 +127,43 @@ func test_energy_and_retreat() -> Array:
 			break
 	var retreat := brain.state == AIPilotBrain.State.RETREAT
 	return [energy and (retreat or not low_ammo), "Energie bei 180 km/h=%s, Rückzug bei Munition < 10 %%=%s" % [energy, retreat]]
+
+
+## Paket 14: Nachführen im Kurvenkampf. Ziel fliegt eine stetige Kurve (60° Querlage,
+## Höhe halten), Erfahren startet 300 m dahinter. Gemessen: wahre Ablage (m) im Bereich
+## < 500 m / Nase < 20°, Abschuss in 40 s.
+func test_tracking_turning_target() -> Array:
+	var tgt := U.spawn(world, Vector3(0, 1500, -300), Vector3.FORWARD, Nations.RED, 2, 110.0)
+	_seat(tgt, func(ac: Aircraft, i: PilotIntent, _dt):
+		var b := ac.global_transform.basis
+		var bank := atan2(-b.x.y, b.y.y)
+		i.throttle = 1.0
+		i.gear_down = false
+		i.roll = clampf((deg_to_rad(60.0) - bank) * 2.0, -1.0, 1.0)
+		i.pitch = clampf(0.25 - ac.telemetry().climb_rate * 0.05, -1.0, 1.0))
+	var me := U.spawn(world, Vector3(0, 1500, 0), Vector3.FORWARD, Nations.BLUE, 1, 120.0)
+	var brain := U.brain(me, "erfahren", 5)
+	var miss_sum := 0.0
+	var n := 0
+	var good := 0
+	var fire_n := 0
+	var fire_miss := 0.0
+	var t_kill := -1.0
+	for k in 60 * 40:
+		await _step(1)
+		var d := me.global_position.distance_to(tgt.global_position)
+		var nose := rad_to_deg((-me.global_transform.basis.z).angle_to(tgt.global_position - me.global_position))
+		if d < 500.0 and nose < 20.0:
+			var m := U.true_aim_error_mrad(me, tgt) * 0.001 * d
+			miss_sum += m
+			n += 1
+			good += 1 if m < 4.0 else 0
+			if brain.last_intent().fire_primary:
+				fire_n += 1
+				fire_miss += m
+		if tgt.damage.is_destroyed:
+			t_kill = k / 60.0
+			break
+	return [t_kill >= 0.0, "Abschuss nach %.1f s, Ablage Ø %.1f m (%d Ticks, %.0f %% < 4 m), beim Feuern Ø %.1f m (%d Ticks), Treffer/Schuss %d/%d" % [
+		t_kill, miss_sum / maxf(n, 1), n, 100.0 * good / maxf(n, 1), fire_miss / maxf(fire_n, 1), fire_n,
+		projectiles.hits_total, me.weapons.ammo_max() - me.weapons.ammo()]]

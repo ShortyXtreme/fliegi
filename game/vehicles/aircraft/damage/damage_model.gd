@@ -367,6 +367,17 @@ func _check_destroyed() -> void:
 	elif hp[Zone.TAIL] <= 0.0:
 		# Paket 14: Leitwerk zerschossen zählt als Abschuss (Flugzeug nicht mehr steuerbar).
 		_destroy(CombatEvents.Cause.UNKNOWN)
+	elif total_damage() >= profile.structure_hp:
+		# Paket 14: zu viele verteilte Treffer – Zelle bricht.
+		_destroy(CombatEvents.Cause.WING_BROKEN)
+
+
+## Summe des Schadens über alle Zonen (HP).
+func total_damage() -> float:
+	var s := 0.0
+	for z in Zone.COUNT:
+		s += hp_max[z] - hp[z]
+	return s
 
 
 ## Abschuss melden (nur einmal je Flug). Kredit: letzter Schütze im Zeitfenster.

@@ -38,6 +38,9 @@ extends Resource
 @export_group("Leitwerk")
 ## Ruderwirksamkeit bei 0 HP.
 @export var tail_control_min := 0.3
+## Gesamtschaden (Summe aller Zonen), ab dem die Zelle zerbricht (Paket 14: TTK 15–40
+## Treffer auch bei verteilten Treffern; 10 Schaden je MG-Treffer).
+@export var structure_hp := 320.0
 ## Chance je Treffer (× Schadensquote), dass ein Ruder klemmt.
 @export var tail_stuck_chance := 0.25
 ## Unter dieser HP-Quote gilt das Leitwerk als kritisch (Notausstieg erlaubt).

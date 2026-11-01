@@ -6,6 +6,9 @@
 script = ExtResource("1")
 display_name = "Veteran"
 reaction_time = 0.25
+tracking_delay = 0.12
+fire_max_miss_m = 3.0
+fire_max_miss_frontal_m = 2.0
 aim_error_mrad = 2.5
 g_use = 0.95
 maneuvers = 7
