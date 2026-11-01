@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="AirfieldLayout" format=3]
+
+[ext_resource type="Script" path="res://ground_ops/airfield/airfield_layout.gd" id="1_k4vk7"]
+
+[resource]
+script = ExtResource("1_k4vk7")
+nation_id = 0
+runway_start = Vector3(0, 0, 430)
+runway_end = Vector3(0, 0, -430)
+parking_positions = PackedVector3Array(-52, 0, 290, -52, 0, 318, -52, 0, 346, -52, 0, 374, -52, 0, 402, -52, 0, 430)
+parking_headings = PackedVector3Array(0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1)
+taxi_nodes = PackedVector3Array(3, 0, 440, -27, 0, 465, -21.727922, 0, 477.72794, -9, 0, 483, 3.727922, 0, 477.72794, 9, 0, 465, -27, 0, 455, -27, 0, 444, -27, 0, 416, -27, 0, 388, -27, 0, 360, -27, 0, 332, -27, 0, 304, -27, 0, 276, -27, 0, 248, -27, 0, 100, 0, 0, 85, -27, 0, -100, 0, 0, -115, -27, 0, -300, 0, 0, -315)
+taxi_edges = PackedInt32Array(0, 5, 5, 4, 4, 3, 3, 2, 2, 1, 1, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 15, 17, 17, 18, 17, 19, 19, 20)
+hold_node = 6
+runway_node = 0
+parking_nodes = PackedInt32Array(11, 10, 9, 8, 7, 6)
+parking_in_nodes = PackedInt32Array(14, 13, 12, 11, 10, 9)
+exit_nodes = PackedInt32Array(16, 18, 20)
+fuel_depot = Vector3(-110, 0, 410)
+ammo_bunker = Vector3(-115, 0, 170)
+hangar = Vector3(-80, 0, 310)
+crew_spawn = Vector3(-60, 0, 370)
+vehicle_spawns = PackedVector3Array(-95, 0, 400, -95, 0, 185)

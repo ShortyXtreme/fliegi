@@ -44,6 +44,9 @@ var patrol_altitude := 1500.0
 var patrol_radius := 1500.0
 ## Rückzugsziel (Standard: Patrouillenmittelpunkt).
 var home := Vector3.INF
+## M3 (Strang C): Flugplatz-Phasen (Rollen, Start, RTB, Landung). null = M2-Verhalten
+## (Start in der Luft, Kampf). Hat Vorrang vor der Kampf-Logik, solange tick() true liefert.
+var airfield: AirfieldPhases = null
 
 var state: int = State.PATROL
 var pursuit_mode: int = Pursuit.PURE
@@ -128,6 +131,8 @@ func compute_intent(dt: float) -> PilotIntent:
 	if not _started:
 		_start(a)
 	_ticks += 1
+	if airfield != null and airfield.tick(a, i, dt):
+		return i.clamp_values()
 	i.assist_mode = FlightAssist.Mode.ARCADE \
 			if FlightAssist.Mode.ARCADE in a.allowed_assist_modes else a.assist_mode
 	perception.update(dt)

@@ -8,6 +8,12 @@ extends Node
 ## Beim Neustart bleibt ein Wrack liegen, bis MatchRules.wreck_lifetime ab Absturz um ist.
 ## Pilot: überlebt (Bauchlandung, Ausstieg mit Fallschirm) -> gleicher PilotRecord,
 ## sonst neuer Pilot (Level 1, offene XP verloren).
+##
+## M3 Paket 10 (Strang C): Spawn am Boden. register_ground(aircraft, controller, layout)
+## meldet ein Flugzeug mit Neustart auf einem freien Abstellplatz an (kein Spawn in der
+## Luft). spawn_on_ground(aircraft, layout, kind) setzt es dorthin, mit ServiceState nach
+## MatchRules (FIRST 50 %/voll, AFTER_LOSS 15 %/0, AFTER_LANDING Restzustand), und richtet
+## bei KI (AIPilotBrain) die Flugplatz-Phasen ab PARKED ein.
 
 signal respawned(aircraft: Node3D)
 ## Neustart geplant (für HUD: Countdown über time_to_respawn()).
@@ -46,6 +52,106 @@ func register(aircraft: Node3D, controller: Controller, respawn: Callable,
 	if d is DamageModel and not d.grounded.is_connected(_on_grounded):
 		d.grounded.connect(_on_grounded.bind(aircraft))
 		d.was_reset.connect(_on_reset.bind(aircraft))
+
+
+## M3: Anmeldung mit Neustart am Boden (Abstellplatz von layout). Der erste Spawn
+## (spawn_on_ground(..., FIRST)) ist Sache des Aufrufers; jeder Neustart danach läuft
+## als AFTER_LOSS bzw. nach respawn_after_landing() als AFTER_LANDING.
+func register_ground(aircraft: Node3D, controller: Controller, layout: AirfieldLayout,
+		delay: Callable = Callable()) -> void:
+	register(aircraft, controller, func(): spawn_on_ground(aircraft, layout, next_start_kind(aircraft)),
+		delay)
+	entries[aircraft]["layout"] = layout
+	entries[aircraft]["kind"] = MatchRules.StartKind.AFTER_LOSS
+
+
+## Startart für den nächsten Neustart dieses Flugzeugs.
+func next_start_kind(aircraft: Node3D) -> int:
+	if entries.has(aircraft):
+		return int(entries[aircraft].get("kind", MatchRules.StartKind.AFTER_LOSS))
+	return MatchRules.StartKind.AFTER_LOSS
+
+
+## Neustart nach Landung am eigenen Platz (Restzustand bleibt), z. B. „neue Maschine“
+## aus dem Menü oder Paket 14. Sofort, ohne Wrack.
+func respawn_after_landing(aircraft: Node3D) -> void:
+	if not entries.has(aircraft):
+		return
+	entries[aircraft]["kind"] = MatchRules.StartKind.AFTER_LANDING
+	respawn_now(aircraft)
+	entries[aircraft]["kind"] = MatchRules.StartKind.AFTER_LOSS
+
+
+## Flugzeug auf einen Abstellplatz von layout setzen (spot < 0 = freien wählen).
+## Rückgabe: Platzindex, -1 = kein Server/kein Platz.
+func spawn_on_ground(aircraft: Node3D, layout: AirfieldLayout, kind: int, spot: int = -1) -> int:
+	if not Authority.is_server() or layout == null or layout.parking_count() == 0:
+		return -1
+	var s := spot if spot >= 0 else free_spot(layout, aircraft)
+	if s < 0:
+		s = _least_crowded_spot(layout, aircraft)
+	var xf := layout.parking_transform(s)
+	if aircraft is Aircraft:
+		(aircraft as Aircraft).place_on_ground(xf.origin, -xf.basis.z, false, ServiceState.for_start(kind))
+	var c = entries[aircraft]["controller"] if entries.has(aircraft) else null
+	if c is AIPilotBrain:
+		var br := c as AIPilotBrain
+		if br.airfield == null:
+			br.airfield = AirfieldPhases.new()
+		br.airfield.setup(layout, RunwayControl.find_or_create(self, layout.airfield_index), s,
+			AirfieldPhases.Phase.PARKED)
+	return s
+
+
+## Erster freier Abstellplatz (kein Flugzeug/Wrack näher als PARKING_CLEARANCE, nicht von
+## einer heimkehrenden KI belegt). -1 = alle belegt.
+const PARKING_CLEARANCE := 14.0
+func free_spot(layout: AirfieldLayout, exclude: Node3D = null) -> int:
+	var others := _ground_bodies(exclude)
+	var reserved := AirfieldPhases.reserved_spots(layout, exclude)
+	for s in layout.parking_count():
+		if s in reserved:
+			continue
+		var p := layout.parking_transform(s).origin
+		var ok := true
+		for o in others:
+			if Vector2(o.x - p.x, o.z - p.z).length() < PARKING_CLEARANCE:
+				ok = false
+				break
+		if ok:
+			return s
+	return -1
+
+
+func _least_crowded_spot(layout: AirfieldLayout, exclude: Node3D) -> int:
+	var others := _ground_bodies(exclude)
+	var best := 0
+	var best_d := -1.0
+	for s in layout.parking_count():
+		var p := layout.parking_transform(s).origin
+		var dmin := INF
+		for o in others:
+			dmin = minf(dmin, Vector2(o.x - p.x, o.z - p.z).length())
+		if dmin > best_d:
+			best_d = dmin
+			best = s
+	return best
+
+
+func _ground_bodies(exclude: Node3D) -> PackedVector3Array:
+	var out := PackedVector3Array()
+	var seen := {}
+	for a in entries.keys():
+		if is_instance_valid(a) and a != exclude:
+			seen[a] = true
+			out.append(a.global_position)
+	for a in AirfieldPhases.fleet():
+		if a != exclude and not seen.has(a):
+			out.append(a.global_position)
+	for w in wrecks:
+		if is_instance_valid(w):
+			out.append(w.global_position)
+	return out
 
 
 func unregister(aircraft: Node3D) -> void:
@@ -121,6 +227,7 @@ func _schedule(aircraft: Node) -> void:
 	var e: Dictionary = entries[aircraft]
 	if e.timer >= 0.0:
 		return
+	e["kind"] = MatchRules.StartKind.AFTER_LOSS
 	var dl: Callable = e.get("delay", Callable())
 	e.timer = float(dl.call()) if dl.is_valid() else MatchRules.respawn_delay
 	var d = aircraft.get("damage")
