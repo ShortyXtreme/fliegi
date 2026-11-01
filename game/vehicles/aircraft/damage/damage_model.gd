@@ -75,6 +75,8 @@ var _resets := 0
 ## Modell die Modifier nicht (intakt = unberührt, Vertragstest setzt sie direkt).
 var _dirty := false
 var _fuel_empty := false
+## M3: zuletzt in die Modifier eingerechneter Sortenanteil (Änderung -> neu berechnen).
+var _power_mix := 0.0
 
 
 func _init(a: Node3D, mods: FlightModifiers) -> void:
@@ -133,7 +135,32 @@ func reset() -> void:
 	modifiers.reset()
 	_dirty = false
 	_fuel_empty = false
+	_power_mix = 0.0
 	was_reset.emit()
+
+
+## M3 (Paket 0b): Reparatur light (RepairJob, nur Server). Füllt die Zone um bis zu hp auf,
+## höchstens bis hp_max. Nicht reparierbar: zerstörte Zonen (0 HP, z. B. Flügelbruch),
+## brennende Zonen und abgeschossene Maschinen. Einschusslöcher (Strukturschaden,
+## extra_drag_area) bauen sich anteilig mit ab. Rückgabe: tatsächlich reparierte HP.
+func repair(zone: int, hp_amount: float) -> float:
+	if not Authority.is_server() or zone < 0 or zone >= Zone.COUNT or hp_amount <= 0.0:
+		return 0.0
+	if not can_repair(zone):
+		return 0.0
+	var before := hp[zone]
+	hp[zone] = minf(hp[zone] + hp_amount, hp_max[zone])
+	var done := hp[zone] - before
+	if done > 0.0:
+		zone_changed.emit(zone, hp_fraction(zone))
+		_apply_modifiers()
+	return done
+
+
+## Ist die Zone mit Reparatur light zu flicken (beschädigt, > 0 HP, kein Brand)?
+func can_repair(zone: int) -> bool:
+	return not is_destroyed and hp[zone] > 0.0 and hp[zone] < hp_max[zone] \
+		and not is_burning(zone)
 
 
 # --- Treffer ------------------------------------------------------------------
@@ -259,6 +286,8 @@ func tick(dt: float) -> void:
 	if fuel.is_empty() != _fuel_empty:
 		_fuel_empty = fuel.is_empty()
 		_dirty = true
+	if fuel.grade_mix != _power_mix:
+		_dirty = true
 	# Brand
 	if is_burning():
 		_tick_fire(dt, t)
@@ -342,7 +371,8 @@ func _apply_modifiers() -> void:
 		pm = profile.engine_heavy_power
 	elif fe < profile.engine_light_below:
 		pm = profile.engine_light_power
-	modifiers.engine_power_mul = pm
+	modifiers.engine_power_mul = pm * fuel.power_mul()   # M3: Ersatzbenzin
+	_power_mix = fuel.grade_mix
 	modifiers.engine_failed = engine_dead or hp[Zone.ENGINE] <= 0.0 or fuel.is_empty() \
 		or outcome == Outcome.CRASHED
 	# Einschusslöcher

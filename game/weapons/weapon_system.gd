@@ -67,11 +67,13 @@ func set_convergence(dist: float) -> void:
 	aim_dirs = lw.aim_directions(dist) if lw != null else PackedVector3Array()
 
 
-func reset() -> void:
+## refill = false (M3): Magazine behalten ihren Inhalt (Restzustand nach Landung).
+func reset(refill: bool = true) -> void:
 	trigger = [false, false]
 	cooldown.fill(0.0)
 	for m in magazines:
-		m.fill()
+		if refill:
+			m.fill()
 	for h in heat:
 		h.reset()
 	_close_events(-1)
@@ -213,6 +215,37 @@ func rearm(store: Object) -> int:
 	for m in magazines:
 		n += m.refill(store)
 	return n
+
+
+## M3 (Paket 0b): Gurt in Waffe i einlegen (RearmJob, nur Server). Holt bis zu n Schuss
+## (höchstens bis zur Kapazität) aus store (AmmoStore: request/available).
+## Rückgabe: geladene Schuss.
+func load_gun(i: int, store: Object, n: int) -> int:
+	if not Authority.is_server() or i < 0 or i >= magazines.size() or store == null or n <= 0:
+		return 0
+	var m := magazines[i]
+	var need := mini(m.capacity - m.count, n)
+	if need <= 0 or not store.has_method("request"):
+		return 0
+	var got := clampi(int(store.request(m.ammo_type, need)), 0, need)
+	m.count += got
+	return got
+
+
+## M3: Füllstand aller Waffen direkt setzen (ServiceState beim Spawn), f 0..1.
+func set_ammo_fraction(f: float) -> void:
+	f = clampf(f, 0.0, 1.0)
+	for m in magazines:
+		m.count = int(round(m.capacity * f))
+
+
+## M3: Munition und Kapazität einer Waffe (Statuspanel, RearmJob).
+func gun_ammo(i: int) -> int:
+	return magazines[i].count if i >= 0 and i < magazines.size() else 0
+
+
+func gun_capacity(i: int) -> int:
+	return magazines[i].capacity if i >= 0 and i < magazines.size() else 0
 
 
 ## Hitze der Gruppe (höchster Wert, 1 = heiß) für das HUD.

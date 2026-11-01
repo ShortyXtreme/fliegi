@@ -27,6 +27,10 @@ var weapon_fx: WeaponFx
 var spawn_manager: SpawnManager
 var scenario: CombatScenario
 var origin_shifter: OriginShifter
+## M3 (Paket 0b): Sitzwechsel und Bodenjobs (nur Server). Die Spieler-Maschine bleibt bis
+## Paket 14 voll startklar auf der Piste; PlayerSession verdrahtet erst Paket 14.
+var seat_service: SeatService
+var job_board: JobBoard
 
 
 func _ready() -> void:
@@ -35,6 +39,8 @@ func _ready() -> void:
 	if DisplayServer.get_name() != "headless":
 		DisplayServer.window_set_title("Flugkern %s" % Hud.VERSION)
 	CombatEvents.reset()
+	GroundEvents.reset()
+	MatchRules.load_ground_config()
 	ProjectileSystem.reset_targets()
 	var terrain := use_terrain and not "--testwelt" in OS.get_cmdline_user_args() \
 			and ResourceLoader.exists(TERRAIN_SCENE)
@@ -53,6 +59,12 @@ func _ready() -> void:
 	spawn_manager = SpawnManager.new()
 	spawn_manager.name = "SpawnManager"
 	add_child(spawn_manager)
+	seat_service = SeatService.new()
+	seat_service.name = "SeatService"
+	add_child(seat_service)
+	job_board = JobBoard.new()
+	job_board.name = "JobBoard"
+	add_child(job_board)
 	var data: AircraftData = load(FIGHTER)
 
 	player_aircraft = Aircraft.create(data)

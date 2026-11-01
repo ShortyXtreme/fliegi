@@ -9,3 +9,13 @@ func request(type: StringName, n: int) -> int:
 	n = maxi(n, 0)
 	issued[type] = int(issued.get(type, 0)) + n
 	return n
+
+
+func available(_type: StringName) -> int:
+	return 1 << 30
+
+
+func give_back(type: StringName, n: int) -> int:
+	n = maxi(n, 0)
+	issued[type] = int(issued.get(type, 0)) - n
+	return n

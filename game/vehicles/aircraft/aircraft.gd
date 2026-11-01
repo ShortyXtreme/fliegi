@@ -7,6 +7,8 @@ extends RigidBody3D
 ## M2-Vertrag (Paket 0): feste Aufrufstellen für Kampfsysteme, die Inhalte liegen in
 ## eigenen Dateien (weapons/, vehicles/aircraft/damage/). Reihenfolge pro Physik-Tick:
 ##   Seat.poll -> damage.filter_intent -> eject-Flanke -> weapons.tick -> damage.tick
+## M3-Vertrag (Paket 0b): place(..., refill, service), service_point(marker),
+## seat_on_ground()/seat_speed() für SeatService, pilot_seat.entry_offset = svc_entry.
 ## In _integrate_forces liest FlightModel die FlightModifiers (damage.modifiers).
 
 signal crashed(aircraft: Aircraft)
@@ -90,6 +92,8 @@ func _build(with_visual: bool) -> void:
 	pilot_seat = Seat.new()
 	pilot_seat.name = "PilotSeat"
 	pilot_seat.vehicle = self
+	# M3: Einstiegspunkt aus Marker svc_entry (sonst Ersatzposition)
+	pilot_seat.entry_offset = ServiceMarkers.aircraft_point(self, ServiceMarkers.SVC_ENTRY)
 	add_child(pilot_seat)
 
 	if with_visual:
@@ -163,8 +167,11 @@ func telemetry() -> FlightTelemetry:
 
 
 ## Setzt das Flugzeug an eine Position (Server). speed in m/s entlang der Nase.
+## M3 (Paket 0b): refill = true (Standard, M2-Verhalten) = neue, volle Maschine.
+## refill = false = Schäden, Treibstoff und Munition bleiben (Restzustand); service
+## (ServiceState) setzt danach Treibstoff/Munition/Zelle nach der Startregel.
 func place(xf: Transform3D, speed: float = 0.0, throttle: float = 0.0,
-		gear_down: bool = true) -> void:
+		gear_down: bool = true, refill: bool = true, service: ServiceState = null) -> void:
 	freeze = false
 	_placed_frame = Engine.get_physics_frames()
 	_fuel_mass_applied = 0.0
@@ -173,8 +180,11 @@ func place(xf: Transform3D, speed: float = 0.0, throttle: float = 0.0,
 	linear_velocity = -xf.basis.z * speed
 	angular_velocity = Vector3.ZERO
 	flight.reset(gear_down)
-	damage.reset()
-	weapons.reset()
+	if refill:
+		damage.reset()
+	weapons.reset(refill)
+	if service != null:
+		service.apply(self)
 	_eject_prev = false
 	if visual:
 		visual.snap_gear(flight.gear.extension)
@@ -183,11 +193,27 @@ func place(xf: Transform3D, speed: float = 0.0, throttle: float = 0.0,
 
 
 ## Startposition auf der Piste: Heck unten, Fahrwerk auf dem Boden.
-func place_on_ground(pos: Vector3, heading_dir: Vector3) -> void:
+## M3: refill/service wie place() (Abstellplatz-Spawn, Paket 10).
+func place_on_ground(pos: Vector3, heading_dir: Vector3, refill: bool = true,
+		service: ServiceState = null) -> void:
 	var fwd := heading_dir.normalized()
 	var b := Basis.looking_at(fwd, Vector3.UP)
 	b = b * Basis(Vector3.RIGHT, deg_to_rad(data.ground_pitch_deg))
-	place(Transform3D(b, pos + Vector3.UP * data.ground_height), 0.0, 0.0)
+	place(Transform3D(b, pos + Vector3.UP * data.ground_height), 0.0, 0.0, true, refill, service)
+
+
+## M3: Lage eines Service-Markers in Weltkoordinaten (ServiceMarkers.SVC_*).
+func service_point(marker: String) -> Vector3:
+	return global_transform * ServiceMarkers.aircraft_point(self, marker)
+
+
+## M3 SeatService: Bodenkontakt und Fahrt für Sitzwechsel.
+func seat_on_ground() -> bool:
+	return flight.telemetry.on_ground
+
+
+func seat_speed() -> float:
+	return linear_velocity.length()
 
 
 func is_hostile_to(other: Node) -> bool:

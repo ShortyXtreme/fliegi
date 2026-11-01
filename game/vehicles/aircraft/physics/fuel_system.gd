@@ -6,6 +6,11 @@ extends RefCounted
 
 const LEFT := 0
 const RIGHT := 1
+## M3 (Paket 0b): Treibstoffsorten. Ersatzbenzin senkt die Leistung um ERSATZ_POWER_LOSS
+## je Anteil Ersatz im Tank (power_mul(), wirkt über DamageModel auf engine_power_mul).
+const GRADE_AVIATION := &"aviation"
+const GRADE_ERSATZ := &"ersatz"
+const ERSATZ_POWER_LOSS := 0.12
 
 var capacity := PackedFloat32Array([180.0, 180.0])
 var liters := PackedFloat32Array([180.0, 180.0])
@@ -15,6 +20,9 @@ var burn_full_lps := 0.09
 var burn_idle_lps := 0.01
 ## Insgesamt ausgelaufen (l), für Effekte/Statistik.
 var leaked_total := 0.0
+## M3: Anteil Ersatzbenzin im Tank (0 = nur Flugbenzin, 1 = nur Ersatz). Verbrauch und Lecks
+## ändern den Anteil nicht (gleichmäßig gemischt).
+var grade_mix := 0.0
 
 
 func setup(cap_per_tank: float, burn_full: float, burn_idle: float) -> void:
@@ -28,6 +36,7 @@ func refill() -> void:
 	liters = capacity.duplicate()
 	leak_lps.fill(0.0)
 	leaked_total = 0.0
+	grade_mix = 0.0
 
 
 func total() -> float:
@@ -75,6 +84,53 @@ func tick(dt: float, throttle: float, running: bool) -> void:
 			var take := minf(rest, liters[k])
 			liters[k] -= take
 			rest -= take
+
+
+## M3: Treibstoff nachfüllen (RefuelJob). Verteilt gleichmäßig auf beide Tanks bis zur
+## Kapazität, mischt die Sorte ein. Rückgabe: tatsächlich aufgenommene Liter (Rest bleibt
+## beim Geber – Mengen-Erhalt).
+func add(l: float, grade: StringName = GRADE_AVIATION) -> float:
+	if l <= 0.0:
+		return 0.0
+	var before := total()
+	var free := space()
+	var take := minf(l, free)
+	if take <= 0.0:
+		return 0.0
+	var half := take * 0.5
+	var rest := take
+	for k in 2:
+		var share := minf(half, capacity[k] - liters[k])
+		liters[k] += share
+		rest -= share
+	for k in 2:   # Überhang in den Tank mit Platz
+		var share := minf(rest, capacity[k] - liters[k])
+		liters[k] += share
+		rest -= share
+	var added := take - maxf(rest, 0.0)
+	var ers := 1.0 if grade == GRADE_ERSATZ else 0.0
+	var now := before + added
+	if now > 0.0:
+		grade_mix = clampf((grade_mix * before + ers * added) / now, 0.0, 1.0)
+	return added
+
+
+## Freier Platz in beiden Tanks (l).
+func space() -> float:
+	return maxf(capacity[0] + capacity[1] - total(), 0.0)
+
+
+## M3: Leistungsfaktor der Sorte (1 = Flugbenzin, 0,88 = nur Ersatz).
+func power_mul() -> float:
+	return 1.0 - ERSATZ_POWER_LOSS * grade_mix
+
+
+## M3: Füllstand direkt setzen (ServiceState beim Spawn). fraction 0..1, gleich verteilt.
+func set_fraction(f: float, mix: float = 0.0) -> void:
+	f = clampf(f, 0.0, 1.0)
+	for k in 2:
+		liters[k] = capacity[k] * f
+	grade_mix = clampf(mix, 0.0, 1.0)
 
 
 func to_array() -> PackedFloat32Array:

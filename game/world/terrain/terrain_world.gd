@@ -201,6 +201,30 @@ func runway_spawn(index: int = 0, airfield_index: int = -1) -> Vector3:
 	return p
 
 
+## M3 (Paket 0b): Bodenplan des Platzes i (AirfieldLayout, Punkte lokal, center in
+## Szenenkoordinaten). Lädt res://ground_ops/airfield/data/airfield_<i>.tres (Paket 8),
+## sonst Ersatzplan passend zu den Gebäuden aus _build_airfields().
+const AIRFIELD_LAYOUT_PATH := "res://ground_ops/airfield/data/airfield_%d.tres"
+var _layouts := {}
+
+
+func airfield_layout(i: int = -1) -> AirfieldLayout:
+	if i < 0:
+		i = default_airfield
+	if not _layouts.has(i):
+		var af: Dictionary = data.airfields[i]
+		var l: AirfieldLayout = null
+		var p := AIRFIELD_LAYOUT_PATH % i
+		if ResourceLoader.exists(p):
+			l = (load(p) as AirfieldLayout).duplicate()
+		if l == null:
+			l = AirfieldLayout.make_default(i, RUNWAY_LENGTH, RUNWAY_WIDTH, int(af.get("nation", Nations.NONE)))
+		_layouts[i] = l
+	var lay: AirfieldLayout = _layouts[i]
+	lay.center = to_scene(data.airfields[i].center)   # folgt dem Floating Origin
+	return lay
+
+
 ## Ziel-Marker (Daten aus der Ressource, Positionen in Gelände-Koordinaten).
 func targets(type: String = "") -> Array[Dictionary]:
 	var out: Array[Dictionary] = []

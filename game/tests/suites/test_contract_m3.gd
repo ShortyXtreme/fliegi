@@ -201,3 +201,145 @@ func test_match_rules_ground() -> Array:
 	ok = ok and M.ground_realism == M.GroundRealism.STANDARD
 	return [ok, "Stufe Standard, cfg -> %s, --boden= -> %s, Startzustände 50/100, 15/0, Rest" % [
 		M.ground_realism_name(from_cfg), M.ground_realism_name(from_arg)]]
+
+
+# --- 0b: Spielsysteme ------------------------------------------------------------
+
+## place(refill=false) behält den Restzustand, ServiceState setzt Startzustände.
+func test_place_refill_service() -> Array:
+	var a := _spawn(true)
+	var cap := a.damage.fuel.capacity[0] + a.damage.fuel.capacity[1]
+	var guns := a.weapons.gun_count()
+	a.damage.apply_hit(DamageModel.Zone.TAIL, 30.0, null)
+	a.damage.fuel.set_fraction(0.22)
+	a.weapons.set_ammo_fraction(0.0)
+	var xf := a.global_transform
+	a.place(xf, 0.0, 0.0, true, false)                           # Restzustand
+	var keep := is_equal_approx(a.damage.fuel.fraction(), 0.22) and a.weapons.ammo() == 0 \
+		and a.damage.hp_fraction(DamageModel.Zone.TAIL) < 1.0
+	a.place(xf, 0.0, 0.0, true, false, ServiceState.for_start(MatchRules.StartKind.AFTER_LOSS))
+	var loss := is_equal_approx(a.damage.fuel.fraction(), 0.15) and a.weapons.ammo() == 0 \
+		and a.damage.hp_fraction(DamageModel.Zone.TAIL) == 1.0
+	a.place(xf, 0.0, 0.0, true, false, ServiceState.for_start(MatchRules.StartKind.FIRST))
+	var first := is_equal_approx(a.damage.fuel.fraction(), 0.5) and a.weapons.ammo() == a.weapons.ammo_max()
+	a.damage.fuel.set_fraction(0.3)
+	a.place(xf)                                                  # M2: voll
+	var full := is_equal_approx(a.damage.fuel.fraction(), 1.0) and a.weapons.ammo() == a.weapons.ammo_max()
+	var ok := keep and loss and first and full and guns > 0 and cap > 0.0
+	return [ok, "Rest=%s, nach Abschuss 15 %%/0=%s, erste 50 %%/voll=%s, M2 voll=%s" % [keep, loss, first, full]]
+
+
+## Mengen-Erhalt Lager -> Tank (Stub-Ebene) und Ersatzbenzin-Leistung.
+func test_fuel_conservation_and_grade() -> Array:
+	var a := _spawn(true)
+	var f := a.damage.fuel
+	f.set_fraction(0.1)
+	var depot := FuelDepot.new()
+	var sum0 := depot.total() + f.total()
+	var moved := 0.0
+	for k in 40:                                                 # 40 × 12 l, Tank läuft über
+		var got := depot.draw(FuelSystem.GRADE_AVIATION, 12.0)
+		var acc := f.add(got, FuelSystem.GRADE_AVIATION)
+		depot.deposit(FuelSystem.GRADE_AVIATION, got - acc)
+		moved += acc
+	var sum1 := depot.total() + f.total()
+	var cons := absf(sum1 - sum0) <= sum0 * 0.001 and is_equal_approx(f.fraction(), 1.0)
+	f.set_fraction(0.0)
+	f.add(100.0, FuelSystem.GRADE_ERSATZ)
+	await _step(2)
+	var p_ers := a.damage.modifiers.engine_power_mul
+	f.add(100.0, FuelSystem.GRADE_AVIATION)
+	await _step(2)
+	var p_mix := a.damage.modifiers.engine_power_mul
+	f.refill()
+	await _step(2)
+	var ok := cons and is_equal_approx(p_ers, 0.88) and is_equal_approx(p_mix, 0.94) \
+		and is_equal_approx(a.damage.modifiers.engine_power_mul, 1.0)
+	return [ok, "Summe %.1f -> %.1f l (umgefüllt %.1f l), Leistung Ersatz %.3f, 50/50 %.3f" % [
+		sum0, sum1, moved, p_ers, p_mix]]
+
+
+func test_repair_and_load_gun() -> Array:
+	var a := _spawn(true)
+	var d := a.damage
+	d.apply_hit(DamageModel.Zone.TAIL, 60.0, null)
+	var before := d.hp[DamageModel.Zone.TAIL]
+	var r1 := d.repair(DamageModel.Zone.TAIL, 25.0)
+	var r2 := d.repair(DamageModel.Zone.TAIL, 1000.0)
+	d.apply_hit(DamageModel.Zone.WING_L, 10000.0, null)          # Flügelbruch
+	var r3 := d.repair(DamageModel.Zone.WING_L, 50.0)
+	Authority.simulate_client = true
+	var a2 := _spawn(true)
+	a2.damage.hp[DamageModel.Zone.TAIL] = 10.0
+	var r4 := a2.damage.repair(DamageModel.Zone.TAIL, 5.0)
+	Authority.simulate_client = false
+	var w := a2.weapons
+	w.set_ammo_fraction(0.0)
+	var bunker := AmmoBunker.new({AmmoBunker.AMMO_792: 300})
+	var t: StringName = w.magazines[0].ammo_type
+	bunker.stock = {t: 300}
+	var l1 := w.load_gun(0, bunker, 200)
+	var l2 := w.load_gun(0, bunker, 10000)
+	var cap := w.gun_capacity(0)
+	var ok := is_equal_approx(r1, 25.0) and is_equal_approx(r2, d.hp_max[DamageModel.Zone.TAIL] - before - 25.0) \
+		and r3 == 0.0 and r4 == 0.0 and l1 == 200 and l2 == mini(100, cap - 200) \
+		and bunker.available(t) == 300 - l1 - l2 and w.gun_ammo(0) == l1 + l2 \
+		and InfiniteAmmoStore.new().available(t) > 1000000
+	return [ok, "Reparatur %.0f+%.0f HP, Flügelbruch %.0f, Client %.0f; Gurt %d+%d Schuss, Bunker Rest %d" % [
+		r1, r2, r3, r4, l1, l2, bunker.available(t)]]
+
+
+## Stubs aller neuen Klassen ladbar, Jobs/Board/Pistenvergabe mit festen Signaturen.
+func test_stub_classes() -> Array:
+	var board := JobBoard.new()
+	world.add_child(board)
+	var a := _spawn(true)
+	var jobs := [RefuelJob.new(), RearmJob.new(), RepairJob.new(), LoadOrdnanceJob.new()]
+	var ids := []
+	for j in jobs:
+		j.target = a
+		ids.append(board.add_job(j))
+	var blocked := []
+	GroundEvents.bus().job_blocked.connect(func(id, r): blocked.append(r))
+	board.request_step(1, ids[3], &"", 0.1)
+	Authority.simulate_client = true
+	var client_ok := board.request_step(1, ids[0], &"bring", 0.1) or board.add_job(RefuelJob.new()) != 0
+	Authority.simulate_client = false
+	var rc := RunwayControl.new()
+	var b := _spawn(true)
+	var rw := rc.request(a) and not rc.request(b)
+	rc.release(a)
+	rw = rw and rc.request(b)
+	rc.free()
+	var objs := [CrewCharacter.new(), CrewCamera.new(), FuelTruck.new(), AmmoCart.new(),
+		GroundCrewBrain.new(), GroundHud.create(null), Interactable.new()]
+	var seats_ok: bool = objs[0].crew_seat.role == Seat.Role.CREW and objs[2].driver_seat.role == Seat.Role.DRIVER \
+		and objs[2].passenger_seat.role == Seat.Role.PASSENGER and objs[2].tank.available(FuelSystem.GRADE_AVIATION) == 2000.0 \
+		and objs[3].store.available(AmmoBunker.AMMO_792) == 3000
+	for o in objs:
+		o.free()
+	var ph := AirfieldPhases.new()
+	var ok: bool = ids == [1, 2, 3, 4] and board.jobs_for(a).size() == 4 and jobs[0].steps.size() == 5 \
+		and jobs[1].steps.size() == 4 and blocked == [&"not_available"] and not client_ok and rw and seats_ok \
+		and ph.phase == AirfieldPhases.Phase.COMBAT and not ph.tick(a, PilotIntent.new(), 0.016) \
+		and GroundCrewBrain.COMMAND_LABELS.size() >= 6 \
+		and GroundRules.for_realism(MatchRules.GroundRealism.EINFACH).pump_lps == 30.0 \
+		and GroundRules.for_realism().pump_lps == 6.0 \
+		and GroundRules.for_realism(MatchRules.GroundRealism.AUTHENTISCH).pump_lps == 4.0
+	return [ok, "Jobs %s, blockiert %s, Client abgelehnt %s, Piste exklusiv %s, Sitze %s" % [
+		ids, blocked, not client_ok, rw, seats_ok]]
+
+
+## Service-Marker: Namen fest, Ersatzpositionen plausibel, Einstieg am Pilotensitz.
+func test_service_markers() -> Array:
+	var a := _spawn(true)
+	var pts := {}
+	for m in ServiceMarkers.AIRCRAFT:
+		pts[m] = ServiceMarkers.aircraft_point(a, m)
+	var e: Vector3 = pts[ServiceMarkers.SVC_ENTRY]
+	var ok: bool = pts[ServiceMarkers.SVC_GUN_HATCH_L].x < 0.0 and pts[ServiceMarkers.SVC_GUN_HATCH_R].x > 0.0 \
+		and e.x < 0.0 and a.pilot_seat.entry_offset == e \
+		and pts[ServiceMarkers.SVC_ENGINE].z < pts[ServiceMarkers.SVC_ENTRY].z \
+		and a.service_point(ServiceMarkers.SVC_ENTRY).distance_to(a.global_transform * e) < 1e-3 \
+		and ServiceMarkers.crate_slot(3) == "crate_slot_3"
+	return [ok, "Marker %s" % pts]
