@@ -191,6 +191,14 @@ func work_mul_of(worker: Node) -> float:
 	return m
 
 
+## Arbeitet hier KI-Personal (für Helferzahl und Wertung)?
+func is_ai_worker(worker: Node) -> bool:
+	if worker == null or not is_instance_valid(worker):
+		return false
+	var c := _controller_of(worker)
+	return c.is_ai() if c != null else worker.get("work_mul") != null
+
+
 # --- Abfertigung anlegen --------------------------------------------------------
 
 ## Legt die Jobs für eine Maschine an (bestehende offene gleicher Art bleiben).
