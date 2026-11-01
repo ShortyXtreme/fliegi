@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AIDifficulty" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ai/data/ai_difficulty.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+display_name = "Veteran"
+reaction_time = 0.25
+tracking_delay = 0.12
+fire_max_miss_m = 3.0
+fire_max_miss_frontal_m = 2.0
+aim_error_mrad = 2.5
+g_use = 0.95
+maneuvers = 7
+fire_range = 500.0
+fire_max_error_deg = 2.5
+burst_min = 0.5
+burst_max = 1.0
+pause_min = 0.3
+pause_max = 0.8
+altitude_advantage = 500.0
+ground_margin = 100.0

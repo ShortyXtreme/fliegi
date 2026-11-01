@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="WeaponDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://weapons/weapon_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+display_name = "MG 7,92 mm"
+caliber_mm = 7.92
+rpm = 600.0
+muzzle_velocity = 800.0
+projectile_mass = 0.0128
+ballistic_k = 0.0007
+dispersion_mrad = 1.5
+damage = 10.0
+tracer_every = 5
+max_range = 1500.0
+ammo_type = &"7.92mm"

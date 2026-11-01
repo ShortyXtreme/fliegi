@@ -231,7 +231,7 @@ func test_brakes_stop() -> Array:
 	var d := p0.distance_to(a.global_position)
 	var nose_over := a.global_transform.basis.y.y < 0.7
 	var ok := a.linear_velocity.length() < 0.5 and d < 200.0 and not nose_over
-	return [ok, "Bremsweg %.0f m, Restgeschw. %.1f m/s, überschlagen=%s" % [d, a.linear_velocity.length(), nose_over]]
+	return [ok, "Bremsweg %.0f m, Restgeschw. %.1f m/s, überschlagen=%s, outcome %d" % [d, a.linear_velocity.length(), nose_over, a.damage.outcome]]
 
 
 func test_landing() -> Array:
@@ -316,7 +316,8 @@ func test_main_scene_loads() -> Array:
 	await _step(120)
 	var game := n as Game
 	var ok := game != null and game.player_aircraft != null and game.ai_aircraft != null \
-		and game.ai_aircraft.pilot_seat.controller is AIController \
+		and (game.ai_aircraft.pilot_seat.controller is AIController \
+			or game.ai_aircraft.pilot_seat.controller is AIPilotBrain) \
 		and game.player_aircraft.pilot_seat.controller is PlayerController
 	n.queue_free()
 	await _step(2)

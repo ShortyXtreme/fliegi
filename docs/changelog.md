@@ -1,5 +1,41 @@
 # Änderungsprotokoll Flugkern
 
+## M2 „Luftkampf 1 gegen 3“ – Paket 14 Integration (01.11.2026)
+
+Spielbare Testversion M2. Enthält die Pakete 1–13 und 15 (Waffen, Schaden, KI, Kampf-HUD, Effekte, Gelände, Floating Origin, Überhitzung) und deren Integration.
+
+### Spiel
+- **Hauptszene:** Gelände (40 × 40 km) statt Testwelt. Der Spieler startet auf Platz Blau mit Parkbremse. 3 rote KI-Jäger (Stufe „Erfahren“) patrouillieren 6–10 km entfernt und greifen an. Ist der Spieler in der Luft und mehr als 2,5 km vom eigenen Platz weg, lenkt die Bodenleitung die Gegner zu ihm. Abgeschossene Gegner starten nach 30–60 s über Platz Rot neu. Der Spieler startet 15 s nach einem Verlust neu.
+- **Einstellbar:** KI-Stufe und Anzahl der Gegner über `user://flugkern.cfg` (`[m2] ki_stufe`, `gegner`) oder die Startoptionen `--ki=`/`--gegner=`. `--testwelt` lädt die alte Welt.
+- **Kill-Feed mit Namen** („Rot 1“ …, neu gestartete Gegner zählen weiter). **XP:** Abschuss +100, Mithilfe +40. Gutgeschrieben wird bei Stillstand auf Platz Blau.
+- **Steuerung:** Feuer mit Linksklick oder Leertaste, am Pad mit RT. Notausstieg: J bzw. Steuerkreuz ← 1 s halten (nur bei schwerem Schaden). Der Hinweis erscheint nur kurz beim Halten.
+- **Abriss-Warnung (Tester-Feedback):** beginnt jetzt 1,5° statt 3° vor dem Abriss und wird progressiv stärker (Rütteln 0,1 → 0,75, Warnton lauter werdend, HUD).
+- **HUD:** Das alte Text-HUD ist aus, das neue Flug-Panel unten links zeigt alles. Fenstertitel und Hilfe zeigen „M2“.
+
+### Technik
+- Das Spielmodell `fighter_t1_game.glb` liegt jetzt in `res://` (importiert). Den Gegner unterscheiden nur getauschte Albedo-Texturen, das spart ca. 10 MB. Normal- und ORM-Texturen sind auf 1024/512 px begrenzt und VRAM-komprimiert (S3TC). Die Kollisions-Hilfsnetze `col_*` des Modells werden nicht mehr als Körper importiert; vorher stürzten KI-Flugzeuge dadurch sofort ab. Das alte `fighter_t1.glb` ist entfernt.
+- `ProjectileSystem`: Die Ziel-ID wird jeden Tick aus `entity_id` neu gelesen. Neu ist `shift_origin()` (ebenso in `TransformHistory` und `WeaponFx`). Der `OriginShifter` hängt in der Hauptszene, ist aber standardmäßig aus.
+- `SpawnManager.register(…, delay)` erlaubt eine eigene Ausfallzeit je Flugzeug.
+- **Flugzeug:** Die Treibstoffmasse ist gekoppelt (0,72 kg/l). `telemetry.fuel_fraction` und `DamageModel.health_fraction()/is_critical()` sind für die KI da (Rückzug bei Schaden, Brand, Motorausfall oder unter 12 % Treibstoff). Wracks frieren nach einem Absturz ein. Kontakte in den ersten 3 Ticks nach `place()` werden ignoriert.
+- **Schaden:** Ein zerschossenes Leitwerk (0 HP) zählt als Abschuss. Neu ist der Strukturbruch ab 320 HP Gesamtschaden (`DamageProfile.structure_hp`), damit auch verteilte Treffer in 15–40 Treffern zum Abschuss führen. Streift die Nase beim Bremsen mit Rädern am Boden unter 20 m/s, ist das kein Absturz mehr.
+- **KI (BFM):** Das Zielen nutzt eine eigene, kürzere Nachführ-Verzögerung (`tracking_delay` 0,3/0,18/0,12 s), Entscheidungen weiter die Reaktionszeit. Gefeuert wird nur bei vorhergesagter Ablage ≤ 6/4/3 m, frontal ≤ 3,5/2,5/2 m; ein Feuerstoß bricht ab, wenn die Ablage zu groß wird. Lag-, Pure- und Lead-Verfolgung wechseln mit Hysterese. Vor frontalen Begegnungen baut die KI 450 m seitlichen Versatz auf. Je nach Energie fliegt sie High- oder Low-Yo-Yo. Ein Patt-Brecher greift nach 8 s Kreiskampf (vertikal, Umkehrkurve oder Extend). Am Heck des Gegners bleibt sie trotz geringer Fahrt dran, und sie sinkt nicht mehr in einer Spirale ab. Der Arcade-Abriss-Schutz (1,25° Abstand) wurde geprüft und ist nicht der Engpass.
+
+### Messwerte (Duell-Suite slow, echte Hitboxen und echter Schaden)
+| | vorher | nachher |
+|---|---|---|
+| Abschüsse flach (10 Seeds, 180 s) | 0/10 | 6/10 (je nach Stand 5–7) |
+| Abschüsse Hügel | – | 8/10 |
+| Veteran gegen Rekrut | – | 8 : 0 |
+| Treffer/Schuss | 5,8 % | 19,8 % (Hügel 25 %) |
+| Ablage beim Feuern | 10,7 m | 4,0 m |
+| Anteil frontaler Schüsse | 28 % | 0 % |
+| Bodenkollisionen | 0 % | 0 % |
+
+Die Abnahme 6 ist im flachen Gelände noch nicht erreicht (6 statt 8 von 10). Der Rest-Engpass ist der symmetrische Kurvenkampf zweier gleich starker KIs.
+
+### Tests
+- fast 100/100; slow 4/5 (`test_duels_flat` rot, siehe oben). Neu ist `test_tracking_turning_target`. Die KI-Tests nutzen echte Hitboxen, die Ersatz-Hitboxen sind entfernt.
+
 ## M2 Paket 0 „Vertragsschnitt“ (31.10.2026)
 
 Grundlage: `docs/plan_m2.md` §7. Die Schnittstellen und die Dateien je Agent stehen in `docs/m2_vertrag.md`. Die Flugphysik ist unverändert, alle M1.1-Messwerte sind identisch.

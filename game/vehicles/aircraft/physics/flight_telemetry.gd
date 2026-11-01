@@ -12,6 +12,8 @@ var stall_aoa: float = 0.26        # rad, Abriss-Anstellwinkel (Rumpf, aktuelle 
 var stall_aoa_base: float = 0.26   # rad, Abriss-Anstellwinkel ohne Klappen
 var aoa_rate: float = 0.0          # rad/s
 var downwash: float = 0.0          # rad, Abwind am Höhenleitwerk
+## Treibstoff-Füllstand 0..1 (setzt Aircraft aus damage.fuel, Paket 14).
+var fuel_fraction: float = 1.0
 var buffet: float = 0.0            # 0..1, Vorwarnung/Schütteln vor und im Abriss
 var g_load: float = 1.0
 var thrust: float = 0.0            # N

@@ -116,6 +116,7 @@ func _reset_globals() -> void:
 	MatchRules.reset()
 	Spotting.reset()
 	WorldGround.clear_provider()
+	ProjectileSystem.reset_targets()
 
 
 func _run_one(s: TestSuite, m: String) -> void:

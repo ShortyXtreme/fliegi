@@ -10,7 +10,8 @@ extends RefCounted
 const SEA_LEVEL_RHO := 1.225
 const SCALE_HEIGHT := 8500.0
 ## Vorwarnung (Buffet) beginnt so viele Grad vor dem Abriss-Anstellwinkel.
-const BUFFET_ONSET := deg_to_rad(3.0)
+## Vorwarnung (Rütteln/Ton/HUD) ab so vielen Grad vor dem Abriss (Tester M1.1: 3° war zu früh).
+const BUFFET_ONSET := deg_to_rad(1.5)
 
 var data: AircraftData
 var surfaces: Array[AeroSurface] = []
@@ -190,8 +191,10 @@ func integrate(state: PhysicsDirectBodyState3D, cmd: ControlCommands, exclude: A
 	if t.on_ground or speed < 15.0:
 		t.buffet = 0.0
 	else:
+		# progressiv: erst leicht (0,1), kurz vor dem Abriss stark (0,75)
 		var pre := clampf((t.aoa - (t.stall_aoa - BUFFET_ONSET)) / BUFFET_ONSET, 0.0, 1.0)
-		t.buffet = clampf(maxf(pre * 0.7, t.stall_amount), 0.0, 1.0) * clampf(speed / 40.0, 0.3, 1.0)
+		var warn := 0.1 + 0.65 * pre * pre if pre > 0.0 else 0.0
+		t.buffet = clampf(maxf(warn, t.stall_amount), 0.0, 1.0) * clampf(speed / 40.0, 0.3, 1.0)
 	if speed > 1.0:
 		var vdir := vel / speed
 		var total_nongrav := aero_total + thrust_vec

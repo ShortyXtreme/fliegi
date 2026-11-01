@@ -129,7 +129,7 @@ static func make() -> AircraftData:
 	d.wing_box_center = Vector3(0, -0.2, 0.6)
 	d.wing_box_size = Vector3(10.7, 0.3, 2.2)
 
-	d.model_path = "res://vehicles/aircraft/models/fighter_t1.glb"
+	d.model_path = "res://vehicles/aircraft/models/fighter_t1_game.glb"
 	d.model_rotation_deg = Vector3(0, 180, 0)   # glTF +Z vorn -> Godot -Z vorn
 	# Modell ist maßstäblich (10,7 m Spannweite). Verschiebung: Flügel-t/4 auf Schwerpunkt.
 	d.model_offset = Vector3(0, 0, 1.5)

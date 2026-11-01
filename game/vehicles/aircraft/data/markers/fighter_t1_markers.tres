@@ -1,0 +1,48 @@
+[gd_resource type="Resource" script_class="AircraftMarkers" format=3]
+
+[ext_resource type="Script" path="res://vehicles/aircraft/data/markers/aircraft_markers.gd" id="1_ul3e1"]
+
+[resource]
+script = ExtResource("1_ul3e1")
+zone_names = PackedStringArray("cockpit", "engine", "fuel_tank_L", "fuel_tank_R", "tail", "wing_L", "wing_R")
+zone_centers = PackedVector3Array(0, 0.55, 1.1994, 0, 0.049999997, -1.8005999, -1.15, -0.22, 0.049399998, 1.15, -0.22, 0.049399998, 0, 0.65, 5.5494, -3, -0.049999997, 0.1494, 3, -0.049999997, 0.1494)
+zone_half_extents = PackedVector3Array(0.35, 0.45, 0.79999995, 0.45, 0.45, 0.84999996, 0.5, 0.12, 0.45, 0.5, 0.12, 0.45, 1.8499999, 0.9, 0.75, 2.35, 0.25, 0.84999996, 2.35, 0.25, 0.84999996)
+gun_names = PackedStringArray("gun_wing_L", "gun_wing_R")
+gun_positions = PackedVector3Array(-2.35, -0.0682, -0.8904, 2.35, -0.0682, -0.8904)
+gun_dirs = PackedVector3Array(0, 0, -1, 0, 0, -1)
+gun_calibers = PackedFloat32Array(7.9, 7.9)
+hardpoint_names = PackedStringArray("hardpoint_center", "hardpoint_wing_L", "hardpoint_wing_R")
+hardpoint_positions = PackedVector3Array(0, -0.5512, -0.95059997, -2.75, -0.1065, -0.0506, 2.75, -0.106699996, -0.0506)
+hardpoint_max_kg = PackedFloat32Array(250, 50, 50)
+points = {
+"ammo_bay_L": Vector3(-2.35, 0.050699998, 0.0796),
+"ammo_bay_R": Vector3(2.35, 0.050699998, 0.0796),
+"cam_cockpit": Vector3(0, 0.9, 1.4793999),
+"cg": Vector3(0, 0, 0),
+"contact_main_L": Vector3(-1.6999999, -1.8199999, -0.3506),
+"contact_main_R": Vector3(1.6999999, -1.8199999, -0.3506),
+"contact_tail": Vector3(0, -0.445, 5.7394),
+"exhaust_L": Vector3(-0.5147, 0.19, -1.7005999),
+"exhaust_L_dir": Vector3(-0.99014753, -0.09901475, -0.09901466),
+"exhaust_R": Vector3(0.5147, 0.19, -1.7005999),
+"exhaust_R_dir": Vector3(0.99014753, -0.09901475, -0.09901484),
+"fuel_port": Vector3(0, 0.5814, -0.25059998),
+"pivot_aileron_L": Vector3(-2.912, -0.014599999, 0.7208),
+"pivot_aileron_R": Vector3(2.912, -0.014599999, 0.7208),
+"pivot_canopy": Vector3(0, 0.45999998, 0.67939997),
+"pivot_elevator": Vector3(0, 0.22999999, 5.5994),
+"pivot_flap_L": Vector3(-0.63199997, -0.2392, 0.9977),
+"pivot_flap_R": Vector3(0.63199997, -0.2392, 0.9977),
+"pivot_gear_main_L": Vector3(-1.8499999, -0.14, -0.0506),
+"pivot_gear_main_R": Vector3(1.8499999, -0.14, -0.0506),
+"pivot_prop_disc": Vector3(0, 0.035, -2.9606),
+"pivot_propeller": Vector3(0, 0.035, -2.9606),
+"pivot_rudder": Vector3(0, 0.43199998, 5.8171997),
+"pivot_tailwheel": Vector3(0, 0.12, 5.5994),
+"pivot_wheel_main_L": Vector3(-1.6999999, -1.48, -0.3506),
+"pivot_wheel_main_R": Vector3(1.6999999, -1.48, -0.3506),
+"pivot_wheel_tail": Vector3(0, -0.32999998, 5.7394),
+"wingtip_L": Vector3(-5.3231997, 0.2279, 0.0089),
+"wingtip_R": Vector3(5.3231997, 0.2279, 0.0089)
+}
+source = "art/models/fighter_t1_game.glb"
