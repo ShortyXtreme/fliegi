@@ -11,8 +11,9 @@ extends Node3D
 ## height_at (so bleibt height_at bei Floating-Origin-Verschiebungen richtig).
 ##
 ## height_at() rechnet mit derselben Dreiecksteilung wie die Physik (Jolt-Höhenfeld):
-## je Zelle zwei Dreiecke mit der Diagonale (i, j)–(i+1, j+1). Innerhalb eines Dreiecks
-## ist das linear, auf den Gitterlinien gleich der bilinearen Interpolation.
+## je Zelle zwei Dreiecke mit der Diagonale (i+1, j)–(i, j+1). Auf den Gitterlinien ist das
+## gleich der bilinearen Interpolation, innerhalb der Zelle weicht die Bilineare um wenige
+## Zentimeter ab; gemessen gegen Raycasts < 1 mm (Test world/test_terrain).
 
 const RUNWAY_DIR := Vector3(0, 0, -1)
 const DATA_PATH := "res://world/terrain/data/terrain_main.res"
@@ -128,13 +129,13 @@ func height_at_terrain(x: float, z: float) -> float:
 	var u := fx - i
 	var v := fz - j
 	var k := j * _n + i
-	var h00 := heights[k]
-	var h11 := heights[k + _n + 1]
-	if u >= v:
-		var h10 := heights[k + 1]
-		return h00 + (h10 - h00) * u + (h11 - h10) * v
+	var h10 := heights[k + 1]
 	var h01 := heights[k + _n]
-	return h00 + (h01 - h00) * v + (h11 - h01) * u
+	if u + v <= 1.0:
+		var h00 := heights[k]
+		return h00 + (h10 - h00) * u + (h01 - h00) * v
+	var h11 := heights[k + _n + 1]
+	return h11 + (h01 - h11) * (1.0 - u) + (h10 - h11) * (1.0 - v)
 
 
 ## Bilineare Höhe (glatt, z. B. für Kamera/Optik). Weicht innerhalb einer Zelle um
@@ -247,7 +248,7 @@ func _build_tiles() -> void:
 
 
 ## Gitter-Mesh einer Kachel: VERTEX.xz = Gitterindex (0..cells), VERTEX.y = 1 für Schürze.
-## Dreiecksteilung wie das Physik-Höhenfeld (Diagonale (i, j)–(i+1, j+1)).
+## Dreiecksteilung wie das Physik-Höhenfeld (Diagonale (i+1, j)–(i, j+1)).
 static func _lod_mesh(cells: int, step: int) -> ArrayMesh:
 	var n := cells / step
 	var w := n + 1
@@ -262,8 +263,8 @@ static func _lod_mesh(cells: int, step: int) -> ArrayMesh:
 			var b := a + 1
 			var c := a + w
 			var d := c + 1
-			# Dreiecke (a, d, b) und (a, c, d), Vorderseite oben (CW von oben gesehen)
-			idx.append_array([a, b, d, a, d, c])
+			# Dreiecke (a, b, c) und (b, d, c), Diagonale b–c wie Jolt
+			idx.append_array([a, b, c, b, d, c])
 	# Schürzen an den vier Rändern gegen Risse zwischen LODs
 	var edges := [[], [], [], []]
 	for k in w:
