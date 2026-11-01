@@ -159,3 +159,10 @@ Höchstens 3 Agenten gleichzeitig. Jedes Paket ist nach ≤ 45 min committbar, g
 - /home/claude/fliegi/game/world/spawn_manager.gd
 - /home/claude/fliegi/game/ai/brain/ai_pilot_brain.gd
 - /home/claude/fliegi/game/world/terrain/terrain_world.gd
+## Entscheidungen des Product Owners (01.11.2026)
+1. Ansicht: Third-Person als Standard, Ego-Sicht mit C umschaltbar – bestätigt.
+2. Tanken: wie vorgeschlagen je Stufe (Vereinfacht Taste; Standard Schlauch tragen + 2 s ankoppeln; Authentisch zusätzlich Erden, Deckel, Ventil, Überlauf). Standard voreingestellt – bestätigt.
+3. Reparatur light in M3 – bestätigt (Flügelbruch/Brand nicht reparierbar, Teilewechsel später).
+4. Tankwagen und Munitionswagen selbst fahren; KI fährt auf Befehl – bestätigt.
+5. Bomben erst später (mit Bomber/Jagdbomber); Schnittstelle LoadOrdnanceJob in Paket 0 vorbereiten – bestätigt.
+6. Alarmstart mit Countdown + Bestzeit (alle 12–15 min, Debugtaste); erste Maschine 50 % Treibstoff + volle Munition, nach Abschuss 15 % Treibstoff + 0 Munition, nach Landung Restzustand – bestätigt.
