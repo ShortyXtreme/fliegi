@@ -15,6 +15,9 @@ signal reset_requested(in_air: bool)
 signal gear_toggled(down: bool, accepted: bool)
 ## Notausstieg-Taste (J / Steuerkreuz ←): progress 0..1 während des Haltens, 1 = ausgelöst.
 signal eject_hold_changed(progress: float)
+## M3: Aussteigen im Stand (J / Steuerkreuz ← 1 s halten, nur mit exit_on_ground und
+## Fahrt < Seat.MAX_SWITCH_SPEED am Boden). PlayerSession ruft dann SeatService.request_exit.
+signal exit_requested
 
 const KEY_RAMP := 4.0              # Tastatur-Rampe (Einheiten/s) -> weich statt digital
 const THROTTLE_RATE := 0.6         # Gas pro Sekunde beim Halten
@@ -50,10 +53,17 @@ var _lmb_swallow := false
 ## Haltezeit der Notausstieg-Taste (s); eject_hold_progress 0..1 für das HUD.
 var _eject_t := 0.0
 var eject_hold_progress := 0.0
+## M3 (Paket 0a): true = die Halte-Taste steigt am Boden im Stand aus (statt Notausstieg).
+## Bis Paket 14 aus (M2-Verhalten); PlayerSession schaltet es ein.
+var exit_on_ground := false
+## Gilt der aktuelle Haltevorgang als Aussteigen (true) oder Notausstieg (false)?
+var exit_mode := false
+var _exit_sent := false
 
 
 func _init() -> void:
 	InputBindings.setup()
+	peer_id = Authority.local_peer_id()
 
 
 func on_possess(s: Seat) -> void:
@@ -261,8 +271,18 @@ func compute_intent(dt: float) -> PilotIntent:
 	var lmb_ok := _lmb_fire and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	i.fire_primary = Input.is_action_pressed("fire_primary") or lmb_ok
 	i.fire_secondary = Input.is_action_pressed("fire_secondary")
-	_update_eject_hold(Input.is_action_pressed("eject_hold"), dt)
-	i.eject = _eject_t >= InputBindings.EJECT_HOLD_TIME
+	var held := Input.is_action_pressed("eject_hold")
+	if not held or _eject_t == 0.0:
+		exit_mode = exit_on_ground and v != null and SeatService.vehicle_on_ground(v) \
+			and SeatService.vehicle_speed(v) < Seat.MAX_SWITCH_SPEED
+	_update_eject_hold(held, dt)
+	var done := _eject_t >= InputBindings.EJECT_HOLD_TIME
+	i.eject = done and not exit_mode
+	if not held:
+		_exit_sent = false
+	elif done and exit_mode and not _exit_sent:
+		_exit_sent = true
+		exit_requested.emit()
 	return i.clamp_values()
 
 

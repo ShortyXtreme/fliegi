@@ -3,7 +3,7 @@ extends SceneTree
 ## Findet alle Testdateien unter tests/suites/ (rekursiv, *.gd mit extends TestSuite)
 ## automatisch – neue Tests brauchen KEINE Änderung an dieser Datei.
 ## Jeder Test bekommt eine frische Welt und frische globale Zustände (CombatEvents,
-## Nations, MatchRules, Spotting, WorldGround). Physik mit --fixed-fps 60 deterministisch.
+## Nations, MatchRules, Spotting, WorldGround; M3: GroundEvents, Authority.simulate_client). Physik mit --fixed-fps 60 deterministisch.
 ##
 ## Optionen (nach "--"):
 ##   --suite=fast|slow|all   Standard fast
@@ -117,6 +117,8 @@ func _reset_globals() -> void:
 	Spotting.reset()
 	WorldGround.clear_provider()
 	ProjectileSystem.reset_targets()
+	GroundEvents.reset()     # M3
+	Authority.reset()        # M3: simulate_client aus
 
 
 func _run_one(s: TestSuite, m: String) -> void:

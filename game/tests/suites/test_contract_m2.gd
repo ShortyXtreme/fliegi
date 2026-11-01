@@ -117,27 +117,17 @@ func test_aircraft_combat_hooks() -> Array:
 	return [ok, "WeaponSystem/DamageModel verdrahtet, Eject-Flanke gesperrt=%s, Abzug %s" % [ejects, fired]]
 
 
-## Keine Taste / kein Knopf / keine Achsrichtung gehört zwei Aktionen.
+## Keine Taste / kein Knopf / keine Achsrichtung gehört zwei Aktionen – je Eingabe-Kontext
+## (M3: FLIGHT, CREW, DRIVE, jeweils inkl. GLOBAL). Hier geprüft: Kontext FLIGHT = M2-Belegung.
 func test_binding_conflicts() -> Array:
 	InputBindings.setup()
 	var seen := {}
 	var dup := []
-	for act in InputMap.get_actions():
-		if String(act).begins_with("ui_"):
-			continue
-		for ev in InputMap.action_get_events(act):
-			var key := ""
-			if ev is InputEventKey:
-				key = "key:%d" % ev.physical_keycode
-			elif ev is InputEventJoypadButton:
-				key = "btn:%d" % ev.button_index
-			elif ev is InputEventJoypadMotion:
-				key = "axis:%d:%d" % [ev.axis, signi(int(ev.axis_value))]
-			elif ev is InputEventMouseButton:
-				key = "mouse:%d" % ev.button_index
-			if seen.has(key) and seen[key] != act:
-				dup.append("%s=%s/%s" % [key, seen[key], act])
-			seen[key] = act
+	for ctx in InputBindings.Context.values():
+		var r := binding_map(ctx)
+		dup.append_array(r[1])
+		if ctx == InputBindings.Context.FLIGHT:
+			seen = r[0]
 	var has := func(act: String, ev_key: String) -> bool: return seen.get(ev_key, &"") == StringName(act)
 	var ok: bool = dup.is_empty() \
 		and has.call("fire_primary", "axis:%d:1" % JOY_AXIS_TRIGGER_RIGHT) \
@@ -151,7 +141,30 @@ func test_binding_conflicts() -> Array:
 		and has.call("fire_primary", "key:%d" % KEY_SPACE) \
 		and has.call("eject_hold", "key:%d" % KEY_J) \
 		and not seen.has("mouse:%d" % MOUSE_BUTTON_LEFT)
-	return [ok, "%d Belegungen, Konflikte: %s" % [seen.size(), dup if not dup.is_empty() else "keine"]]
+	return [ok, "%d Belegungen (Flug), Konflikte: %s" % [seen.size(), dup if not dup.is_empty() else "keine"]]
+
+
+## Belegung eines Kontexts: [ereignis -> aktion, Konflikte].
+static func binding_map(ctx: int) -> Array:
+	var seen := {}
+	var dup := []
+	for act in InputBindings.actions_for(ctx):
+		if not InputMap.has_action(act):
+			continue
+		for ev in InputMap.action_get_events(act):
+			var key := ""
+			if ev is InputEventKey:
+				key = "key:%d" % ev.physical_keycode
+			elif ev is InputEventJoypadButton:
+				key = "btn:%d" % ev.button_index
+			elif ev is InputEventJoypadMotion:
+				key = "axis:%d:%d" % [ev.axis, signi(int(ev.axis_value))]
+			elif ev is InputEventMouseButton:
+				key = "mouse:%d" % ev.button_index
+			if seen.has(key) and seen[key] != act:
+				dup.append("%s:%s=%s/%s" % [InputBindings.CONTEXT_NAMES[ctx], key, seen[key], act])
+			seen[key] = act
+	return [seen, dup]
 
 
 ## PlayerController: Feuer über Aktion, Notausstieg erst nach 1 s Halten, Seitenruder über LB/RB-Aktion.
