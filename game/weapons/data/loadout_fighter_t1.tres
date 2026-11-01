@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="WeaponLoadout" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://weapons/weapon_loadout.gd" id="1"]
+[ext_resource type="Script" path="res://weapons/gun_mount_def.gd" id="2"]
+[ext_resource type="Resource" path="res://weapons/data/mg_t1.tres" id="3"]
+
+[sub_resource type="Resource" id="gun_L"]
+script = ExtResource("2")
+marker_name = "gun_L"
+position = Vector3(-1.9, -0.3, -0.9)
+group = 0
+weapon = ExtResource("3")
+ammo = 500
+
+[sub_resource type="Resource" id="gun_R"]
+script = ExtResource("2")
+marker_name = "gun_R"
+position = Vector3(1.9, -0.3, -0.9)
+group = 0
+weapon = ExtResource("3")
+ammo = 500
+
+[resource]
+script = ExtResource("1")
+mounts = Array[ExtResource("2")]([SubResource("gun_L"), SubResource("gun_R")])
+convergence = 250.0
+sight_position = Vector3(0, 0.95, 0.9)
+harmonize_speed = 0.0
