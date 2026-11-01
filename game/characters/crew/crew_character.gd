@@ -19,6 +19,8 @@ signal focus_changed(it: Interactable)
 signal anim_state_changed(state: int)
 signal view_toggle_requested
 signal action_performed(it: Interactable, action_id: StringName)
+signal carried_changed(item: Node)
+signal seat_request_result(result: int, seat: Seat)
 
 enum AnimState { IDLE, WALK, RUN, CARRY, HOSE, WORK, ENTER }
 const ANIM_NAMES: Array[StringName] = [&"idle", &"walk", &"run", &"carry", &"hose", &"work", &"enter"]
@@ -55,6 +57,8 @@ var hold_t := 0.0
 var hold_progress := 0.0
 var _hold_key := ""
 var _hold_done := false
+## Nach einer ausgelösten Aktion erst Taste loslassen (keine Kettenauslösung).
+var _await_release := false
 
 var anim_state: int = AnimState.IDLE
 var anim_speed := 0.0
@@ -155,9 +159,100 @@ func step(i: CrewIntent, dt: float) -> void:
 	_update_anim(dt)
 
 
-## Haken für Paket 5 (Tragen, Ablegen, Einsteigen).
-func _after_step(_i: CrewIntent, _dt: float) -> void:
-	pass
+## Paket 5: Ablegen (G) und Einsteigen (F) als Flanken aus dem Intent.
+func _after_step(i: CrewIntent, _dt: float) -> void:
+	if i.drop and carried != null:
+		drop_item()
+	if i.enter:
+		try_enter()
+
+
+# --- Tragen (Paket 5) ----------------------------------------------------------
+
+## Nur Server: Gegenstand aufnehmen (Hände müssen frei sein).
+func pick_up(item: CarryItem) -> bool:
+	if not Authority.is_server() or item == null or carried != null:
+		return false
+	if item.holder != null or item.locked:
+		return false
+	if item.get_parent() != null:
+		item.get_parent().remove_child(item)
+	carry_point.add_child(item)
+	item.position = Vector3.ZERO
+	item.rotation = Vector3.ZERO
+	carried = item
+	item.on_picked(self)
+	carried_changed.emit(item)
+	return true
+
+
+## Nur Server: Gegenstand vor die Füße legen. Rückgabe: der Gegenstand (oder null).
+func drop_item() -> CarryItem:
+	var item := release_item()
+	if item == null:
+		return null
+	var p := global_position + yaw_forward(heading) * 0.6
+	p = item.constrain(p)
+	_world_host().add_child(item)
+	item.global_position = Vector3(p.x, WorldGround.height_at(p.x, p.z), p.z)
+	item.rotation = Vector3(0.0, heading, 0.0)
+	return item
+
+
+## Nur Server: Gegenstand aus der Hand lösen, ohne ihn abzulegen (Verbraucher übernimmt,
+## z. B. Schlauch ankoppeln, Kiste in den Wagen). Der Gegenstand hat danach keinen Eltern-Knoten.
+func release_item() -> CarryItem:
+	if not Authority.is_server() or carried == null or not is_instance_valid(carried):
+		carried = null
+		return null
+	var item: CarryItem = carried
+	carried = null
+	if item.get_parent() != null:
+		item.get_parent().remove_child(item)
+	item.on_dropped(self)
+	carried_changed.emit(null)
+	return item
+
+
+func _world_host() -> Node:
+	var host: Node = self
+	while host.get_parent() != null and host.get_parent() != get_tree().root:
+		host = host.get_parent()
+	return host if host != self else get_parent()
+
+
+# --- Einsteigen (Paket 5) ------------------------------------------------------
+
+## Nächster Sitz-Punkt (Interactable mit seat) in Seat.ENTRY_RANGE, Blickrichtung bevorzugt.
+func seat_candidate() -> Seat:
+	var best: Seat = null
+	var best_s := INF
+	var fwd := yaw_forward(look_yaw)
+	for it in Interactable.all():
+		if it.seat == null or not it.enabled or it.seat.is_human_occupied():
+			continue
+		var to := it.seat.entry_position() - global_position
+		var d := Vector2(to.x, to.z).length()
+		if d > Seat.ENTRY_RANGE:
+			continue
+		var s := d + (1.0 - Vector3(to.x, 0, to.z).normalized().dot(fwd)) * 0.5
+		if s < best_s:
+			best_s = s
+			best = it.seat
+	return best
+
+
+## F: über SeatService einsteigen. Getragenes wird vorher abgelegt.
+func try_enter(s: Seat = null) -> int:
+	var seat_t := s if s != null else seat_candidate()
+	var svc := SeatService.current
+	var res := SeatService.Result.INVALID
+	if seat_t != null and svc != null and crew_seat.controller != null:
+		if carried != null:
+			drop_item()
+		res = svc.request_enter(crew_seat.controller.peer_id, self, seat_t)
+	seat_request_result.emit(res, seat_t)
+	return res
 
 
 # --- Bewegung ------------------------------------------------------------------
@@ -238,12 +333,16 @@ func _update_focus() -> void:
 func current_action() -> Dictionary:
 	if focus == null:
 		return {}
-	var acts := focus.actions_for(self)
-	return acts[0] if not acts.is_empty() else {}
+	for a in focus.actions_for(self):
+		if a.id != InteractionPoints.ENTER:     # Einsteigen läuft über F (try_enter)
+			return a
+	return {}
 
 
 func _update_interact(i: CrewIntent, dt: float) -> void:
-	var a := current_action() if i.interact else {}
+	if not i.interact:
+		_await_release = false
+	var a := current_action() if i.interact and not _await_release else {}
 	if a.is_empty():
 		_reset_hold()
 		return
@@ -261,6 +360,7 @@ func _update_interact(i: CrewIntent, dt: float) -> void:
 	it.holding.emit(a.id, self, dt, hold_progress)
 	if hold_progress >= 1.0 and not _hold_done:
 		_hold_done = true
+		_await_release = true
 		working = false
 		it.performed.emit(a.id, self)
 		action_performed.emit(it, a.id)
