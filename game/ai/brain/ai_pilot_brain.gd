@@ -592,7 +592,7 @@ func _fire_window(a: Aircraft) -> bool:
 	if target == null:
 		return false
 	var d := a.global_position.distance_to(target.pos)
-	if d > _diff.fire_range or a.weapons == null or a.weapons.ammo() <= 0:
+	if d > fire_range_now(a) or a.weapons == null or a.weapons.ammo() <= 0:
 		return false
 	if d < 50.0:
 		return false
@@ -609,6 +609,26 @@ func _fire_window(a: Aircraft) -> bool:
 	_miss_limit = _diff.fire_max_miss_frontal_m if frontal else _diff.fire_max_miss_m
 	_last_miss = miss
 	return miss <= _miss_limit
+
+
+## M2.1: In einer festgefahrenen Heckverfolgung (gleich schnelles Ziel, kaum Annäherung,
+## Ziel fliegt von uns weg) darf die KI bis TAIL_CHASE_RANGE_MUL × fire_range feuern.
+## Vorher blieb sie z. B. 560 m hinter einem geradeaus fliegenden Spieler „kleben“
+## (fire_range 400 m) und schoss nie – Tester: „kein Schaden erhalten“.
+const TAIL_CHASE_RANGE_MUL := 1.6
+const TAIL_CHASE_MAX_CLOSING := 25.0
+func fire_range_now(a: Aircraft) -> float:
+	var r := _diff.fire_range
+	if target == null:
+		return r
+	var to := target.pos - a.global_position
+	if target.vel.length() < 1.0 or to.length() < 1.0:
+		return r
+	var aa := rad_to_deg(target.vel.angle_to(to))
+	var closing := (a.linear_velocity - target.vel).dot(to.normalized())
+	if aa < 30.0 and closing < TAIL_CHASE_MAX_CLOSING:
+		return r * TAIL_CHASE_RANGE_MUL
+	return r
 
 
 ## Feuerstöße: Stoß 0,5–1,5 s (je Schwierigkeit), dann Pause; Abbruch, wenn das

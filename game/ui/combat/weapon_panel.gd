@@ -6,7 +6,7 @@ extends Control
 const W := 330.0
 const H := 150.0
 const PAD := 14.0
-const FLASH_TIME := 0.5
+const FLASH_TIME := 0.9
 
 var data := {}
 var _prev := PackedFloat32Array()
@@ -35,6 +35,7 @@ static func gather(aircraft: Node) -> Dictionary:
 	if dm != null:
 		for z in DamageModel.Zone.COUNT:
 			d.zones.append(dm.hp_fraction(z))
+		d["health"] = dm.health_fraction()
 	return d
 
 
@@ -56,11 +57,24 @@ func set_data(d: Dictionary, dt: float) -> void:
 func _zone_col(i: int) -> Color:
 	var z: PackedFloat32Array = data.get("zones", PackedFloat32Array())
 	var f := z[i] if i < z.size() else 1.0
-	var c := HudStyle.health_color(f)
+	var c := zone_color(f)
 	c.a = 0.85
 	if i < _flash.size() and _flash[i] > 0.0:
 		c = c.lerp(Color.WHITE, _flash[i] / FLASH_TIME)
 	return c
+
+
+## M2.1: stufenloser Farbverlauf grün → gelb (50 %) → rot. Vorher erst unter 66 % gelb –
+## einzelne Treffer (10 HP bei 120–200 HP je Zone) waren in der Skizze nicht zu sehen.
+static func zone_color(f: float) -> Color:
+	if f <= 0.001:
+		return HudStyle.health_color(0.0)
+	if f >= 0.999:
+		return HudStyle.OK
+	# leicht beschädigt sofort sichtbar: Startsprung um 15 % Richtung Gelb
+	if f >= 0.5:
+		return HudStyle.OK.lerp(HudStyle.CAUTION, 0.15 + 0.85 * (1.0 - f) / 0.5)
+	return HudStyle.CAUTION.lerp(HudStyle.WARNING, (0.5 - f) / 0.5)
 
 
 static func _rect(x: float, y: float, w: float, h: float) -> PackedVector2Array:
@@ -102,7 +116,11 @@ func _draw() -> void:
 	draw_set_transform(Vector2(PAD - 2, 26), 0.0, Vector2(1.1, 1.0))
 	_draw_sketch(Vector2.ZERO)
 	draw_set_transform(Vector2.ZERO)
-	HudStyle.text(self, Vector2(PAD, 18), "SCHADEN", 11, HudStyle.DIM)
+	var lw := HudStyle.text(self, Vector2(PAD, 18), "SCHADEN", 11, HudStyle.DIM)
+	var hl: float = data.get("health", 1.0)
+	if hl < 0.999:
+		HudStyle.text(self, Vector2(PAD + lw + 8, 18), "%d %%" % int(round((1.0 - hl) * 100.0)), 11,
+				zone_color(hl), true)
 	var x0 := 140.0
 	var y := 30.0
 	var groups: Array = data.get("groups", [])
