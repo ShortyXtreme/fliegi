@@ -1,5 +1,30 @@
 # Änderungsprotokoll Flugkern
 
+## M2.1 „Treffer-Debug“ (01.11.2026)
+
+Reaktion auf das Tester-Feedback zu M2.
+
+### Behoben
+- **„Kein Schaden erhalten“:** Die Treffer kamen technisch beim Spieler an (Zielregistrierung, Hitboxen, HitValidator, DamageModel geprüft, auch nach Neustart). Es gab aber zwei echte Ursachen:
+  1. **Die KI schoss in der Heckverfolgung nie.** Gegen einen gleich schnellen Spieler blieb sie ca. 560 m dahinter „kleben“, weil ihre Feuerdistanz nur 400 m beträgt. Bei kaum Annäherung (< 25 m/s, Ziel fliegt weg, Winkel < 30°) feuert sie jetzt bis zum 1,6-Fachen der Feuerdistanz (`AIPilotBrain.fire_range_now`).
+  2. **Die Schadensskizze zeigte einzelne Treffer nicht.** Sie färbte erst unter 66 % HP der Zone um (ein Treffer = 10 von 120–200 HP). Jetzt ist der Verlauf stufenlos (grün → gelb → rot, schon kleiner Schaden sichtbar), das Aufblitzen dauert 0,9 s, und neben „SCHADEN“ steht der Gesamtschaden in %.
+- **„PARKBREMSE“ in der Luft:** Der Hinweis erscheint nur noch am Boden im Stand (Radkontakt, < 5 km/h). In der Luft löst sich die Parkbremse selbst.
+
+### Neu
+- **Treffer-Debug-Modus (F3, Xbox: L3 oder Share-Taste):** Am getroffenen Flugzeug erscheint kurz eine Markierung mit Zone und Schaden (z. B. „Leitwerk −10“). Dazu kommen die Listen „Meine Treffer“ (Ziel, Zone, Schaden, Entfernung, Zeit) und „Getroffen von“, Pfeile aus der Richtung erhaltener Treffer sowie die Zonen-HP als Zahlen für das eigene Flugzeug und das anvisierte Ziel. Im Modus: **F4** Hitboxen als Drahtgitter, **F5** Geschossbahnen aller Schüsse, **F6** Treffer zwischen anderen. Vom HitValidator abgelehnte Treffer werden rot mit Grund markiert. Das Kräfte-Overlay aus M1 liegt jetzt auf **Shift+F3**.
+- **Treffer-Log:** Jeder Treffer wird als CSV-Zeile gespeichert, unter Windows in `%APPDATA%\Godot\app_userdata\Flugkern M2\logs\kampf_JJJJMMTT_HHMMSS.csv`.
+- **Treffer-Ton:** ein helles „Tick“ beim eigenen Treffer, ein dumpfer Schlag beim Getroffenwerden (prozedural).
+- **Ziel-Zoom (Tester: „Visieren ist sehr schwer“):** Rechte Maustaste, Z oder Xbox R3 halten. Das Sichtfeld wird weich enger (ca. 70° → 30°). Maus-Ziel, Umsehen und Kamerafolge werden dabei proportional ruhiger. Funktioniert in der Verfolger- und der Cockpitkamera.
+  - Arcade: immer verfügbar. Realistisch: nur mit Visier-Upgrade (`AircraftData.has_zoom_sight`, `sight_zoom_factor`; bei Tier I aus, später über Forschung). Lobby-Option `MatchRules.realistic_zoom` bzw. `[m2] zoom_realistisch = "flugzeug" | "immer" | "nie"`.
+  - **Belegung geändert:** Umsehen mit der Maus liegt jetzt auf **Alt** oder **Maustaste 4** (vorher rechte Maustaste). R3 ist nicht mehr „Blick zurück“ (der rechte Stick kehrt beim Loslassen ohnehin zurück, und der Zoom setzt den Blick nach vorn).
+- **Vorhaltepunkt (Arcade):** größer, mit Entfernungsangabe und „Konv.“, wenn das Ziel im Konvergenzbereich liegt (±30 %). Er wird grün und zeigt „TREFFER WAHRSCHEINLICH“, wenn die vorhergesagte Ablage unter 4 m liegt. Kein Auto-Aim.
+- Version „M2.1“ in Fenstertitel, HUD und F1-Hilfe. Der Projektname bleibt „Flugkern M2“, damit Einstellungen und Logs im selben Ordner liegen.
+
+### Technik
+- `ProjectileSystem.hit_resolved(shooter, target, zone, damage, world_point, local_point, result)` meldet jeden Zieltreffer, auch abgelehnte. `HitDebug` (`ui/debug/hit_debug.gd`) sammelt die Daten ohne Rendering, `HitDebugOverlay` zeichnet sie.
+- Neue Tests: Hauptszene (passiver Spieler wird getroffen und die Skizze zeigt es, auch nach Neustart; Spieler-Treffer schaden der KI), Debug-Daten, CSV, Zoom-Regeln, Sichtfeld und Empfindlichkeit, Vorhalt-Qualität, Parkbremsen-Hinweis. Diagnose: `tests/diag/damage_diag.gd`.
+- Nicht umgesetzt: Die KI startet nach einem Abschuss weiter in der Luft über Platz Rot. `AIPilotBrain` hat noch keinen Startlauf; ein Bodenstart braucht eine eigene Start-Logik (Rollen, Abheben, Fahrwerk). Vorgemerkt für M3.
+
 ## M2 „Luftkampf 1 gegen 3“ – Paket 14 Integration (01.11.2026)
 
 Spielbare Testversion M2. Enthält die Pakete 1–13 und 15 (Waffen, Schaden, KI, Kampf-HUD, Effekte, Gelände, Floating Origin, Überhitzung) und deren Integration.
