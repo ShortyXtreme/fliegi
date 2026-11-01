@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="AIDifficulty" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ai/data/ai_difficulty.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+display_name = "Rekrut"
+reaction_time = 0.9
+aim_error_mrad = 12.0
+g_use = 0.6
+maneuvers = 1
+fire_range = 300.0
+fire_max_error_deg = 4.5
+burst_min = 0.8
+burst_max = 1.5
+pause_min = 0.6
+pause_max = 1.2
+altitude_advantage = 100.0
+ground_margin = 150.0
