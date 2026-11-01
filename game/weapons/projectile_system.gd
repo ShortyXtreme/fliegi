@@ -47,6 +47,8 @@ var use_raycast := true
 ## Statistik
 var hits_total := 0
 var hits_rejected := 0
+## Genaue Segment-gegen-Hitbox-Prüfungen seit Start (Diagnose/Selbsttest, M2.2).
+var segment_tests := 0
 ## Trefferprüfung (Server): jeder Treffer eines bekannten Schützen läuft als HitReport durch.
 var validator := HitValidator.new()
 var validate_hits := true
@@ -387,6 +389,7 @@ func step(dt: float, tick: int) -> void:
 			var f := clampf((c - p0).dot(seg) / maxf(seg_len * seg_len, 1e-9), 0.0, 1.0)
 			if (p0 + seg * f - c).length_squared() > tr[j] * tr[j]:
 				continue
+			segment_tests += 1
 			var hit: Dictionary = tn[j].boxes().intersect_segment(inv_prev[j] * p0, inv_now[j] * p1)
 			if not hit.is_empty() and float(hit.t) < best_t:
 				best_t = hit.t

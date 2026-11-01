@@ -1,4 +1,4 @@
-# Flugkern – M2.1 „Luftkampf 1 gegen 3“ mit Treffer-Debug
+# Flugkern – M2.2 „Luftkampf 1 gegen 3“ mit Treffer-Debug und Trefferfix
 
 Prototyp des Luftkampf-Spiels (Godot **4.7.2**, GDScript, Jolt-Physik, 60 Hz mit Physik-Interpolation).
 Ein Tier-I-Jäger („Falke“, 2.500 kg, 700 kW) startet vom **Platz Blau** im neuen 40-km-Gelände. Drei rote KI-Jäger (Stufe „Erfahren“) patrouillieren 6–10 km entfernt Richtung Platz Rot und greifen an. Bewaffnung: 2 × MG 7,92 mm, zusammen 1.000 Schuss, Leuchtspur jeder 5. Schuss.
@@ -21,14 +21,18 @@ Ein Tier-I-Jäger („Falke“, 2.500 kg, 700 kW) startet vom **Platz Blau** im 
 
 ## Starten
 
-**Windows:** Die neue `Flugkern.pck` (aus `builds/m2_1/`) über die alte kopieren. `Flugkern.exe` (Godot 4.7.2) bleibt unverändert. Der Fenstertitel zeigt danach „Flugkern M2.1“.
+**Windows:** Die neue `Flugkern.pck` (aus `builds/m2_2/`) über die alte kopieren. `Flugkern.exe` (Godot 4.7.2) bleibt unverändert. Der Fenstertitel zeigt danach „Flugkern M2.2“.
 Der Build ist nicht signiert. Wenn Windows SmartScreen warnt: „Weitere Informationen“ → „Trotzdem ausführen“.
+
+**Selbsttest (M2.2):** `Flugkern.exe --selbsttest` (Windows-Verknüpfung: bei „Ziel“ ` --selbsttest` anhängen; Kommandozeile: `godot --path game -- --selbsttest`). Prüft im echten Spiel Treffer Spieler → Gegner und Gegner → Spieler (je 3 s Feuer auf 250 m) und beendet sich (Exit-Code 0 = OK). Ergebnis im Godot-Log und in `%APPDATA%\Godot\app_userdata\Flugkern M2\logs\selbsttest_JJJJMMTT_HHMMSS.txt` (Linux: `~/.local/share/godot/app_userdata/Flugkern M2/logs/`). Dort liegen auch `godot.log` (mit Diagnosezeilen „Hitbox-Zonen …, Waffen …“ je Flugzeug) und die Treffer-Logs `kampf_*.csv`.
+
+**Build (Windows-.pck):** `GODOT=/pfad/godot game/tools/build_windows.sh <zielordner>` exportiert `Flugkern.pck`, führt Pflicht-Suite „export“ aus (Selbsttest mit der exportierten .pck) und kopiert `docs/build_readme.md` als README.md.
 
 **Aus dem Editor:** Godot 4.7.x öffnen → `game/project.godot` importieren → F5.
 
 **Kommandozeile:** `godot --path game`
 
-**Tests (headless):** `game/tests/run_tests.sh` (Exit-Code 0 = alles grün, Suite „fast“). Optionen: `--suite=slow|all` (Duelle), `--only=landing` (Testname), `--file=weapons` (Dateipfad), `--list`; Verlauf mit `TRACE=1`. Testdateien liegen in `tests/suites/` (auch Unterordner), erben von `TestSuite` und werden automatisch gefunden – `test_runner.gd` muss dafür nicht geändert werden. Ohne `.godot`-Cache vorher einmal `godot --headless --path game --import`.
+**Tests (headless):** `game/tests/run_tests.sh` (Exit-Code 0 = alles grün, Suite „fast“). Optionen: `--suite=slow|export|all` (Duelle; „export“ = exportierte .pck im Selbsttest), `--only=landing` (Testname), `--file=weapons` (Dateipfad), `--list`; Verlauf mit `TRACE=1`. Testdateien liegen in `tests/suites/` (auch Unterordner), erben von `TestSuite` und werden automatisch gefunden – `test_runner.gd` muss dafür nicht geändert werden. Ohne `.godot`-Cache vorher einmal `godot --headless --path game --import`.
 
 ## Steuerung
 

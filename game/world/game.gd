@@ -106,9 +106,29 @@ func _ready() -> void:
 	player.help_toggle_requested.connect(hud.toggle_help)
 	player.reset_requested.connect(_on_reset)
 	player.gear_toggled.connect(hud.on_gear_toggled)
+	_print_diagnostics()
+	if Selbsttest.requested():
+		var st := Selbsttest.new()
+		st.name = "Selbsttest"
+		st.game = self
+		add_child(st)
 	if scenario != null:
 		print("Flugkern %s: Luftkampf 1 gegen %d, KI-Stufe %s" % [Hud.VERSION,
 				scenario.enemy_count, scenario.difficulty_name()])
+
+
+## M2.2: Diagnosezeile je Flugzeug (Hitbox-Zonen, Waffen, Herkunft der Marker), damit
+## fehlende Trefferzonen/Waffen im Tester-Log sofort auffallen.
+func _print_diagnostics() -> void:
+	var all: Array[Aircraft] = [player_aircraft]
+	all.append_array(ai_aircrafts)
+	for a in all:
+		var h: HitboxSet = a.damage.hitboxes if a.damage != null else null
+		var src := h.markers.source if h != null and h.markers != null else "-"
+		var registered := ProjectileSystem.targets().any(func(t): return t.node == a)
+		print("Diagnose %s: Hitbox-Zonen %d (Radius %.1f m), Waffen %d, Marker-Quelle %s, Ziel angemeldet %s" % [
+				a.name, h.zones.size() if h != null else 0, h.bounding_radius if h != null else 0.0,
+				a.weapons.gun_count(), src, str(registered)])
 
 
 ## M1-Verhalten (Testwelt): ein KI-Flugzeug kreist über dem Platz.

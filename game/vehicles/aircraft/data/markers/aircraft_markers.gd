@@ -42,8 +42,12 @@ static func load_for(d: Resource) -> AircraftMarkers:
 		var p = d.get("markers_path")
 		if p is String and not p.is_empty() and ResourceLoader.exists(p):
 			var m = load(p)
-			if m is AircraftMarkers:
+			# M2.2: Leere Marker (z. B. beim Export verlorene Packed-Arrays) nie stillschweigend
+			# übernehmen – ohne Zonen gäbe es keine Treffer. Dann Ersatz-Marker mit Warnung.
+			if m is AircraftMarkers and not (m as AircraftMarkers).zone_names.is_empty():
 				return m
+			if m is AircraftMarkers:
+				push_error("AircraftMarkers: %s enthält keine Trefferzonen – nutze Ersatz-Marker" % p)
 	return fallback_from_data(d)
 
 

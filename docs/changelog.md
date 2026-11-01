@@ -1,5 +1,18 @@
 # Änderungsprotokoll Flugkern
 
+## M2.2 „Trefferfix“ (01.11.2026)
+
+### Behoben
+- **Keine Treffer im exportierten Spiel (M2.1, Tester: 11 min, Treffer-Log leer).** Der Export wandelt Text-Ressourcen (.tres) in Binär-Ressourcen um. Dabei verlor `fighter_t1_markers.tres` in Godot 4.7.2 alle Packed-Arrays (Zonen, Waffen- und Außenlastpunkte; nur `points`/`source` blieben). Folge: 0 Hitbox-Zonen je Flugzeug, kein Segmenttest traf, kein Trefferbericht. Aus dem Projektordner (alle Tests) war die Datei intakt.
+  - Fix: `editor/export/convert_text_resources_to_binary=false` (project.godot); .tres gehen unverändert in die .pck. Geprüft: alle anderen exportierten Ressourcen waren nicht betroffen.
+  - Absicherung: `AircraftMarkers.load_for` nimmt leere Marker nicht mehr an (Fehlermeldung, Ersatz-Marker aus den Flugzeugdaten).
+
+### Neu
+- **Selbsttest im Spiel:** `Flugkern.exe --selbsttest` (auch `-- --selbsttest`). Gegner 250 m vor dem Spieler, Spieler feuert 3 s über die echte Aktion `fire_primary`; danach feuert ein Gegner 3 s von hinten. Zählt Geschosse, Segmenttests, Trefferberichte (akzeptiert/abgelehnt) und Schaden, schreibt ins Godot-Log und nach `user://logs/selbsttest_*.txt`, Exit-Code 0 = Treffer in beide Richtungen (`world/selbsttest.gd`).
+- **Diagnosezeilen beim Start** im Godot-Log je Flugzeug: Hitbox-Zonen, Radius, Waffen, Marker-Quelle, Ziel angemeldet.
+- `ProjectileSystem.segment_tests` (Zähler der genauen Hitbox-Prüfungen).
+- **Test-Suite „export“** (`tests/suites/export/`): exportiert die .pck und startet sie im Selbsttest-Modus (xvfb/OpenGL, sonst headless). Pflicht im Build-Skript `game/tools/build_windows.sh <ziel>`.
+
 ## M2.1 „Treffer-Debug“ (01.11.2026)
 
 Reaktion auf das Tester-Feedback zu M2.
