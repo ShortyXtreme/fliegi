@@ -14,6 +14,8 @@ const HILLS := [
 ]
 
 var hills := false
+var _body: StaticBody3D
+var _hill_shape: CollisionShape3D
 
 
 func _init(with_hills := false) -> void:
@@ -21,12 +23,23 @@ func _init(with_hills := false) -> void:
 
 
 func _ready() -> void:
-	var body := StaticBody3D.new()
-	body.name = "Ground"
+	_body = StaticBody3D.new()
+	_body.name = "Ground"
 	var cs := CollisionShape3D.new()
 	cs.shape = WorldBoundaryShape3D.new()
-	body.add_child(cs)
-	if hills:
+	_body.add_child(cs)
+	add_child(_body)
+	set_hills(hills)
+	WorldGround.set_provider(self)
+
+
+## Hügel zur Laufzeit an-/abschalten (Kollision + height_at).
+func set_hills(on: bool) -> void:
+	hills = on
+	if _hill_shape != null:
+		_hill_shape.queue_free()
+		_hill_shape = null
+	if hills and _body != null:
 		var hm := HeightMapShape3D.new()
 		var n := CELLS + 1
 		hm.map_width = n
@@ -41,9 +54,8 @@ func _ready() -> void:
 		var hs := CollisionShape3D.new()
 		hs.shape = hm
 		hs.scale = Vector3(SPACING, 1.0, SPACING)
-		body.add_child(hs)
-	add_child(body)
-	WorldGround.set_provider(self)
+		_body.add_child(hs)
+		_hill_shape = hs
 
 
 func _exit_tree() -> void:

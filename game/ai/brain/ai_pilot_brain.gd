@@ -27,11 +27,13 @@ const EVADE_MIN_TIME := 2.0
 ## Rückzug: Munition unter Anteil, Zustand (min. Zonen-HP-Anteil) unter.
 const RETREAT_AMMO := 0.1
 const RETREAT_HP := 0.35
+## Höchstlast bei G-Nutzung 1,0 (Rekrut 0,6 → 5,4 g, Veteran 0,95 → 8,6 g).
+const MAX_G := 9.0
 ## Bodenschutz-Vorausschau (s).
 const LOOKAHEAD := [1.0, 2.0, 4.0]
 ## Kollisionsvermeidung: Mindestabstand im nächsten Punkt (m) und Zeithorizont (s).
-const COLLISION_MISS := 60.0
-const COLLISION_TIME := 2.5
+const COLLISION_MISS := 30.0
+const COLLISION_TIME := 1.5
 
 var difficulty: Resource = null
 var rng_seed := 0
@@ -68,6 +70,10 @@ var _evade_side := 1.0
 var _scissor_timer := 0.0
 var _ground_clear_time := 0.0
 var _started := false
+var _was_ahead := true
+var _vertical_pref := false
+## Ab diesem Winkel Ziel–Nase: Kurvenkampf statt direktem Anzielen (Grad).
+const TURN_FIGHT_DEG := 45.0
 
 
 func on_possess(s: Seat) -> void:
@@ -90,6 +96,11 @@ func _start(a: Aircraft) -> void:
 	_intent.gear_down = false
 	_intent.flaps = 0.0
 	_intent.brakes = 0.0
+
+
+## Zuletzt gelieferter Intent (Tests/Diagnose, nur lesen).
+func last_intent() -> PilotIntent:
+	return _intent
 
 
 func state_name() -> String:
@@ -135,12 +146,14 @@ func compute_intent(dt: float) -> PilotIntent:
 			dir = _approach_dir(a)
 		State.PURSUIT, State.FIRE:
 			dir = _pursuit_dir(a, i, dt)
-			g_scale = maxf(g_scale, 0.9) if state == State.FIRE else g_scale
 		_:
 			dir = _patrol_dir(a)
 	dir = _avoid_collision(a, dir)
 	var s := _steer(b, dir.normalized(), state == State.PURSUIT or state == State.FIRE)
-	i.pitch = s.x * (g_scale if s.x > 0.0 else 1.0)
+	# G-Nutzung: Ziehen auf g_use × MAX_G begrenzen (Arcade: Knüppel = Nickrate).
+	var v := maxf(a.telemetry().airspeed, 30.0)
+	var stick_max := clampf(g_scale * MAX_G * 9.81 / (v * a.data.arcade_max_pitch_rate), 0.1, 1.0)
+	i.pitch = minf(s.x, stick_max)
 	i.roll = s.y
 	i.yaw = s.z
 	return i.clamp_values()
@@ -150,8 +163,10 @@ func compute_intent(dt: float) -> PilotIntent:
 ## Winkelfehler (Zeitkonstante FINE_TAU) plus Vorsteuerung aus der Drehung der Ziel-
 ## richtung; Nicken direkt (Arcade: Knüppel = Nickrate), seitlich über Querlage
 ## (koordinierte Kurve) und etwas Seitenruder.
-const FINE_DEG := 6.0
+const FINE_DEG := 15.0
 const FINE_TAU := 0.3
+## Ab dieser Wunsch-Drehrate (rad/s) im Feinmodus: Querlage zum Ziel + Ziehen.
+const BANK_TURN_RATE := 0.25
 var _want_prev := Vector3.ZERO
 func _steer(b: Basis, dir: Vector3, fine: bool) -> Vector3:
 	var s := Autopilot.steer_to_direction(b, dir)
@@ -171,14 +186,26 @@ func _steer(b: Basis, dir: Vector3, fine: bool) -> Vector3:
 	var ff := Vector3.ZERO
 	if prev != Vector3.ZERO:
 		ff = b.inverse() * ((dir - prev) * hz)   # Drehrate der Zielrichtung (rad/s)
-	var q_cmd := ay / FINE_TAU + ff.y
-	var r_cmd := ax / FINE_TAU + ff.x
+	var rate := Vector2(ax, ay) / FINE_TAU + Vector2(ff.x, ff.y)   # Wunsch (Gieren, Nicken)
 	var v := maxf(a.telemetry().airspeed, 30.0)
-	var bank := atan2(-b.x.y, b.y.y)
-	var bank_want := clampf(atan(r_cmd * v / 9.81), -1.2, 1.2)
-	var roll := clampf((bank_want - bank) * 3.0 / d.arcade_max_roll_rate, -1.0, 1.0)
-	var fine_v := Vector3(clampf(q_cmd / d.arcade_max_pitch_rate, -1.0, 1.0), roll,
-			clampf(ax * 3.0, -1.0, 1.0))
+	var fine_v: Vector3
+	var big := rate.length()
+	if big > BANK_TURN_RATE:
+		# Kräftige Drehung nötig: Auftriebsvektor zum Ziel rollen und ziehen.
+		var phi := atan2(rate.x, rate.y)        # 0 = Ziel genau "über" der Nase
+		if absf(phi) > deg_to_rad(150.0):      # fast genau unten: drücken statt 180° rollen
+			phi = phi - signf(phi) * PI
+			big = -big
+		var pull := big * cos(phi)
+		fine_v = Vector3(clampf(pull / d.arcade_max_pitch_rate, -1.0, 1.0),
+				clampf((phi * 2.5 + a.telemetry().angular_velocity_local.z * 0.3) \
+					/ d.arcade_max_roll_rate, -1.0, 1.0), clampf(ax * 3.0, -1.0, 1.0))
+	else:
+		var bank := atan2(-b.x.y, b.y.y)
+		var bank_want := clampf(atan(rate.x * v / 9.81), -1.45, 1.45)
+		fine_v = Vector3(clampf(rate.y / d.arcade_max_pitch_rate, -1.0, 1.0),
+				clampf((bank_want - bank) * 3.0 / d.arcade_max_roll_rate, -1.0, 1.0),
+				clampf(ax * 3.0, -1.0, 1.0))
 	var w := clampf((off - FINE_DEG * 0.5) / (FINE_DEG * 0.5), 0.0, 1.0)
 	return fine_v.lerp(Vector3(s.x, s.y, 0.0), w)
 
@@ -395,7 +422,7 @@ func _pursuit_dir(a: Aircraft, i: PilotIntent, dt: float) -> Vector3:
 	var d := to.length()
 	var closing := -(target.vel - a.linear_velocity).dot(to / maxf(d, 1.0))
 	var angle_off := rad_to_deg(target.vel.angle_to(to)) if target.vel.length() > 1.0 else 0.0
-	if d < 250.0 and closing > 40.0 and angle_off < 90.0:
+	if d < 120.0 and closing > 5.0 and angle_off < 90.0:
 		pursuit_mode = Pursuit.LAG
 	elif d < _diff.fire_range * 2.0:
 		pursuit_mode = Pursuit.LEAD
@@ -403,8 +430,28 @@ func _pursuit_dir(a: Aircraft, i: PilotIntent, dt: float) -> Vector3:
 		pursuit_mode = Pursuit.LEAD
 	else:
 		pursuit_mode = Pursuit.PURE
+	# Ziel weit seitlich/hinten: Kurvenkampf ohne Spiralsturz. Nach jedem Vorbeiflug
+	# (Merge) zufällig horizontal oder steigend kurven (bricht Symmetrie, je Seed).
+	var nose_off := rad_to_deg((-a.global_transform.basis.z).angle_to(to))
+	var ahead := nose_off < 90.0
+	if _was_ahead and not ahead:
+		_vertical_pref = _rng.randf() < 0.5
+		state_time = 0.0
+	_was_ahead = ahead
+	if nose_off > TURN_FIGHT_DEG:
+		var tl := clampf(d / 600.0, 0.2, 1.5)
+		var lead := (target.pos + target.vel * tl - pos).normalized()
+		if a.telemetry().height_agl < 700.0:
+			lead.y = maxf(lead.y, 0.1)
+		if _vertical_pref and a.telemetry().airspeed > 115.0 and state_time < 4.0:
+			lead.y = maxf(lead.y, 0.5)
+		i.throttle = 1.0
+		_fire_control(a, i, dt)
+		return lead
 	# Gas: Überschießen vermeiden
-	i.throttle = 0.55 if d < 300.0 and closing > 25.0 and angle_off < 90.0 else 1.0
+	# Abstand auf ~180 m halten (Gas aus Abstand und Annäherung)
+	i.throttle = clampf(0.7 + (d - 180.0) / 150.0 - closing / 30.0, 0.15, 1.0) \
+			if angle_off < 90.0 else 1.0
 	var dir: Vector3
 	match pursuit_mode:
 		Pursuit.LAG:

@@ -47,6 +47,11 @@ class ProxyHitboxes:
 		return t0
 
 
+## Echtes Schadensmodell vorhanden (Agent B)? Dann keine Ersatz-Hitboxen.
+static func damage_available() -> bool:
+	return ResourceLoader.exists("res://vehicles/aircraft/damage/damage_profile_t1.tres")
+
+
 static func spawn(world: Node3D, pos: Vector3, fwd: Vector3, nation: int, eid: int,
 		speed := 120.0) -> Aircraft:
 	var a := Aircraft.create(load(FIGHTER), false)
@@ -55,7 +60,7 @@ static func spawn(world: Node3D, pos: Vector3, fwd: Vector3, nation: int, eid: i
 	world.add_child(a)
 	# Neu anmelden: die Ziel-ID wurde bei create() mit der alten entity_id vergeben.
 	ProjectileSystem.unregister_target(a)
-	ProjectileSystem.register_target(a, ProxyHitboxes.new(a.data))
+	ProjectileSystem.register_target(a, null if damage_available() else ProxyHitboxes.new(a.data))
 	a.place(Transform3D(Basis.looking_at(fwd.normalized(), Vector3.UP), pos), speed, 0.9, false)
 	return a
 
