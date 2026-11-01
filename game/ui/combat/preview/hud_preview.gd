@@ -67,12 +67,32 @@ func _run() -> void:
 	pa.damage.apply_hit(DamageModel.Zone.WING_L, 120.0, e3)
 	pa.damage.apply_hit(DamageModel.Zone.TAIL, 90.0, e3)
 	pa.damage.apply_hit(DamageModel.Zone.FUEL_R, 25.0, e3)
-	pa.eject_requested.emit(pa, false)
 	await _frames(8)
 	bus.hit_confirmed.emit(pa, e2, DamageModel.Zone.ENGINE, 10.0)
 	game.hud.combat.overlay.hit_t = 10.0   # Software-Rendering ist langsam: Anzeige festhalten
-	game.hud.combat.overlay.eject_locked_t = 10.0
+	var ps := game.projectiles
+	for k in 3:
+		ps.impact.emit(0, e2.global_position + Vector3(randf_range(-2, 2), 0.3, 0), Vector3(0, 0, -700),
+				ProjectileSystem.Impact.TARGET, e2, 0)
+	await _frames(1)
 	print("Vorhalt-Ziel: ", not game.hud.combat.overlay.lead_target.is_empty(), " Lösung: ", not game.hud.combat.overlay.lead.is_empty())
 	await _shot("hud_combat.png")
+	# Tiefflug: Leuchtspuren, Mündungsfeuer, Staub am Boden
+	var low := Basis.looking_at(Vector3(0, -0.22, -1).normalized(), Vector3.UP)
+	pa.place(Transform3D(low, Vector3(0, 140, 0)), 90.0, 0.8, false)
+	game.player.reset_state(0.8)
+	game.player.gear_down = false
+	await _frames(10)
+	for k in 6:
+		var g := Vector3(randf_range(-14, 14), 0.0, pa.global_position.z - 330.0 + randf_range(-30, 30))
+		ps.impact.emit(0, g, Vector3(0, -150, -700), ProjectileSystem.Impact.GROUND, null, -1)
+		await _frames(1)
+	game.cam.next_mode()
+	game.cam.next_mode()   # Orbit: Leuchtspuren von der Seite
+	await _frames(4)
+	var fx := game.weapon_fx
+	print("FX: gebaut ", fx.tracers != null, " Spuren ", fx.tracer_count, " Blitze ", fx.flashes_started,
+		" Einschläge ", fx.impacts_started, " aktiv ", game.projectiles.active_count(), " proc ", fx.is_processing())
+	await _shot("hud_fx.png")
 	Input.action_release("fire_primary")
 	quit(0)

@@ -15,3 +15,9 @@ Stand: 01.11.2026 · Branch `m2-hud` · Dateien nur in `ui/combat/`, `weapons/fx
 8. **Vorhaltepunkt** wird wie das Visierkreuz aus hud.gd in 500 m projiziert. Ändert Paket 14 die Visier-Entfernung, `HudContacts.lead_point()` mit anpassen.
 9. **Treffer-Ton** (Plan §5 „Ton-Hook“): `CombatHud._on_hit_confirmed()` ist die Stelle; Ton fehlt noch.
 10. **Notausstieg-Fortschritt** liest `hud.player.eject_hold_progress`; die Taste „[J halten]“ ist fest im Text (Pad: Steuerkreuz links).
+
+## Waffen-Effekte (Paket 10)
+11. **Keine Pflicht-Hooks**: `WeaponFx` (schon in `game.gd` angelegt) liest `ProjectileSystem.current` (Lese-Schnittstelle) und verbindet sich selbst mit `CombatEvents.shot_fired` und `ProjectileSystem.impact`. Headless baut es keine Knoten.
+12. **Einschlag-Arten**: Funken nur bei `Impact.TARGET`, Staub bei `GROUND`/`WORLD`. Treffer an Gebäuden/Fahrzeugen (später) brauchen ggf. eine eigene Art.
+13. **Staub auf Distanz** ist klein (≈ 5–7 m Wolke); falls im Spieltest zu unauffällig, `WeaponFx._make_emitter()` Skalierung erhöhen.
+14. **Notausstieg-Hinweis**: erscheint nur ca. 2 s klein oben Mitte, wenn die Taste gehalten wird bzw. `eject_requested(…, false)` kommt und der Ausstieg gesperrt ist.

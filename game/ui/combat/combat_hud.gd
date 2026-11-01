@@ -96,6 +96,9 @@ func _process(dt: float) -> void:
 	overlay.lead = HudContacts.lead_point(a, overlay.lead_target) if not overlay.lead_target.is_empty() else {}
 	overlay.eject_progress = hud.player.eject_hold_progress if hud.player else 0.0
 	overlay.eject_possible = a.damage != null and a.damage.can_eject()
+	# Taste gedrückt, Ausstieg aber gesperrt: Hinweis kurz (2 s) statt Fortschrittsbalken
+	if overlay.eject_progress > 0.0 and not overlay.eject_possible:
+		overlay.on_eject_denied()
 	overlay.tick(dt)
 	kill_feed.tick(dt)
 

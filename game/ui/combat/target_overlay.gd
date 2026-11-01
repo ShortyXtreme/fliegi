@@ -6,7 +6,7 @@ extends Control
 
 const HIT_TIME := 0.3
 const KILL_TIME := 0.9
-const LOCK_TIME := 2.5
+const LOCK_TIME := 2.0
 
 var s := 1.0
 var cam: Camera3D
@@ -99,8 +99,10 @@ func _draw_contact(c: Dictionary, vs: Vector2, focal: float) -> void:
 	if d2.length() < 0.001:
 		d2 = Vector2(0, 1)
 	d2 = d2.normalized()
-	var center := vs * 0.5
-	var ext := center - Vector2(inset, inset)
+	# Randrahmen: oben unter dem Kompassband, sonst 56 px Abstand
+	var area := Rect2(Vector2(inset, 130.0 * s), vs - Vector2(inset * 2.0, 130.0 * s + inset))
+	var center := area.get_center()
+	var ext := area.size * 0.5
 	var t := minf(ext.x / maxf(absf(d2.x), 1e-4), ext.y / maxf(absf(d2.y), 1e-4))
 	var tip := center + d2 * t
 	var n := Vector2(-d2.y, d2.x)
@@ -150,7 +152,7 @@ func _draw_hit() -> void:
 func _draw_eject(vs: Vector2) -> void:
 	var y := vs.y * 0.25
 	var x := vs.x * 0.5
-	if eject_progress > 0.0:
+	if eject_progress > 0.0 and eject_possible:
 		var txt := "NOTAUSSTIEG"
 		HudStyle.text(self, Vector2(x, y), txt, 22 * s, HudStyle.CAUTION, true, 1)
 		var bw := 220.0 * s
@@ -159,11 +161,9 @@ func _draw_eject(vs: Vector2) -> void:
 		draw_rect(Rect2(r.position, Vector2(bw * clampf(eject_progress, 0, 1), r.size.y)),
 				HudStyle.CAUTION)
 	elif eject_locked_t > 0.0:
-		var a := minf(eject_locked_t / 0.4, 1.0)
-		HudStyle.text(self, Vector2(x, y), "Notausstieg gesperrt", 22 * s,
-				Color(HudStyle.WARNING, a), true, 1)
-		HudStyle.text(self, Vector2(x, y + 22 * s), "nur bei schwerem Schaden", 14 * s,
-				Color(HudStyle.LABEL, a), false, 1)
+		var a := minf(eject_locked_t / 0.4, 1.0) * 0.9
+		HudStyle.text(self, Vector2(x, y), "Notausstieg gesperrt – nur bei schwerem Schaden",
+				15 * s, Color(HudStyle.CAUTION, a), true, 1)
 	elif eject_possible:
-		HudStyle.text(self, Vector2(x, y), "Notausstieg möglich  [J halten]", 17 * s,
-				Color(HudStyle.CAUTION, 0.9), true, 1)
+		HudStyle.text(self, Vector2(x, y), "Notausstieg möglich  [J halten]", 15 * s,
+				Color(HudStyle.CAUTION, 0.8), true, 1)
