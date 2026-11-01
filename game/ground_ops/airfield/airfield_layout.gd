@@ -8,12 +8,12 @@ extends Resource
 ##
 ## Plan (Draufsicht, Norden = -Z oben):
 ##   Piste x = 0 (±20 m), z = +450 … -450, Schwelle z = +430.
-##   Rollweg x = -27 von z = -300 bis zum Haltepunkt (-27, 462) im Süden, dann Bogen
-##   über (-20, 476) und (-6, 472) auf den Pistenanfang (0, 445).
-##   Abstellplätze x = -45, z = 245 … 420 (Abstand 35 m), Nase nach Süden (+Z), d. h.
+##   Rollweg x = -27 von z = -300 bis zum Haltepunkt (-27, 455) im Süden, dann Halbkreis
+##   (r = 18 m, Mitte (-9, 465)) nach Osten herum auf den Pistenanfang (3, 440).
+##   Abstellplätze x = -45, z = 290 … 430 (Abstand 28 m), Nase nach Süden (+Z), d. h.
 ##   rollen hinaus und herein fließt immer Richtung Haltepunkt, ohne Wenden.
-##   Zufahrt (parking_nodes): Rollweg-Knoten 17,5 m südlich des Platzes (hinaus);
-##   Einfahrt (parking_in_nodes): Knoten 17,5 m nördlich (herein).
+##   Zufahrt (parking_nodes): Rollweg-Knoten 42 m südlich des Platzes (hinaus);
+##   Einfahrt (parking_in_nodes): Knoten 42 m nördlich (herein).
 ##   Pistenausfahrten (exit_nodes) bei z = 100, -100, -300 (Knoten auf der Pistenmitte).
 
 @export var airfield_index := 0
@@ -170,24 +170,27 @@ static func make_default(index: int, runway_length_m: float, runway_width_m: flo
 	l.runway_end = Vector3(0, 0, -half + 20.0)
 	var tx := -27.0                             # Rollweg-Mitte
 	var px := -45.0                             # Abstellplätze
-	var spacing := 35.0
+	var spacing := 28.0
 	var spots := 6
-	var z0 := sz - 10.0 - (spots - 1) * spacing   # südlichster Platz bei z = sz - 10
-	# Knoten 0: Pistenanfang (auf der Mittellinie, kurz hinter der Schwelle),
-	# 1, 2: Einroll-Bogen, 3: Haltepunkt.
-	l.taxi_nodes.append(Vector3(0, 0, sz + 15.0))
-	l.taxi_nodes.append(Vector3(-6, 0, sz + 42.0))
-	l.taxi_nodes.append(Vector3(-20, 0, sz + 46.0))
-	l.taxi_nodes.append(Vector3(tx, 0, sz + 32.0))
-	l.taxi_edges.append_array([0, 1, 1, 2, 2, 3])
+	var z0 := sz - (spots - 1) * spacing          # südlichster Platz auf Höhe der Schwelle
+	# Knoten 0: Pistenanfang (leicht östlich der Mittellinie, der Startlauf korrigiert),
+	# 1–5: Einroll-Bogen (Halbkreis r = 18 m südlich der Schwelle, Spornrad-Wendekreis
+	# ~14 m), 6: Haltepunkt.
+	l.taxi_nodes.append(Vector3(3, 0, sz + 10.0))
+	var cz := sz + 35.0
+	for deg in [180.0, 135.0, 90.0, 45.0, 0.0]:
+		var r := deg_to_rad(deg)
+		l.taxi_nodes.append(Vector3(-9.0 + 18.0 * cos(r), 0, cz + 18.0 * sin(r)))
+	l.taxi_nodes.append(Vector3(tx, 0, sz + 25.0))
+	l.taxi_edges.append_array([0, 5, 5, 4, 4, 3, 3, 2, 2, 1, 1, 6])
 	l.runway_node = 0
-	l.hold_node = 3
+	l.hold_node = 6
 	# Rollweg nach Norden: Knoten zwischen den Plätzen (z_k + spacing/2), südlich -> nördlich.
-	var prev := 3
+	var prev := 6
 	var mid := {}                               # k -> Knotenindex bei z_k + spacing/2
-	for k in range(spots - 1, -2, -1):
+	for k in range(spots - 1, -3, -1):
 		var z := z0 + k * spacing + spacing * 0.5
-		if z >= sz + 32.0 - 1.0:
+		if z >= sz + 25.0 - 1.0:
 			continue
 		l.taxi_nodes.append(Vector3(tx, 0, z))
 		var n := l.taxi_nodes.size() - 1
@@ -208,8 +211,9 @@ static func make_default(index: int, runway_length_m: float, runway_width_m: flo
 		var z := z0 + k * spacing
 		l.parking_positions.append(Vector3(px, 0, z))
 		l.parking_headings.append(Vector3(0, 0, 1))
-		l.parking_nodes.append(mid[k] if mid.has(k) else 3)
-		l.parking_in_nodes.append(mid[k - 1])
+		# zwei Knoten weiter (≈ 42 m): flacher Einfädelwinkel für den Spornrad-Wendekreis
+		l.parking_nodes.append(mid[k + 1] if mid.has(k + 1) else 6)
+		l.parking_in_nodes.append(mid[k - 2] if mid.has(k - 2) else mid[k - 1])
 	l.fuel_depot = Vector3(-110.0, 0, sz - 20.0)
 	l.ammo_bunker = Vector3(-115.0, 0, sz - 260.0)
 	l.hangar = Vector3(-80.0, 0, sz - 120.0)
