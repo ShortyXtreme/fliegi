@@ -34,6 +34,7 @@ signal impact(slot: int, position: Vector3, velocity: Vector3, kind: int, target
 static var current: ProjectileSystem = null
 ## Registrierte Ziele (weltübergreifend; ungültige werden beim Tick entfernt).
 static var _targets: Array[Target] = []
+static var _next_fake_id := -1
 
 ## Debug-Linien (nur mit Anzeige): Segmente des letzten Ticks.
 var debug_draw := false
@@ -116,10 +117,29 @@ static func register_target(node: Node3D, hitboxes: Object = null) -> void:
 	var t := Target.new()
 	t.node = node
 	t.hitboxes = hitboxes
-	t.id = CombatEvents.entity_id(node)
-	if t.id == 0:
-		t.id = -1 - _targets.size() - (node.get_instance_id() & 0xFFFFF)
+	t.id = id_of(node)
 	_targets.append(t)
+
+
+## Kennung eines Schützen/Ziels: entity_id (Flugzeug) oder eine feste negative Ersatz-ID
+## (Testboxen, Bodenziele ohne entity_id).
+static func id_of(node: Object) -> int:
+	if node == null or not is_instance_valid(node):
+		return 0
+	var id := CombatEvents.entity_id(node)
+	if id > 0:
+		return id
+	if not node.has_meta(&"_ps_id"):
+		_next_fake_id -= 1
+		node.set_meta(&"_ps_id", _next_fake_id)
+	return node.get_meta(&"_ps_id")
+
+
+static func target_by_id(id: int) -> Target:
+	for t in _targets:
+		if t.id == id and t.node != null and is_instance_valid(t.node):
+			return t
+	return null
 
 
 static func unregister_target(node: Node3D) -> void:
@@ -160,7 +180,7 @@ func spawn(shooter: Node3D, gun_index: int, shot_id: int, pos: Vector3,
 	_age[i] = 0.0
 	_life[i] = _weapon_life[wi]
 	_k[i] = w.ballistic_k
-	_owner_id[i] = CombatEvents.entity_id(shooter) if shooter != null else 0
+	_owner_id[i] = id_of(shooter)
 	_owner[i] = shooter
 	_shot[i] = shot_id
 	_gun[i] = gun_index
