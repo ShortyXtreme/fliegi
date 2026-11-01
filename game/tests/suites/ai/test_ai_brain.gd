@@ -69,11 +69,11 @@ func test_pursuit_fires_and_hits() -> Array:
 	for k in 600:
 		await _step(1)
 		fired_states[brain.state] = true
-		if hits[0] >= U.KILL_HITS:
+		if tgt.damage.is_destroyed:
 			break
 	var shots := me.weapons.ammo_max() - me.weapons.ammo()
-	return [hits[0] >= U.KILL_HITS and fired_states.has(AIPilotBrain.State.FIRE),
-			"%d Schuss, %d Ersatz-Treffer auf geradeaus fliegendes Ziel (ps %d/%d abgelehnt, Fehler %.1f°, d %.0f)" % [shots, hits[0], projectiles.hits_total, projectiles.hits_rejected, brain.aim_error_deg, me.global_position.distance_to(tgt.global_position)]]
+	return [tgt.damage.is_destroyed and hits[0] > 0 and fired_states.has(AIPilotBrain.State.FIRE),
+			"%d Schuss, %d Treffer, Ziel abgeschossen=%s %s nach %.1f s (ps %d/%d abgelehnt, d %.0f)" % [shots, hits[0], tgt.damage.is_destroyed, tgt.damage.hp, tgt.damage.elapsed, projectiles.hits_total, projectiles.hits_rejected, me.global_position.distance_to(tgt.global_position)]]
 
 
 func test_ground_avoid_from_dive() -> Array:

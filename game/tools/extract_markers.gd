@@ -7,7 +7,7 @@ extends SceneTree
 ##     [--rot-y=180] [--offset=0,0,0]
 ## Modell (rig.json): Nase +Z, linker Flügel +X -> Spiel: Nase -Z, also 180° um Y.
 
-const DEFAULT_GLB := "../art/models/fighter_t1_game.glb"
+const DEFAULT_GLB := "vehicles/aircraft/models/fighter_t1_game.glb"
 const DEFAULT_OUT := "res://vehicles/aircraft/data/markers/fighter_t1_markers.tres"
 const FIGHTER := "res://vehicles/aircraft/data/fighter_t1.tres"
 

@@ -2,7 +2,7 @@ extends TestSuite
 ## Paket 3: Marker-Extraktion und Hitboxen (Agent B).
 
 const SUITE := "fast"
-const GLB := "../art/models/fighter_t1_game.glb"
+const GLB := "vehicles/aircraft/models/fighter_t1_game.glb"
 
 
 func _glb_path() -> String:

@@ -33,10 +33,13 @@ func _connect_bus() -> void:
 	bus.pilot_ejected.connect(func(a, _p): _schedule(a))
 
 
-func register(aircraft: Node3D, controller: Controller, respawn: Callable) -> void:
+## delay (optional): Callable -> float, Ausfallzeit nur für dieses Flugzeug
+## (Paket 14: KI 30–60 s); ohne gilt MatchRules.respawn_delay.
+func register(aircraft: Node3D, controller: Controller, respawn: Callable,
+		delay: Callable = Callable()) -> void:
 	_connect_bus()
 	entries[aircraft] = {"controller": controller, "respawn": respawn, "timer": -1.0,
-		"down_since": -1.0, "down_xf": Transform3D.IDENTITY, "burning": false}
+		"down_since": -1.0, "down_xf": Transform3D.IDENTITY, "burning": false, "delay": delay}
 	if aircraft.get("pilot") == null:
 		_assign_pilot(aircraft, PilotRecord.new())
 	var d = aircraft.get("damage")
@@ -118,7 +121,8 @@ func _schedule(aircraft: Node) -> void:
 	var e: Dictionary = entries[aircraft]
 	if e.timer >= 0.0:
 		return
-	e.timer = MatchRules.respawn_delay
+	var dl: Callable = e.get("delay", Callable())
+	e.timer = float(dl.call()) if dl.is_valid() else MatchRules.respawn_delay
 	var d = aircraft.get("damage")
 	if d is DamageModel:
 		e.burning = d.is_burning()

@@ -384,3 +384,10 @@ func _update_sparks(dt: float) -> void:
 		if t != null and is_instance_valid(t):
 			var xf: Transform3D = (t as Node3D).get_global_transform_interpolated()
 			sparks[k].global_position = xf * (f[1] as Vector3)
+
+
+## Floating Origin: WeaponFx bleibt im Szenen-Ursprung. Leuchtspuren werden jeden Frame
+## aus den (bereits verschobenen) Geschosspositionen neu gebaut; Blitze/Funken sind
+## kurzlebig und springen höchstens einen Frame.
+func shift_origin(_delta: Vector3) -> void:
+	pass

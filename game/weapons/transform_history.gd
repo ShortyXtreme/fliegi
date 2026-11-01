@@ -74,3 +74,9 @@ func _index(tick: int) -> int:
 		if _ticks[k] == tick:
 			return k
 	return -1
+
+
+## Floating Origin: gespeicherte Transformationen um -delta verschieben.
+func shift_origin(delta: Vector3) -> void:
+	for i in _xf.size():
+		_xf[i].origin -= delta

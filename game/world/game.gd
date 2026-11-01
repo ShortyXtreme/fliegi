@@ -1,27 +1,43 @@
 class_name Game
 extends Node3D
-## Hauptszene M1: Testwelt, Spieler-Flugzeug auf der Piste, KI-Flugzeug in der Luft.
-## Wer welchen Sitz bekommt, entscheidet der Server (offline: wir selbst, Peer 1).
-## M2 (Paket 0): Kampf-Infrastruktur ist angelegt (ProjectileSystem, WeaponFx,
-## SpawnManager, Nationen). Das Szenario „1 gegen 3“ baut Paket 14 hier ein.
+## Hauptszene M2: Gelände (TerrainWorld), Spieler auf Platz Blau (Parkbremse), Szenario
+## „Luftkampf 1 gegen 3“ (world/combat_scenario.gd). Wer welchen Sitz bekommt, entscheidet
+## der Server (offline: wir selbst, Peer 1).
+## Umschalten auf die alte Testwelt: Startoption `-- --testwelt` (ohne Gegner-Szenario
+## nur mit einem kreisenden KI-Flugzeug wie in M1).
 
 const FIGHTER := "res://vehicles/aircraft/data/fighter_t1.tres"
+const TERRAIN_SCENE := "res://world/terrain/terrain_world.tscn"
 
-var world: TestWorld
+## Gelände statt TestWorld (Standard an).
+static var use_terrain := true
+
+var world: Node3D
 var player_aircraft: Aircraft
+## Erstes KI-Flugzeug (Kompatibilität M1-Tests); alle: ai_aircrafts.
 var ai_aircraft: Aircraft
+var ai_aircrafts: Array[Aircraft] = []
 var player: PlayerController
-var ai: AIController
+## Erster KI-Pilot (AIPilotBrain; in der Testwelt AIController).
+var ai: Controller
 var cam: CameraRig
 var hud: Hud
 var projectiles: ProjectileSystem
 var weapon_fx: WeaponFx
 var spawn_manager: SpawnManager
+var scenario: CombatScenario
+var origin_shifter: OriginShifter
 
 
 func _ready() -> void:
 	CombatEvents.reset()
-	world = TestWorld.new()
+	ProjectileSystem.reset_targets()
+	var terrain := use_terrain and not "--testwelt" in OS.get_cmdline_user_args() \
+			and ResourceLoader.exists(TERRAIN_SCENE)
+	if terrain:
+		world = (load(TERRAIN_SCENE) as PackedScene).instantiate()
+	else:
+		world = TestWorld.new()
 	world.name = "World"
 	add_child(world)
 	projectiles = ProjectileSystem.new()
@@ -38,32 +54,28 @@ func _ready() -> void:
 	player_aircraft = Aircraft.create(data)
 	player_aircraft.name = "PlayerAircraft"
 	player_aircraft.nation_id = Nations.BLUE
+	player_aircraft.set_meta("display_name", "Blau 1")
 	add_child(player_aircraft)
-	player_aircraft.place_on_ground(world.runway_spawn(0), TestWorld.RUNWAY_DIR)
-
-	# KI-Flugzeug: anderes Farbschema, startet in der Luft und kreist über dem Platz
-	var ai_data: AircraftData = data.duplicate()
-	ai_data.body_color = Color(0.55, 0.22, 0.2)
-	ai_data.accent_color = Color(0.9, 0.9, 0.85)
-	ai_aircraft = Aircraft.create(ai_data)
-	ai_aircraft.name = "AIAircraft"
-	ai_aircraft.nation_id = Nations.RED
-	add_child(ai_aircraft)
-	var b := Basis.looking_at(Vector3(-1, 0, 0), Vector3.UP)
-	ai_aircraft.place(Transform3D(b, Vector3(900, 350, -1200)), 85.0, 0.8, false)
 
 	player = PlayerController.new()
 	player.name = "PlayerController"
 	add_child(player)
-	ai = AIController.new()
-	ai.name = "AIController"
-	ai.cruise_altitude = 350.0
-	ai.circle_center = Vector3(0, 0, -1200)
-	ai.circle_radius = 900.0
-	add_child(ai)
+
+	if terrain:
+		scenario = CombatScenario.new()
+		scenario.name = "Scenario"
+		add_child(scenario)
+		scenario.setup(self, world)
+		scenario.spawn_enemies(data, spawn_manager)
+		ai_aircrafts = scenario.enemies
+		ai_aircraft = ai_aircrafts[0]
+		ai = scenario.brains[0]
+	else:
+		_spawn_test_ai(data)
+	_place_player_on_ground()
+
 	if Authority.is_server():
 		player_aircraft.pilot_seat.possess(player)
-		ai_aircraft.pilot_seat.possess(ai)
 		spawn_manager.register(player_aircraft, player, func(): _on_reset(false))
 
 	cam = CameraRig.new()
@@ -78,12 +90,53 @@ func _ready() -> void:
 	hud.camera_rig = cam
 	add_child(hud)
 
+	# Floating Origin (Paket 13): Schalter, Standard aus (FLOATING_ORIGIN=1 schaltet ein)
+	origin_shifter = OriginShifter.new()
+	origin_shifter.name = "OriginShifter"
+	origin_shifter.focus = player_aircraft
+	add_child(origin_shifter)
+
 	player.camera_next_requested.connect(cam.next_mode)
 	player.debug_toggle_requested.connect(hud.toggle_debug)
 	player.help_toggle_requested.connect(hud.toggle_help)
 	player.reset_requested.connect(_on_reset)
 	player.gear_toggled.connect(hud.on_gear_toggled)
-	player_aircraft.crashed.connect(func(_a): print("Crash! R = Neustart auf der Piste"))
+	if scenario != null:
+		print("Flugkern %s: Luftkampf 1 gegen %d, KI-Stufe %s" % [Hud.VERSION,
+				scenario.enemy_count, scenario.difficulty_name()])
+
+
+## M1-Verhalten (Testwelt): ein KI-Flugzeug kreist über dem Platz.
+func _spawn_test_ai(data: AircraftData) -> void:
+	ai_aircraft = Aircraft.create(data)
+	ai_aircraft.name = "AIAircraft"
+	ai_aircraft.nation_id = Nations.RED
+	add_child(ai_aircraft)
+	ai_aircrafts = [ai_aircraft]
+	var b := Basis.looking_at(Vector3(-1, 0, 0), Vector3.UP)
+	ai_aircraft.place(Transform3D(b, Vector3(900, 350, -1200)), 85.0, 0.8, false)
+	var c := AIController.new()
+	c.name = "AIController"
+	c.cruise_altitude = 350.0
+	c.circle_center = Vector3(0, 0, -1200)
+	c.circle_radius = 900.0
+	add_child(c)
+	ai = c
+	if Authority.is_server():
+		ai_aircraft.pilot_seat.possess(c)
+		spawn_manager.register(ai_aircraft, c, func():
+			ai_aircraft.place(Transform3D(b, Vector3(900, 350, -1200)), 85.0, 0.8, false))
+
+
+func _runway_spawn(i: int) -> Vector3:
+	if world is TerrainWorld:
+		return (world as TerrainWorld).runway_spawn(i, scenario.blue_field if scenario else 0)
+	return (world as TestWorld).runway_spawn(i)
+
+
+func _place_player_on_ground() -> void:
+	player_aircraft.place_on_ground(_runway_spawn(0), TestWorld.RUNWAY_DIR)
+	player.reset_state(0.0)   # Gas 0 → Parkbremse an
 
 
 func _on_reset(in_air: bool) -> void:
@@ -91,8 +144,8 @@ func _on_reset(in_air: bool) -> void:
 		return
 	if in_air:
 		var b := Basis.looking_at(TestWorld.RUNWAY_DIR, Vector3.UP)
-		player_aircraft.place(Transform3D(b, TestWorld.RUNWAY_START + Vector3(0, 500, 0)), 90.0, 0.8, false)
+		var p := _runway_spawn(0) + Vector3(0, 500, 0)
+		player_aircraft.place(Transform3D(b, p), 90.0, 0.8, false)
 		player.reset_state(0.8, false)
 	else:
-		player_aircraft.place_on_ground(world.runway_spawn(0), TestWorld.RUNWAY_DIR)
-		player.reset_state(0.0)
+		_place_player_on_ground()

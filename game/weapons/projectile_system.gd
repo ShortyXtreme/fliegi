@@ -122,6 +122,7 @@ static func register_target(node: Node3D, hitboxes: Object = null) -> void:
 	for t in _targets:
 		if t.node == node:
 			t.hitboxes = hitboxes
+			t.id = id_of(node)
 			return
 	var t := Target.new()
 	t.node = node
@@ -164,6 +165,21 @@ static func reset_targets() -> void:
 
 static func targets() -> Array[Target]:
 	return _targets
+
+
+## Floating Origin (Paket 13/14): alle Geschoss- und Zielverläufe um -delta verschieben.
+## Der OriginShifter ruft diese Methode statt den Knoten zu bewegen.
+func shift_origin(delta: Vector3) -> void:
+	for i in CAPACITY:
+		if _flags[i] & F_ACTIVE:
+			_pos[i] -= delta
+			_prev[i] -= delta
+	for t in _targets:
+		t.prev.origin -= delta
+		t.history.shift_origin(delta)
+	for c in get_children():
+		if c is Node3D:
+			(c as Node3D).global_position -= delta
 
 
 # --- Erzeugen ------------------------------------------------------------------
@@ -308,6 +324,8 @@ func step(dt: float, tick: int) -> void:
 		if not t.node.is_inside_tree() or (vp != null and t.node.get_viewport() != vp):
 			t.has_prev = false
 			continue
+		# entity_id kann sich nach der Anmeldung ändern (Tests, Netz, Respawn).
+		t.id = id_of(t.node)
 		var boxes := t.boxes()
 		var xf := t.node.global_transform
 		var pv := t.prev if t.has_prev else xf

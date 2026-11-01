@@ -36,7 +36,11 @@ var damage: DamageModel
 var allowed_assist_modes: Array[int] = [FlightAssist.Mode.ARCADE, FlightAssist.Mode.REALISTIC]
 var assist_mode: int = FlightAssist.Mode.ARCADE
 
+## Treibstoffdichte (kg/l) für die Massenkopplung. data.mass gilt mit vollen Tanks.
+const FUEL_DENSITY := 0.72
+
 var _intent := PilotIntent.new()
+var _fuel_mass_applied := 0.0
 var _exclude: Array[RID] = []
 var _eject_prev := false
 
@@ -78,6 +82,7 @@ func _build(with_visual: bool) -> void:
 	assist = FlightAssist.new(data)
 	damage = DamageModel.new(self, flight.modifiers)
 	weapons = WeaponSystem.new(self)
+	damage.grounded.connect(_on_grounded)
 
 	pilot_seat = Seat.new()
 	pilot_seat.name = "PilotSeat"
@@ -114,12 +119,33 @@ func _physics_process(dt: float) -> void:
 	_eject_prev = _intent.eject
 	weapons.tick(_intent, dt)
 	damage.tick(dt)
+	_update_fuel(dt)
 	# Server entscheidet, ob der gewünschte Modus erlaubt ist.
 	if Authority.is_server() and _intent.assist_mode in allowed_assist_modes:
 		assist_mode = _intent.assist_mode
 	_intent.assist_mode = assist_mode
 	if visual:
 		visual.update_controls(flight.telemetry, dt)
+
+
+## Treibstoffmasse koppeln (verbrauchter/ausgelaufener Treibstoff macht leichter) und
+## Füllstand für HUD/KI in der Telemetrie melden.
+func _update_fuel(_dt: float) -> void:
+	var f := damage.fuel
+	var cap := 0.0
+	for c in f.capacity:
+		cap += c
+	var missing := maxf(cap - f.total(), 0.0) * FUEL_DENSITY
+	flight.telemetry.fuel_fraction = f.total() / maxf(cap, 1e-3)
+	if absf(missing - _fuel_mass_applied) > 1.0:
+		_fuel_mass_applied = missing
+		mass = maxf(data.mass - missing, data.mass * 0.5)
+
+
+## Wrack nach Absturz einfrieren (rutscht/rollt nicht weiter); place() hebt das auf.
+func _on_grounded(outcome: int) -> void:
+	if outcome == DamageModel.Outcome.CRASHED:
+		set_deferred("freeze", true)
 
 
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
@@ -136,6 +162,9 @@ func telemetry() -> FlightTelemetry:
 ## Setzt das Flugzeug an eine Position (Server). speed in m/s entlang der Nase.
 func place(xf: Transform3D, speed: float = 0.0, throttle: float = 0.0,
 		gear_down: bool = true) -> void:
+	freeze = false
+	_fuel_mass_applied = 0.0
+	mass = data.mass
 	global_transform = xf
 	linear_velocity = -xf.basis.z * speed
 	angular_velocity = Vector3.ZERO

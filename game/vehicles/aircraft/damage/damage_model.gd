@@ -189,6 +189,20 @@ func hp_fraction(zone: int) -> float:
 	return hp[zone] / maxf(hp_max[zone], 1e-3)
 
 
+## Kompakter Zustand für KI/HUD: kleinster HP-Anteil aller Zonen (1 = heil, Paket 14).
+func health_fraction() -> float:
+	var m := 1.0
+	for z in Zone.COUNT:
+		m = minf(m, hp_fraction(z))
+	return m
+
+
+## Kritisch: brennt, Motor aus, Pilot verwundet oder eine Zone unter 35 %.
+func is_critical() -> bool:
+	return is_burning() or is_engine_failed() or pilot_state == PilotState.WOUNDED \
+		or health_fraction() < 0.35
+
+
 func is_burning(zone := -1) -> bool:
 	if zone >= 0:
 		return fire_time[zone] >= 0.0
@@ -319,7 +333,8 @@ func _apply_modifiers() -> void:
 	if ft < 1.0:
 		for i in _surf_tail:
 			if i < n:
-				modifiers.control[i] = lerpf(profile.tail_control_min, 1.0, ft)
+				# Leitwerk zerschossen (0 HP): Höhen-/Seitenruder ohne Wirkung.
+				modifiers.control[i] = lerpf(profile.tail_control_min, 1.0, ft) if ft > 0.0 else 0.0
 	# Motor
 	var fe := hp_fraction(Zone.ENGINE)
 	var pm := 1.0
@@ -349,6 +364,9 @@ func _check_destroyed() -> void:
 		pilot_state = PilotState.DEAD
 		_set_pilot_alive(false)
 		_destroy(CombatEvents.Cause.PILOT_KILLED)
+	elif hp[Zone.TAIL] <= 0.0:
+		# Paket 14: Leitwerk zerschossen zählt als Abschuss (Flugzeug nicht mehr steuerbar).
+		_destroy(CombatEvents.Cause.UNKNOWN)
 
 
 ## Abschuss melden (nur einmal je Flug). Kredit: letzter Schütze im Zeitfenster.
@@ -486,6 +504,12 @@ func on_impact(body: Node, velocity: Vector3) -> void:
 func _evaluate_ground_contact(velocity: Vector3) -> void:
 	var speed := velocity.length()
 	if speed < profile.impact_ignore_speed and not is_destroyed:
+		return
+	# Paket 14: Nase/Rumpf streift beim Bremsen mit Rädern am Boden (Kopfstand-Ansatz) –
+	# kein Absturz, solange langsam und das Fahrwerk trägt.
+	var tel = _telemetry()
+	if not is_destroyed and tel != null and tel.wheels_in_contact > 0 and speed < 20.0 \
+			and absf(velocity.y) < 3.0:
 		return
 	var bank := 0.0
 	if aircraft is Node3D:

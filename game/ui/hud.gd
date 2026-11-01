@@ -3,14 +3,14 @@ extends CanvasLayer
 ## Einfaches HUD: Fahrt, Höhe, Gas, Anstellwinkel, Stall-Warnung, Modus, FPS.
 ## F3: Debug-Overlay mit Kräften (Text + 3D-Pfeile), F1: Steuerungshilfe.
 
-const VERSION := "M2-dev"
-const HELP_TEXT := """[b]STEUERUNG[/b]  Flugkern M2 (Vorschau)  (F1 / Xbox-View-Taste schließt)
+const VERSION := "M2"
+const HELP_TEXT := """[b]STEUERUNG[/b]  Flugkern M2 – Luftkampf 1 gegen 3  (F1 / Xbox-View-Taste schließt)
 [b]Tastatur[/b]
   W / S  ........ Nase runter / hoch      A / D ..... rollen links / rechts
   Q / E  ........ Seitenruder             Shift / Strg .. Gas mehr / weniger
   F  ............ Klappen (0 / 50 / 100 %) B ........ Bremsen (halten / Parkbremse lösen)
   G  ............ Fahrwerk ein / aus (ca. 6 s, nicht am Boden, max. 300 km/h ausgefahren)
-  Leertaste ..... Feuer                   V ......... Sekundärwaffe
+  Leertaste / Linksklick .. Feuer         V ......... Sekundärwaffe
   J (1 s halten)  Notausstieg (nur bei schwerem Schaden)
   C  ............ Kamera wechseln         X ......... Arcade / Realistisch
   M  ............ Maus-Zielsteuerung an/aus  R / T ... Neustart Piste / Luft
@@ -27,7 +27,10 @@ const HELP_TEXT := """[b]STEUERUNG[/b]  Flugkern M2 (Vorschau)  (F1 / Xbox-View-
   Y ............. Kamera                  X ......... Arcade / Realistisch
   Rechter Stick . umsehen (Klick: zurück) Start ..... Neustart Piste
 [b]Hinweise[/b]  Beim Start ist die Parkbremse an (löst bei Gas > 10 % oder B).
-  Schütteln + STALL-WARNUNG = kurz vor dem Strömungsabriss: nachlassen."""
+  Schütteln + STALL-WARNUNG = ca. 1,5° vor dem Abriss, wird stärker: nachlassen.
+  Auftrag: 3 rote Jäger kreisen 6–10 km entfernt. Abgeschossene Gegner starten nach
+  30–60 s am Platz Rot neu. Eigener Neustart 15 s nach Verlust. Landen am Platz Blau
+  schreibt die Erfahrung (XP) gut."""
 
 var aircraft: Aircraft
 var player: PlayerController
@@ -97,6 +100,7 @@ func _ready() -> void:
 	_help.text = HELP_TEXT
 	_help.visible = true   # beim ersten Start sichtbar
 	add_child(_help)
+	CombatHud.replace_legacy_text = true   # Paket 14: neues Flug-Panel ersetzt Text-HUD
 	combat = CombatHud.create(self); add_child(combat)   # M2-Vertrag: einzige Kampf-HUD-Zeile
 	_aim_marker = _make_circle(14.0, Color(1, 1, 1, 0.9))
 	_nose_marker = _make_cross(10.0, Color(0.4, 1.0, 0.4, 0.9))
@@ -224,7 +228,7 @@ func _process(dt: float) -> void:
 		_info.text += "\nBREMSE"
 	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		_info.text += "\n(Linksklick: Maus fangen)"
-	# Stall-Warnung: ab 3° vor dem Abriss (gleich wie Buffet-Beginn)
+	# Stall-Warnung: ab FlightModel.BUFFET_ONSET (1,5°) vor dem Abriss, Ton progressiv
 	_warn_t += dt
 	var near_stall := not t.on_ground and t.airspeed > 10.0 \
 		and t.aoa > t.stall_aoa - FlightModel.BUFFET_ONSET
@@ -235,8 +239,10 @@ func _process(dt: float) -> void:
 	else:
 		_warn.text = ""
 	_warn_tone = 0.0
-	if near_stall or t.stall_amount > 0.3 and not t.on_ground:
+	if t.stall_amount > 0.3 and not t.on_ground:
 		_warn_tone = 1.0
+	elif near_stall:
+		_warn_tone = clampf(0.25 + t.buffet, 0.25, 1.0)
 	_buffet_vol = t.buffet
 	_fill_audio()
 	# Zweite Zeile: Fahrwerk / Bauchlandung

@@ -20,9 +20,17 @@ var _prop_angle := 0.0
 var _gear_pivots: Array = []    # [pivot: Node3D, Klapprichtung (+1/-1)]
 var _gear_shown := 1.0
 
-## Spielmodell mit Rig (relativ zum Projektordner game/). Paket 14: in res:// übernehmen.
-const RIG_MODEL := "../art/models/fighter_t1_game.glb"
-const RIG_MODEL_ENEMY := "../art/models/fighter_t1_game_enemy.glb"
+## Spielmodell mit Rig (importiert in res://, Paket 14). Gegner: *_enemy.glb.
+const RIG_MODEL := "res://vehicles/aircraft/models/fighter_t1_game.glb"
+## Gegner-Bemalung: gleiches Modell, nur Albedo/Abzeichen getauscht (spart ~10 MB im Export;
+## Quelle: art/models/fighter_t1_game_enemy.glb).
+const ENEMY_TEXTURES := {
+	"fighter_t1_game_fighter_t1_fus_albedo.png": "res://vehicles/aircraft/models/enemy/fus_albedo.png",
+	"fighter_t1_game_fighter_t1_wing_albedo.png": "res://vehicles/aircraft/models/enemy/wing_albedo.png",
+	"fighter_t1_game_fighter_t1_detail_albedo.png": "res://vehicles/aircraft/models/enemy/detail_albedo.png",
+	"fighter_t1_game_insignia_own.png": "res://vehicles/aircraft/models/enemy/insignia.png",
+}
+static var _enemy_mats := {}
 ## Rig-Daten aus fighter_t1_rig.json (Achsen lokal, Grad).
 const RIG := {
 	"aileron_L": [Vector3.RIGHT, -20.0, 15.0], "aileron_R": [Vector3.RIGHT, -20.0, 15.0],
@@ -65,7 +73,9 @@ func _build_now() -> void:
 	var d := data
 	_aircraft = get_parent() as Node3D
 	var enemy: bool = _aircraft != null and _aircraft.get("nation_id") is int and _aircraft.nation_id != Nations.BLUE
-	model_root = _load_rig_model(RIG_MODEL_ENEMY if enemy else RIG_MODEL)
+	model_root = _load_rig_model(RIG_MODEL)
+	if model_root != null and enemy:
+		_apply_enemy_skin(model_root)
 	if model_root != null:
 		using_placeholder = false
 		using_rig = true
@@ -98,6 +108,27 @@ func _build_now() -> void:
 	_setup_fx()
 
 
+## Tauscht die Albedo-Texturen gegen die Gegner-Bemalung (Materialien je Pfad gecacht).
+static func _apply_enemy_skin(root: Node) -> void:
+	for n in root.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		if mi.mesh == null:
+			continue
+		for si in mi.mesh.get_surface_count():
+			var m := mi.get_active_material(si) as BaseMaterial3D
+			if m == null or m.albedo_texture == null:
+				continue
+			var key := m.albedo_texture.resource_path.get_file()
+			if not ENEMY_TEXTURES.has(key):
+				continue
+			var cache_key := "%s|%d" % [key, m.get_instance_id()]
+			if not _enemy_mats.has(cache_key):
+				var em := m.duplicate() as BaseMaterial3D
+				em.albedo_texture = load(ENEMY_TEXTURES[key])
+				_enemy_mats[cache_key] = em
+			mi.set_surface_override_material(si, _enemy_mats[cache_key])
+
+
 func _setup_fx() -> void:
 	var dm = _aircraft.get("damage") if _aircraft != null else null
 	if dm is DamageModel:
@@ -106,12 +137,15 @@ func _setup_fx() -> void:
 		fx.setup(dm)
 
 
-## GLB einmal je Pfad laden (Laufzeit-Import ~2,5 s), danach duplizieren.
+## Spielmodell einmal je Pfad laden (importiert; sonst Laufzeit-Import), danach duplizieren.
 static func _load_rig_model(rel: String) -> Node3D:
 	if not _rig_cache.has(rel):
-		var abs_path := ProjectSettings.globalize_path("res://").path_join(rel).simplify_path()
+		var abs_path := ProjectSettings.globalize_path(rel) if rel.begins_with("res://") \
+				else ProjectSettings.globalize_path("res://").path_join(rel).simplify_path()
 		var scene: PackedScene = null
-		if FileAccess.file_exists(abs_path):
+		if rel.begins_with("res://") and ResourceLoader.exists(rel):
+			scene = load(rel) as PackedScene
+		elif FileAccess.file_exists(abs_path):
 			var doc := GLTFDocument.new()
 			var st := GLTFState.new()
 			if doc.append_from_file(abs_path, st) == OK:

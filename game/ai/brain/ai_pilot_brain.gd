@@ -27,6 +27,7 @@ const EVADE_MIN_TIME := 2.0
 ## Rückzug: Munition unter Anteil, Zustand (min. Zonen-HP-Anteil) unter.
 const RETREAT_AMMO := 0.1
 const RETREAT_HP := 0.35
+const RETREAT_FUEL := 0.12
 ## Höchstlast bei G-Nutzung 1,0 (Rekrut 0,6 → 5,4 g, Veteran 0,95 → 8,6 g).
 const MAX_G := 9.0
 ## Bodenschutz-Vorausschau (s).
@@ -262,11 +263,10 @@ func _should_retreat(a: Aircraft) -> bool:
 	if w != null and w.ammo_max() > 0 and float(w.ammo()) / w.ammo_max() < RETREAT_AMMO:
 		return true
 	var dm := a.damage
-	if dm != null:
-		for z in dm.hp.size():
-			if dm.hp_fraction(z) < RETREAT_HP:
-				return true
-	return false
+	if dm != null and (dm.health_fraction() < RETREAT_HP or dm.is_burning() \
+			or dm.is_engine_failed()):
+		return true
+	return a.telemetry().fuel_fraction < RETREAT_FUEL
 
 
 ## Feind am Heck, nah und mit der Nase auf uns (wahrgenommen, also verzögert).

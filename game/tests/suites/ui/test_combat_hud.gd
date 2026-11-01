@@ -47,11 +47,10 @@ func test_hud_contains_panel_and_hides_legacy() -> Array:
 	await _step(2)
 	var ok1: bool = h.combat != null and h.combat.flight_panel != null
 	var info: Label = h.get("_info")
-	var before := info.visible
-	CombatHud.replace_legacy_text = true
-	await _step(2)
-	return [ok1 and before and not info.visible and not h.combat.flight_panel.data.is_empty(),
-		"Panel da: %s, altes HUD vorher %s / nachher %s" % [ok1, before, info.visible]]
+	# Paket 14: Hud schaltet das alte Text-HUD selbst ab (replace_legacy_text = true).
+	return [ok1 and CombatHud.replace_legacy_text and not info.visible \
+			and not h.combat.flight_panel.data.is_empty(),
+		"Panel da: %s, altes Text-HUD sichtbar: %s" % [ok1, info.visible]]
 
 
 func test_format_helpers() -> Array:
