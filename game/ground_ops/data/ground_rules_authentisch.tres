@@ -1,0 +1,42 @@
+[gd_resource type="Resource" script_class="GroundRules" format=3]
+
+[ext_resource type="Script" path="res://ground_ops/data/ground_rules.gd" id="1_rules"]
+
+[resource]
+script = ExtResource("1_rules")
+realism = 2
+truck_at_spot = false
+truck_fill_first = true
+truck_fill_lps = 20.0
+grounding_s = 3.0
+spark_fire_chance = 0.05
+hose_carry = true
+hose_length = 12.0
+hose_attach_s = 2.0
+hose_detach_s = 2.0
+cap_and_valve = true
+cap_valve_s = 3.0
+pump_lps = 4.0
+pump_watch = true
+overflow_lps_lost = 1.0
+gun_at_cart_s = 0.0
+crate_pick_s = 0.5
+hatch_s = 1.5
+belt_s = 5.0
+charge_in_cockpit = true
+charge_s = 2.0
+crate_kg = 25.0
+crate_speed_mul = 0.65
+repair_hps = 3.0
+repair_needs_toolbox = true
+ai_work_mul = 0.8
+alarm_work_mul = 1.25
+work_range = 3.0
+walk_speed = 1.6
+truck_speed = 7.0
+truck_trip_m = 150.0
+cart_trip_m = 60.0
+crate_walk_m = 8.0
+hose_walk_m = 12.0
+spot_walk_m = 6.0
+mount_s = 3.0

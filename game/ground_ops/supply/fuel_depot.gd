@@ -1,6 +1,6 @@
 class_name FuelDepot
 extends FuelSource
-## M3 Stub (Paket 0b, gehört Strang G / Paket 1): Tanklager am Platz.
+## M3 (Strang G / Paket 1): Tanklager am Platz.
 ## Startbestand: aviation 8.000 l, ersatz 3.000 l. HP und Signal destroyed sind Haken für
 ## Angriffe (M4), in M3 ohne Wirkung. Zustand kompakt über to_array() (Netz).
 
@@ -22,6 +22,17 @@ func _init(stock: Dictionary = {}, capacities: Dictionary = {}) -> void:
 	if capacities.is_empty():
 		capacities = stock.duplicate()
 	super(stock, capacities)
+	label = "Tanklager"
+
+
+## Haken für M4 (Angriff auf das Lager). In M3 ohne Wirkung auf den Bestand.
+func take_damage(amount: float) -> void:
+	if not Authority.is_server() or amount <= 0.0 or hp <= 0.0:
+		return
+	hp = maxf(hp - amount, 0.0)
+	if hp <= 0.0:
+		destroyed.emit()
+	_changed()
 
 
 func to_array() -> PackedFloat32Array:
@@ -33,3 +44,4 @@ func from_array(a: PackedFloat32Array) -> void:
 		liters[FuelSystem.GRADE_AVIATION] = a[0]
 		liters[FuelSystem.GRADE_ERSATZ] = a[1]
 		hp = a[2]
+		changed.emit()
