@@ -71,6 +71,10 @@ var _fire_acc: PackedFloat32Array = []
 var _surf_wing := {Zone.WING_L: [], Zone.WING_R: []}   # [index, ist_aussen, ist_querruder]
 var _surf_tail: Array[int] = []
 var _resets := 0
+## Schadenszustand geändert -> FlightModifiers neu berechnen. Ohne Änderung schreibt das
+## Modell die Modifier nicht (intakt = unberührt, Vertragstest setzt sie direkt).
+var _dirty := false
+var _fuel_empty := false
 
 
 func _init(a: Node3D, mods: FlightModifiers) -> void:
@@ -127,6 +131,8 @@ func reset() -> void:
 	_resets += 1
 	fuel.refill()
 	modifiers.reset()
+	_dirty = false
+	_fuel_empty = false
 	was_reset.emit()
 
 
@@ -156,6 +162,7 @@ func _damage_zone(zone: int, damage: float) -> void:
 	var before := hp[zone]
 	hp[zone] = maxf(hp[zone] - damage, 0.0)
 	if hp[zone] != before:
+		_dirty = true
 		zone_changed.emit(zone, hp_fraction(zone))
 
 
@@ -234,12 +241,18 @@ func tick(dt: float) -> void:
 		if seize_timer <= 0.0:
 			seize_timer = -1.0
 			engine_dead = true
+			_dirty = true
+	if fuel.is_empty() != _fuel_empty:
+		_fuel_empty = fuel.is_empty()
+		_dirty = true
 	# Brand
 	if is_burning():
 		_tick_fire(dt, t)
-	_wound_noise = _wound_noise * 0.95 + Vector3(rng.randf_range(-1, 1), rng.randf_range(-1, 1), rng.randf_range(-1, 1)) * 0.05
-	_apply_modifiers()
-	_check_destroyed()
+	if pilot_state == PilotState.WOUNDED:
+		_wound_noise = _wound_noise * 0.95 + Vector3(rng.randf_range(-1, 1), rng.randf_range(-1, 1), rng.randf_range(-1, 1)) * 0.05
+	if _dirty:
+		_apply_modifiers()
+		_check_destroyed()
 	# Bauchlandung ohne Kollisionsereignis (Kufenpunkte sind Strahlen, keine Körper)
 	if outcome == Outcome.FLYING and t != null and t.belly_contact and t.gear_extension < 0.5:
 		_evaluate_ground_contact((aircraft as RigidBody3D).linear_velocity if aircraft is RigidBody3D else Vector3.ZERO)
@@ -278,6 +291,7 @@ func _tick_fire(dt: float, t) -> void:
 ## Wirkung aller Zonen auf die FlightModifiers (vollständig neu berechnet, nur geklemmte
 ## Ruder bleiben erhalten). Intakt = exakt neutral.
 func _apply_modifiers() -> void:
+	_dirty = false
 	var n := modifiers.lift.size()
 	if n == 0:
 		return
