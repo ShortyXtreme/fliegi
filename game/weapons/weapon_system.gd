@@ -28,8 +28,6 @@ var cooldown := PackedFloat32Array()
 var aim_dirs := PackedVector3Array()
 ## Abzugsphasen (neueste zuletzt, max. MAX_EVENTS), offene Phase hat tick_off = -1.
 var fire_events: Array[FireEvent] = []
-## Optionaler Empfänger für Schüsse (HitValidator.record_shot).
-var validator: Object = null
 
 const MAX_EVENTS := 64
 
@@ -116,8 +114,6 @@ func _fire(gi: int, m: GunMountDef, late: float) -> void:
 	var ps := ProjectileSystem.current
 	if ps != null:
 		ps.spawn(aircraft, gi, shot_id, pos, vel, w)
-	if validator != null:
-		validator.record_shot(aircraft, gi, shot_id, Engine.get_physics_frames(), pos, vel, w)
 	fired.emit(gi, shot_id)
 	CombatEvents.bus().shot_fired.emit(aircraft, gi, shot_id)
 

@@ -42,6 +42,10 @@ var debug_draw := false
 var use_raycast := true
 ## Statistik
 var hits_total := 0
+var hits_rejected := 0
+## Trefferprüfung (Server): jeder Treffer eines bekannten Schützen läuft als HitReport durch.
+var validator := HitValidator.new()
+var validate_hits := true
 var last_step_usec := 0
 
 var _pos := PackedVector3Array()
@@ -72,6 +76,8 @@ class Target:
 	var id := 0
 	var prev := Transform3D()
 	var has_prev := false
+	## Verlauf (≈ 1 s) für den HitValidator.
+	var history := TransformHistory.new()
 
 	func boxes() -> Object:
 		if hitboxes != null:
@@ -99,11 +105,14 @@ func _init() -> void:
 
 func _enter_tree() -> void:
 	current = self
+	HitValidator.current = validator
 
 
 func _exit_tree() -> void:
 	if current == self:
 		current = null
+	if HitValidator.current == validator:
+		HitValidator.current = null
 
 
 # --- Ziele ---------------------------------------------------------------------
@@ -187,6 +196,8 @@ func spawn(shooter: Node3D, gun_index: int, shot_id: int, pos: Vector3,
 	_wi[i] = wi
 	_tick[i] = Engine.get_physics_frames()
 	_flags[i] = F_ACTIVE | F_FRESH | (F_TRACER if tracer > 0 else 0)
+	if validator != null:
+		validator.record_shot(shooter, gun_index, shot_id, _tick[i], pos, vel, w)
 	spawned.emit(i)
 	return i
 
@@ -297,6 +308,7 @@ func step(dt: float, tick: int) -> void:
 		var pv := t.prev if t.has_prev else xf
 		t.prev = xf
 		t.has_prev = true
+		t.history.record(tick, xf)
 		if boxes == null:
 			continue
 		tn.append(t)
@@ -386,9 +398,21 @@ func step(dt: float, tick: int) -> void:
 
 
 func _hit_target(i: int, t: Target, hit: Dictionary, world_point: Vector3, server: bool,
-		_tick_now: int) -> void:
+		tick_now: int) -> void:
 	var zone := int(hit.get("zone", -1))
 	var shooter := shooter_of(i)
+	if server and validate_hits and validator != null and validator.knows_shooter(_owner_id[i]):
+		var r := HitValidator.HitReport.new()
+		r.shooter_id = _owner_id[i]
+		r.shot_id = _shot[i]
+		r.target_id = t.id
+		r.zone = zone
+		r.tick = tick_now
+		r.local_point = hit.get("point", Vector3.ZERO)
+		if validator.validate(r, tick_now) != HitValidator.Result.OK:
+			hits_rejected += 1
+			_end(i, world_point, Impact.TARGET, t.node, zone)
+			return
 	var w := _weapons[_wi[i]]
 	var dmg := w.damage
 	var tn = t.node.get("nation_id")
