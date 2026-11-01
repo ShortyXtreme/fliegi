@@ -94,8 +94,6 @@ func request_step(peer: int, job_id: int, step_name: StringName, dt: float) -> b
 	if not Authority.is_server() or not jobs.has(job_id):
 		return false
 	var j: GroundJob = jobs[job_id]
-	if not j.is_open():
-		return false
 	if j.worker != null and is_instance_valid(j.worker):
 		var wp := _peer_of(j.worker)
 		if wp >= 0 and wp != peer:
@@ -103,6 +101,8 @@ func request_step(peer: int, job_id: int, step_name: StringName, dt: float) -> b
 	j.recheck(rules)
 	if j.blocked_reason != &"":
 		GroundEvents.bus().job_blocked.emit(job_id, j.blocked_reason)
+		return false
+	if not j.is_open():
 		return false
 	if j.current_step() != step_name:
 		var nxt := j.step_index + 1
