@@ -51,7 +51,7 @@ static func gather(aircraft: Aircraft, player: PlayerController, cam: CameraRig,
 		w.append(["FAHRWERK EINGEFAHREN", 2, false])
 	if t.belly_contact and t.gear_extension < 0.999:
 		w.append(["BAUCHLANDUNG", 2, false])
-	if player and player.parking_brake:
+	if show_parking_brake(player, t):
 		w.append(["PARKBREMSE  (Gas > 10 % oder B)", 0, false])
 	elif t.on_ground and aircraft.pilot_seat and aircraft.pilot_seat.intent.brakes > 0.1:
 		w.append(["BREMSE", 0, false])
@@ -173,3 +173,10 @@ func _draw() -> void:
 		draw_style_box(wb, r)
 		HudStyle.text(self, Vector2(18, y - 9 - (17.0 - sz) * 0.3), e[0], sz, col, true)
 		y -= 36.0
+
+
+## M2.1: Hinweis „PARKBREMSE“ nur am Boden im Stand (Radkontakt, < 5 km/h) – vorher
+## erschien er auch in der Luft (z. B. nach Neustart mit Gas 0).
+static func show_parking_brake(player, t) -> bool:
+	return player != null and player.parking_brake and t != null and t.on_ground \
+			and t.wheels_in_contact > 0 and t.airspeed * 3.6 < 5.0

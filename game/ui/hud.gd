@@ -268,7 +268,7 @@ func _process(dt: float) -> void:
 		" + Maus-Ziel" if player and player.mouse_aim_active() else "",
 		CameraRig.MODE_NAMES[camera_rig.mode] if camera_rig else "-",
 		Engine.get_frames_per_second()]
-	if player and player.parking_brake:
+	if FlightPanel.show_parking_brake(player, t):
 		_info.text += "\nPARKBREMSE (Gas > 10 % oder B löst)"
 	elif aircraft.pilot_seat.intent.brakes > 0.1:
 		_info.text += "\nBREMSE"

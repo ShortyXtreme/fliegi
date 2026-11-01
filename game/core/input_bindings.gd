@@ -52,6 +52,9 @@ static func setup() -> void:
 	_keys("fire_primary", [KEY_SPACE])
 	_keys("fire_secondary", [KEY_V])
 	_keys("eject_hold", [KEY_J])
+	# --- M2.1: Ziel-Zoom (halten) und Umsehen ---
+	_keys("zoom_hold", [KEY_Z])
+	_keys("mouse_look", [KEY_ALT])                       # Umsehen mit der Maus (war RMT)
 
 	# --- Gamepad (Xbox-Layout, SDL/XInput) ---
 	_axis("joy_pitch_down", JOY_AXIS_LEFT_Y, -1.0, STICK_DEADZONE)  # Stick nach vorn
@@ -76,14 +79,15 @@ static func setup() -> void:
 	_button("assist_toggle", JOY_BUTTON_X)
 	_button("help_toggle", JOY_BUTTON_BACK)
 	_button("reset_runway", JOY_BUTTON_START)
-	_button("look_reset", JOY_BUTTON_RIGHT_STICK)
+	_button("zoom_hold", JOY_BUTTON_RIGHT_STICK)         # M2.1: R3 halten = Zoom (war Blick zurück)
 	_button("debug_toggle", JOY_BUTTON_LEFT_STICK)       # M2.1: L3 = Treffer-Debug
 	_button("debug_toggle", JOY_BUTTON_MISC1)            # M2.1: Share-Taste (Series X|S)
 
 	# --- Maus ---
 	# LMT ist bewusst KEINE Aktion: erster Klick fängt die Maus, erst danach feuert sie
 	# (PlayerController._unhandled_input).
-	_mouse("mouse_look", MOUSE_BUTTON_RIGHT)
+	_mouse("zoom_hold", MOUSE_BUTTON_RIGHT)              # M2.1: RMT halten = Zoom
+	_mouse("mouse_look", MOUSE_BUTTON_XBUTTON1)          # Maustaste 4 = Umsehen
 	_mouse("fire_secondary", MOUSE_BUTTON_MIDDLE)
 	_mouse("zoom_in", MOUSE_BUTTON_WHEEL_UP)
 	_mouse("zoom_out", MOUSE_BUTTON_WHEEL_DOWN)

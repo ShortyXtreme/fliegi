@@ -35,6 +35,11 @@ var mouse_aim_enabled := true
 var force_mouse_aim := false
 ## Zielrichtung der Maus (Welt). Wird von Kamera/HUD gelesen.
 var aim_dir := Vector3.FORWARD
+## M2.1 Ziel-Zoom: 0..1 (weich überblendet), Vergrößerung bei voller Taste.
+var zoom_amount := 0.0
+var zoom_full_mul := 1.0
+## Für Tests: Zoom-Taste simulieren (null = echte Eingabe).
+var zoom_override = null
 var look_offset := Vector2.ZERO     # Kamera-Umsehen (rechter Stick / Maus mit RMT)
 var _kb := Vector3.ZERO             # geglättete Tastatur (pitch, roll, yaw)
 var _intent := PilotIntent.new()
@@ -65,7 +70,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		_on_left_mouse(event.pressed)
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		var rel: Vector2 = event.relative * MOUSE_SENS
+		# M2.1: beim Zoomen Empfindlichkeit proportional verringern (ruhigeres Zielen)
+		var rel: Vector2 = event.relative * mouse_sens()
 		if Input.is_action_pressed("mouse_look") or not mouse_aim_active():
 			look_offset.x = wrapf(look_offset.x - rel.x, -PI, PI)
 			look_offset.y = clampf(look_offset.y - rel.y, -1.3, 1.3)
@@ -94,8 +100,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			debug_toggle_requested.emit()
 	if event.is_action_pressed("help_toggle"):
 		help_toggle_requested.emit()
-	if event.is_action_pressed("look_reset"):
-		look_offset = Vector2.ZERO
+	if event.is_action_pressed("zoom_hold"):
+		look_offset = Vector2.ZERO   # Zoom schaut immer nach vorn (ersetzt R3 „Blick zurück“)
 	if event.is_action_pressed("reset_runway"):
 		reset_requested.emit(false)
 	if event.is_action_pressed("reset_air"):
@@ -115,6 +121,38 @@ func _on_left_mouse(pressed: bool) -> void:
 	else:
 		_lmb_swallow = false
 		_lmb_fire = false
+
+
+## Aktuelle Vergrößerung (1 = kein Zoom).
+func zoom_mul() -> float:
+	return lerpf(1.0, zoom_full_mul, zoom_amount)
+
+
+## Maus-Empfindlichkeit (rad je Pixel) inkl. Zoom.
+func mouse_sens() -> float:
+	return MOUSE_SENS / zoom_mul()
+
+
+func zoom_held() -> bool:
+	if zoom_override != null:
+		return bool(zoom_override)
+	return InputMap.has_action("zoom_hold") and Input.is_action_pressed("zoom_hold")
+
+
+## Zoom je Frame nachführen (Modusregeln: ZoomRules).
+func update_zoom(dt: float) -> void:
+	var v := get_vehicle() as Aircraft
+	var f := ZoomRules.factor(assist_mode, v.data if v != null else null)
+	var held := zoom_held() and f > 1.0
+	if held:
+		zoom_full_mul = f
+	zoom_amount = lerpf(zoom_amount, 1.0 if held else 0.0, 1.0 - exp(-dt / ZoomRules.BLEND_TIME))
+	if zoom_amount < 0.001 and not held:
+		zoom_amount = 0.0
+
+
+func _process(dt: float) -> void:
+	update_zoom(dt)
 
 
 func _rotate_aim(rel: Vector2) -> void:
@@ -175,7 +213,7 @@ func compute_intent(dt: float) -> PilotIntent:
 	var manual := _kb + joy
 	var look := Vector2(Input.get_axis("look_right", "look_left"), Input.get_axis("look_down", "look_up"))
 	if look.length() > 0.0:
-		look_offset = look_offset.lerp(Vector2(look.x * 2.6, look.y * 1.2), 1.0 - exp(-8.0 * dt))
+		look_offset = look_offset.lerp(Vector2(look.x * 2.6, look.y * 1.2) / zoom_mul(), 1.0 - exp(-8.0 * dt))
 	elif not Input.is_action_pressed("mouse_look") and not mouse_aim_active():
 		look_offset = look_offset.lerp(Vector2.ZERO, 1.0 - exp(-3.0 * dt))
 
@@ -212,6 +250,9 @@ func compute_intent(dt: float) -> PilotIntent:
 	i.flaps = FLAP_STEPS[flap_index]
 	var b_key := Input.get_action_strength("brakes")
 	if parking_brake and (throttle > PARK_RELEASE_THROTTLE or b_key > 0.5):
+		parking_brake = false
+	# M2.1: In der Luft gibt es keine Parkbremse (sonst blockierte Räder bei der Landung).
+	if parking_brake and v != null and not v.telemetry().on_ground and v.telemetry().height_agl > 5.0:
 		parking_brake = false
 	i.brakes = maxf(b_key, 1.0 if parking_brake else 0.0)
 	i.gear_down = gear_down

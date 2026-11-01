@@ -119,6 +119,22 @@ func _draw_contact(c: Dictionary, vs: Vector2, focal: float) -> void:
 			Color(col, 0.95), true, 1)
 
 
+## M2.1: Ablage (m) am Ziel, wenn jetzt geschossen wird: Winkel zwischen Waffenlinie
+## (Flugzeugnase) und nötiger Schussrichtung × Entfernung.
+static func lead_miss_m(gun_dir: Vector3, lead_dir: Vector3, dist: float) -> float:
+	return gun_dir.angle_to(lead_dir) * dist
+
+
+## „Treffer wahrscheinlich“: Ablage kleiner als ca. eine halbe Spannweite.
+const LEAD_HIT_RADIUS := 4.0
+## Konvergenz-Hinweis: Entfernung innerhalb ±30 % der Konvergenz.
+const CONVERGENCE_BAND := 0.3
+
+
+static func lead_on_target(gun_dir: Vector3, lead_dir: Vector3, dist: float) -> bool:
+	return lead_miss_m(gun_dir, lead_dir, dist) < LEAD_HIT_RADIUS
+
+
 func _draw_lead(vs: Vector2) -> void:
 	var pt: Vector3 = lead.screen_point
 	if cam.is_position_behind(pt) or cam.is_position_behind(lead_target.pos):
@@ -127,13 +143,29 @@ func _draw_lead(vs: Vector2) -> void:
 	var tp := cam.unproject_position(lead_target.pos)
 	if not get_viewport_rect().grow(-10).has_point(sp):
 		return
-	var col := Color(1.0, 0.9, 0.55, 0.95)
-	var r := 9.0 * s
+	var dist: float = lead_target.get("dist", 0.0)
+	var gun := -own.get_global_transform_interpolated().basis.z
+	var on := lead_on_target(gun, lead.dir, dist)
+	var col := HudStyle.OK if on else Color(1.0, 0.9, 0.55, 0.95)
+	var r := (12.0 if not on else 14.0) * s
 	if sp.distance_to(tp) > r * 2.5:
 		draw_line(tp + (sp - tp).normalized() * 18 * s, sp - (sp - tp).normalized() * r,
 				Color(col, 0.35), 1.0 * s, true)
-	draw_arc(sp, r, 0, TAU, 28, col, 2.0 * s, true)
-	draw_circle(sp, 2.2 * s, col)
+	draw_arc(sp, r, 0, TAU, 32, Color(0, 0, 0, 0.45), 4.0 * s, true)
+	draw_arc(sp, r, 0, TAU, 32, col, 2.4 * s, true)
+	draw_circle(sp, 2.6 * s, col)
+	if on:
+		for k in 4:
+			var d := Vector2.from_angle(k * PI * 0.5)
+			draw_line(sp + d * (r + 3 * s), sp + d * (r + 9 * s), col, 2.2 * s, true)
+	# Entfernung (und Konvergenz-Hinweis) neben dem Vorhaltepunkt
+	var w = own.get("weapons")
+	var conv: float = w.convergence if w != null else 0.0
+	var in_conv := conv > 0.0 and absf(dist - conv) <= conv * CONVERGENCE_BAND
+	var label := HudStyle.distance(dist) + ("  · Konv." if in_conv else "")
+	HudStyle.text(self, sp + Vector2(r + 8 * s, 5 * s), label, 13.0 * s, col, true)
+	if on:
+		HudStyle.text(self, sp + Vector2(0, r + 26 * s), "TREFFER WAHRSCHEINLICH", 11.0 * s, col, true, 1)
 
 
 func _draw_hit() -> void:

@@ -99,6 +99,11 @@ extends Resource
 @export var cockpit_visibility: float = 1.0
 ## Besatzung inkl. Pilot (Beobachter verbessern die Erkennungsweite).
 @export var crew_count: int = 1
+## M2.1: Zielfernrohr/Reflexvisier-Upgrade. Im Realistisch-Modus ist der Zoom nur damit
+## erlaubt (Arcade: immer). Später über Forschung freischaltbar; Tier I: aus.
+@export var has_zoom_sight: bool = false
+## Vergrößerung des Visiers (Sichtfeld wird um diesen Faktor enger), wenn has_zoom_sight.
+@export var sight_zoom_factor: float = 2.0
 
 @export_group("Start")
 ## Höhe des Schwerpunkts über Grund im Stand (für Spawn auf der Piste).

@@ -50,11 +50,18 @@ func load_config() -> void:
 	if cf.load(CONFIG_PATH) == OK:
 		difficulty = str(cf.get_value("m2", "ki_stufe", difficulty)).to_lower()
 		enemy_count = int(cf.get_value("m2", "gegner", enemy_count))
+		var zr := str(cf.get_value("m2", "zoom_realistisch", "flugzeug")).to_lower()
+		MatchRules.realistic_zoom = {"immer": MatchRules.RealisticZoom.ALWAYS,
+			"nie": MatchRules.RealisticZoom.NEVER}.get(zr, MatchRules.RealisticZoom.AIRCRAFT)
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--ki="):
 			difficulty = a.substr(5).to_lower()
 		elif a.begins_with("--gegner="):
 			enemy_count = int(a.substr(9))
+		elif a.begins_with("--zoom-realistisch="):
+			MatchRules.realistic_zoom = {"immer": MatchRules.RealisticZoom.ALWAYS,
+				"nie": MatchRules.RealisticZoom.NEVER}.get(a.substr(19).to_lower(),
+				MatchRules.RealisticZoom.AIRCRAFT)
 	if not LEVEL_NAMES.has(difficulty):
 		push_warning("Unbekannte KI-Stufe '%s', nehme 'erfahren'" % difficulty)
 		difficulty = "erfahren"

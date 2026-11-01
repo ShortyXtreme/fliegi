@@ -7,7 +7,7 @@ var out := "user://debug_treffer.png"
 
 func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
-	if args.size() > 0:
+	if args.size() > 0 and not args[0].begins_with("--"):
 		out = args[0]
 	_run.call_deferred()
 
@@ -22,7 +22,11 @@ func _run() -> void:
 	root.add_child(game)
 	await _frames(40)
 	game.hud.toggle_help()
-	game.hud.toggle_debug()
+	var zoom := "--zoom" in OS.get_cmdline_user_args()
+	if zoom:
+		game.player.zoom_override = true
+	else:
+		game.hud.toggle_debug()
 	game.hud.hit_overlay.show_tracers = true
 	var e: Aircraft = game.ai_aircrafts[0]
 	var e2: Aircraft = game.ai_aircrafts[1]

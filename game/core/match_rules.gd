@@ -4,6 +4,8 @@ extends RefCounted
 ## (ab M3 repliziert). Vertrag aus Paket 0: Felder nur in Paket 14 ergänzen.
 
 enum SpotMode { ARCADE, REALISTIC }
+## M2.1: Zoom im Realistisch-Modus – nach Flugzeug (Visier-Upgrade), immer, nie.
+enum RealisticZoom { AIRCRAFT, ALWAYS, NEVER }
 
 ## Eigenbeschuss: Treffer werden immer erkannt, Schaden nur wenn true (Entscheidung 4).
 static var friendly_fire_damage := false
@@ -18,6 +20,10 @@ static var spot_mode: int = SpotMode.ARCADE
 ## Vorhaltepunkt und Radar-Light im HUD (nur Arcade, Lobby-Option).
 static var lead_indicator := true
 static var radar_light := true
+## M2.1 Lobby-Option (Konfig [m2] zoom_realistisch = "flugzeug" | "immer" | "nie").
+static var realistic_zoom: int = RealisticZoom.AIRCRAFT
+## Zoom-Faktor im Arcade-Modus (70° → 30°).
+static var arcade_zoom_factor := 2.33
 
 
 static func reset() -> void:
@@ -28,3 +34,5 @@ static func reset() -> void:
 	spot_mode = SpotMode.ARCADE
 	lead_indicator = true
 	radar_light = true
+	realistic_zoom = RealisticZoom.AIRCRAFT
+	arcade_zoom_factor = 2.33

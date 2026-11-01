@@ -15,6 +15,7 @@ var orbit_yaw := 0.6
 var orbit_pitch := -0.25
 var orbit_dist := 22.0
 var _chase_basis := Basis.IDENTITY
+var _base_fov := 70.0
 ## Buffet-Rütteln (Vorwarnung vor dem Abriss): Stärke in Grad bei buffet = 1.
 const SHAKE_DEG := 0.9
 var _shake_t := 0.0
@@ -56,6 +57,8 @@ func _process(dt: float) -> void:
 		return
 	var xf := target.get_global_transform_interpolated()
 	var look := player.look_offset if player else Vector2.ZERO
+	# M2.1 Ziel-Zoom (Verfolger und Cockpit): Sichtfeld enger, Kamerafolge ruhiger
+	var zm := player.zoom_mul() if player else 1.0
 	match mode:
 		Mode.CHASE:
 			var aim := player.aim_dir if player and player.mouse_aim_active() else -xf.basis.z
@@ -64,14 +67,15 @@ func _process(dt: float) -> void:
 				up = Vector3.UP
 			var want := Basis.looking_at(aim, up)
 			want = want * Basis(Vector3.UP, look.x) * Basis(Vector3.RIGHT, look.y)
-			_chase_basis = _chase_basis.slerp(want.orthonormalized(), 1.0 - exp(-6.0 * dt)).orthonormalized()
+			_chase_basis = _chase_basis.slerp(want.orthonormalized(), 1.0 - exp(-6.0 / zm * dt)).orthonormalized()
 			var dist := 16.0 + target.telemetry().airspeed * 0.02
-			global_transform = Transform3D(_chase_basis, xf.origin + _chase_basis * Vector3(0, 3.2, dist))
-			camera.fov = lerpf(camera.fov, 70.0 + target.telemetry().airspeed * 0.04, 1.0 - exp(-2.0 * dt))
+			global_transform = Transform3D(_chase_basis, xf.origin + _chase_basis * Vector3(0, 3.2 * zm, dist))
+			_base_fov = lerpf(_base_fov, 70.0 + target.telemetry().airspeed * 0.04, 1.0 - exp(-2.0 * dt))
+			camera.fov = ZoomRules.zoomed_fov(_base_fov, zm)
 		Mode.COCKPIT:
 			var b := xf.basis * Basis(Vector3.UP, look.x) * Basis(Vector3.RIGHT, look.y)
 			global_transform = Transform3D(b, xf * target.data.cockpit_eye)
-			camera.fov = 80.0
+			camera.fov = ZoomRules.zoomed_fov(80.0, zm)
 		Mode.ORBIT:
 			var b := Basis(Vector3.UP, orbit_yaw) * Basis(Vector3.RIGHT, orbit_pitch)
 			global_transform = Transform3D(b, xf.origin + b * Vector3(0, 0, orbit_dist))
