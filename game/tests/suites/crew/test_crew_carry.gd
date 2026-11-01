@@ -50,7 +50,6 @@ func test_enter_and_exit_only_when_stopped() -> Array:
 	var v := GroundVehicle.new()
 	world.add_child(v)
 	v.global_position = Vector3(20, 0, 50)
-	InteractionPoints.seat_point(v.driver_seat, "Einsteigen (Fahrer)")
 	var ch := CrewTestUtil.make_crew(world, v.driver_seat.entry_position() + Vector3(-1.0, 0, 0.5))
 	var c := CrewTestUtil.ctl(ch)
 	ch.pick_up(CarryItem.make(CarryItem.TOOL))

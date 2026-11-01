@@ -354,8 +354,11 @@ func _update_interact(i: CrewIntent, dt: float) -> void:
 		return
 	var hs := float(a.hold_s)
 	hold_t += dt
+	var cont: bool = a.get("continuous", false)
 	hold_progress = clampf(hold_t / hs, 0.0, 1.0) if hs > 0.0 else 1.0
-	working = hs > 0.0
+	if cont:
+		hold_progress = 0.0   # Dauer-Aktion (Pumpen, Befüllen): nur holding, nie fertig
+	working = hs > 0.0 or cont
 	var it := focus
 	it.holding.emit(a.id, self, dt, hold_progress)
 	if hold_progress >= 1.0 and not _hold_done:

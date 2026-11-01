@@ -3,7 +3,8 @@ extends Node3D
 ## M3 (Paket 4, Strang H): Interaktionspunkt. Kommt aus Markern
 ## (ServiceMarkers: svc_*, hose_reel, crate_slot_*, seat_driver). Aktionen:
 ##   {id: StringName, label: String, hold_s: float, needs_item: StringName (leer = keins)}
-## Optional je Aktion: "can": Callable(character) -> bool (sonst immer möglich).
+## Optional je Aktion: "can": Callable(character) -> bool (sonst immer möglich),
+## "continuous": true = Dauer-Aktion (nur holding solange gehalten, nie performed).
 ## Feste Signaturen: marker, target, actions, add_action(), actions_for(character) -> Array.
 ##
 ## Ablauf (CrewCharacter): Die Figur wählt per InteractionQuery den Punkt im Blickkegel,
