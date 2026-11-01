@@ -1,6 +1,6 @@
 class_name CrewPlayerController
 extends Controller
-## M3 Stub (Paket 0a, gehört Strang H / Paket 4): Mensch zu Fuß (Kontext CREW).
+## M3 (Paket 4, Strang H): Mensch zu Fuß (Kontext CREW).
 ## Liefert einen CrewIntent aus den Aktionen crew_* (InputBindings) und Maus/rechtem Stick.
 ## Feste Signaturen: compute_crew_intent(dt), look_yaw/look_pitch, Signal view_toggle_requested.
 
@@ -20,6 +20,15 @@ var _drop_prev := false
 func _init() -> void:
 	InputBindings.setup()
 	peer_id = Authority.local_peer_id()
+
+
+## Beim Aussteigen/Spawn den Blick an der Figur ausrichten (kein Sprung der Kamera).
+func on_possess(new_seat: Seat) -> void:
+	super(new_seat)
+	var v := new_seat.vehicle if new_seat != null else null
+	if v is CrewCharacter:
+		look_yaw = (v as CrewCharacter).heading
+		look_pitch = -0.15
 
 
 func _unhandled_input(event: InputEvent) -> void:
