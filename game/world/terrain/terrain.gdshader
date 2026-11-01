@@ -12,9 +12,14 @@ uniform float half_size = 20000.0;
 uniform int samples = 2049;
 uniform int tile_cells = 128;
 uniform float skirt_depth = 40.0;
+// Palette ist auf Cycles-Licht der Vorschau abgestimmt; Godot-Sonne ist schwächer
+uniform float albedo_gain = 2.1;
 
-instance uniform vec2 tile_idx;
-instance uniform float lod_step = 1.0;
+// Szenen-Lage des Gelände-Bezugs (verschiebt sich mit Floating Origin); die Kachel
+// ergibt sich aus der Knotenlage (keine Instanz-Uniforms, die im Kompatibilitäts-
+// Renderer bei vielen Instanzen fehlschlagen).
+uniform vec3 terrain_origin = vec3(0.0);
+uniform float lod_step = 1.0;
 
 varying vec2 tpos;
 varying float th;
@@ -25,6 +30,8 @@ float H(ivec2 p) {
 }
 
 void vertex() {
+	float tile_m = float(tile_cells) * spacing;
+	vec2 tile_idx = round((NODE_POSITION_WORLD.xz - terrain_origin.xz + half_size) / tile_m - 0.5);
 	ivec2 g = ivec2(tile_idx) * tile_cells + ivec2(round(VERTEX.xz));
 	float h = H(g);
 	int s = int(lod_step);
@@ -80,69 +87,79 @@ void fragment() {
 	vec2 muv = (tpos + half_size) / (2.0 * half_size);
 	vec4 m = texture(mask_tex, muv);
 	float dist = length(VERTEX);
+	// feine Details mit der Entfernung ausblenden (gegen Flimmern)
+	float near = 1.0 - smoothstep(600.0, 2500.0, dist);
+	float mid = 1.0 - smoothstep(3000.0, 9000.0, dist);
 
 	float n1 = nz(tpos / 2300.0);
 	float n2 = nz(tpos / 610.0 + 0.37);
-	float n3 = nz(tpos / 97.0 + 0.71);
-	float n4 = nz(tpos / 13.0 + 0.19);
+	float n3 = mix(0.5, nz(tpos / 97.0 + 0.71), mid);
+	float n4 = mix(0.5, nz(tpos / 13.0 + 0.19), near);
 
-	// Wiese
-	vec3 grass = mix(vec3(0.22, 0.31, 0.11), vec3(0.34, 0.40, 0.17), n1);
-	grass *= 0.86 + 0.28 * n2;
-	grass = mix(grass, grass * vec3(1.08, 1.02, 0.86), smoothstep(0.55, 0.8, n3));
+	// Farben linear (Palette der Stil-B-Vorschau, art/scripts/preview_scene.py)
+	vec3 grass = mix(vec3(0.040, 0.085, 0.016), vec3(0.075, 0.110, 0.025), n1);
+	grass *= 0.85 + 0.3 * n2;
+	grass *= 0.93 + 0.14 * n3;
 
-	// Felder: verzogenes Voronoi, leicht gestreckt; Farbe je Zelle
-	vec2 warp = vec2(nz(tpos / 1500.0 + 0.11), nz(tpos / 1500.0 + 0.53)) - 0.5;
-	vec2 fp = tpos + warp * 520.0;
-	float ang = 0.55 + (n1 - 0.5) * 1.6;
+	// Felder: Flurstücke (große Voronoi-Zellen mit eigener Ausrichtung), darin
+	// gestreckte Schläge mit verzogenen Rändern. Kein Raster, keine Drehung um den
+	// Kartenursprung (sonst Strudel).
+	vec2 warp = vec2(nz(tpos / 1700.0 + 0.11), nz(tpos / 1700.0 + 0.53)) - 0.5;
+	vec2 fp = tpos + warp * 600.0;
+	vec4 reg = voronoi(fp / 1900.0);
+	float ang = reg.z * 3.14159;
 	mat2 rot = mat2(vec2(cos(ang), sin(ang)), vec2(-sin(ang), cos(ang)));
-	vec2 fq = rot * fp;
-	vec4 vc = voronoi(fq / vec2(420.0, 260.0));
+	vec2 warp2 = vec2(nz(tpos / 420.0 + 0.27), nz(tpos / 420.0 + 0.81)) - 0.5;
+	vec2 fq = rot * (fp + warp2 * 70.0) + reg.zw * 977.0;
+	vec4 vc = voronoi(fq / mix(vec2(330.0, 190.0), vec2(260.0, 260.0), reg.w));
 	float cell = vc.z;
 	vec3 fcol;
-	if (cell < 0.22) fcol = vec3(0.60, 0.53, 0.30);        // reifes Getreide
-	else if (cell < 0.36) fcol = vec3(0.50, 0.46, 0.30);   // Stoppeln
-	else if (cell < 0.52) fcol = vec3(0.30, 0.40, 0.15);   // junge Saat
-	else if (cell < 0.64) fcol = vec3(0.40, 0.46, 0.22);   // Klee/Heu
-	else if (cell < 0.76) fcol = vec3(0.35, 0.27, 0.19);   // gepflügt
-	else fcol = grass * 1.04;                               // Weide
-	fcol *= 0.9 + 0.2 * vc.w;
-	fcol *= 0.92 + 0.16 * n3;
-	// Bearbeitungsstreifen je Feld (nur in der Nähe)
+	if (cell < 0.16) fcol = vec3(0.20, 0.16, 0.06);        // reifes Getreide
+	else if (cell < 0.28) fcol = vec3(0.15, 0.12, 0.055);  // Stoppeln
+	else if (cell < 0.46) fcol = vec3(0.05, 0.11, 0.018);  // junge Saat
+	else if (cell < 0.60) fcol = vec3(0.10, 0.13, 0.03);   // Klee/Heu
+	else if (cell < 0.70) fcol = vec3(0.11, 0.075, 0.04);  // gepflügt
+	else fcol = grass * vec3(1.12, 1.06, 0.8);             // Weide
+	fcol *= 0.85 + 0.3 * vc.w;
+	fcol *= 0.9 + 0.2 * n3;
+	// Bearbeitungsstreifen je Schlag (nur nah)
 	float sang = vc.w * 3.14159;
-	float stripe = sin(dot(fq, vec2(cos(sang), sin(sang))) * 0.9);
-	float sfade = 1.0 - smoothstep(250.0, 900.0, dist);
-	fcol *= 1.0 + stripe * 0.05 * sfade * step(cell, 0.76);
-	// Feldraine/Hecken an den Zellgrenzen, lückig
-	float hedge = (1.0 - smoothstep(0.012, 0.03, vc.y)) * step(0.35, n3);
-	float fields = m.a * smoothstep(0.35, 0.65, m.a + (n2 - 0.5) * 0.6);
+	float stripe = sin(dot(fq, vec2(cos(sang), sin(sang))) * 0.8);
+	fcol *= 1.0 + stripe * 0.06 * near * step(cell, 0.70);
+	// Feldraine/Hecken an Schlag- und Flurgrenzen, lückig, mit der Entfernung dünner
+	float hw = mix(0.05, 0.02, mid);
+	float hedge = (1.0 - smoothstep(hw * 0.4, hw, vc.y)) * step(0.4, nz(tpos / 160.0));
+	hedge = max(hedge, 1.0 - smoothstep(0.004, 0.012, reg.y));
+	// ganze Schläge an/aus (Feldgrenzen statt weicher Flecken), Rand nur wenig weich
+	float fields = smoothstep(0.5, 0.56, m.a * 0.9 + (vc.w - 0.5) * 0.5 + (n2 - 0.5) * 0.15);
 	vec3 col = mix(grass, fcol, fields);
-	col = mix(col, vec3(0.13, 0.20, 0.08), hedge * fields * 0.85);
+	col = mix(col, vec3(0.018, 0.04, 0.012), hedge * fields * 0.8 * mix(0.5, 1.0, mid));
 
 	// Feuchte Aue
-	col = mix(col, col * vec3(0.8, 0.95, 0.85), clamp(m.b * 1.5, 0.0, 1.0) * (1.0 - step(0.85, m.b)));
+	col = mix(col, col * vec3(0.75, 0.95, 0.85), clamp(m.b * 1.5, 0.0, 1.0) * (1.0 - step(0.85, m.b)));
 
-	// Wald: dunkle, fleckige Kronen
-	float fedge = smoothstep(0.35, 0.6, m.r + (n3 - 0.5) * 0.35);
-	vec3 forest = mix(vec3(0.07, 0.14, 0.06), vec3(0.15, 0.24, 0.09), n4 * 0.6 + n3 * 0.4);
-	forest *= 0.85 + 0.3 * n2;
+	// Wald: dunkle, fleckige Kronen, ausgefranster Rand
+	float fedge = smoothstep(0.4, 0.6, m.r + (nz(tpos / 140.0 + 0.4) - 0.5) * 0.4);
+	float crowns = mix(0.5, nz(tpos / 31.0 + 0.6), mid);
+	vec3 forest = mix(vec3(0.016, 0.036, 0.012), vec3(0.040, 0.068, 0.020), crowns * 0.6 + n3 * 0.4);
+	forest *= 0.8 + 0.4 * n2;
 	col = mix(col, forest, fedge);
 
 	// Gemähte Flächen (Flugplätze, Ziel-Plätze)
-	vec3 mown = mix(vec3(0.33, 0.42, 0.18), vec3(0.40, 0.47, 0.22), n3);
+	vec3 mown = mix(vec3(0.06, 0.10, 0.022), vec3(0.085, 0.12, 0.03), n3) * (0.8 + 0.4 * n4);
 	col = mix(col, mown, smoothstep(0.3, 0.8, m.g));
 
 	// Fels nach Neigung und Höhe
-	float rock = smoothstep(0.28, 0.45, slope + (n2 - 0.5) * 0.15);
+	float rock = smoothstep(0.30, 0.48, slope + (n2 - 0.5) * 0.15);
 	rock = max(rock, smoothstep(720.0, 900.0, th + n2 * 80.0) * smoothstep(0.08, 0.2, slope));
-	vec3 rockc = mix(vec3(0.38, 0.36, 0.32), vec3(0.52, 0.49, 0.44), n3) * (0.85 + 0.3 * n4);
+	vec3 rockc = mix(vec3(0.11, 0.10, 0.085), vec3(0.18, 0.16, 0.13), n3) * (0.85 + 0.3 * n4);
 	col = mix(col, rockc, rock);
 
 	// Wasser
 	float water = smoothstep(0.8, 0.95, m.b);
-	col = mix(col, vec3(0.10, 0.17, 0.18), water);
+	col = mix(col, vec3(0.02, 0.04, 0.045), water);
 
-	ALBEDO = col;
+	ALBEDO = col * albedo_gain;
 	ROUGHNESS = mix(0.95, 0.12, water);
-	SPECULAR = mix(0.35, 0.6, water);
+	SPECULAR = mix(0.3, 0.6, water);
 }

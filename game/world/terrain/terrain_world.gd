@@ -35,6 +35,8 @@ var terrain_root: Node3D
 var sun: DirectionalLight3D
 var heights := PackedFloat32Array()
 
+var _materials: Array[ShaderMaterial] = []
+var _shader_origin := Vector3.ZERO
 var _n := 0
 var _sp := 1.0
 var _inv_sp := 1.0
@@ -64,6 +66,20 @@ func _ready() -> void:
 	_build_targets()
 	if build_visuals:
 		_build_environment()
+
+
+func _process(_dt: float) -> void:
+	_sync_shader_origin()
+
+
+## Gelände-Bezug an die Shader geben (nach Floating-Origin-Verschiebung).
+func _sync_shader_origin() -> void:
+	var o := origin()
+	if o == _shader_origin or _materials.is_empty():
+		return
+	_shader_origin = o
+	for m in _materials:
+		m.set_shader_parameter("terrain_origin", o)
 
 
 # --- Daten ------------------------------------------------------------------------
@@ -208,11 +224,13 @@ func _build_tiles() -> void:
 	var tile_m := cells * _sp
 	var pm := PhysicsMaterial.new()
 	pm.friction = 0.8
-	var mat: ShaderMaterial = _material() if build_visuals else null
 	var meshes := []
 	if build_visuals:
 		for s in LOD_STEPS:
 			meshes.append(_lod_mesh(cells, s))
+			var m := _material()
+			m.set_shader_parameter("lod_step", float(s))
+			_materials.append(m)
 	for tz in data.tiles:
 		for tx in data.tiles:
 			var body := StaticBody3D.new()
@@ -234,15 +252,12 @@ func _build_tiles() -> void:
 					var mi := MeshInstance3D.new()
 					mi.name = "LOD%d" % l
 					mi.mesh = meshes[l]
-					mi.material_override = mat
+					mi.material_override = _materials[l]
 					mi.custom_aabb = aabb
 					mi.visibility_range_begin = LOD_RANGES[l][0]
 					mi.visibility_range_end = LOD_RANGES[l][1]
-					mi.visibility_range_begin_margin = 150.0 if l > 0 else 0.0
-					mi.visibility_range_end_margin = 150.0 if l < LOD_STEPS.size() - 1 else 0.0
-					mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if l > 0 else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
-					mi.set_instance_shader_parameter("tile_idx", Vector2(tx, tz))
-					mi.set_instance_shader_parameter("lod_step", float(LOD_STEPS[l]))
+					# ohne Margins: mit Margins (Hysterese) blieben einzelne Kacheln leer
+					mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 					body.add_child(mi)
 			terrain_root.add_child(body)
 
@@ -328,7 +343,7 @@ func _build_environment() -> void:
 	var sky_mat := ProceduralSkyMaterial.new()
 	sky_mat.sky_top_color = Color(0.24, 0.42, 0.72)
 	sky_mat.sky_horizon_color = Color(0.68, 0.75, 0.82)
-	sky_mat.ground_bottom_color = Color(0.3, 0.33, 0.3)
+	sky_mat.ground_bottom_color = Color(0.62, 0.69, 0.76)
 	sky_mat.ground_horizon_color = Color(0.68, 0.75, 0.82)
 	var sky := Sky.new()
 	sky.sky_material = sky_mat
@@ -341,15 +356,15 @@ func _build_environment() -> void:
 	env.tonemap_white = 6.0
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.68, 0.75, 0.83)
-	env.fog_density = 0.00011
+	env.fog_density = 0.00007
 	env.fog_sky_affect = 0.15
-	env.fog_aerial_perspective = 0.35
+	env.fog_aerial_perspective = 0.2
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
 	sun = DirectionalLight3D.new()
 	sun.name = "Sun"
-	sun.rotation_degrees = Vector3(-38, -35, 0)
+	sun.rotation_degrees = Vector3(-30, -35, 0)
 	sun.light_color = Color(1.0, 0.95, 0.86)
 	sun.light_energy = 1.05
 	sun.shadow_enabled = true
@@ -379,8 +394,21 @@ func _build_airfields() -> void:
 		var pmesh := PlaneMesh.new()
 		pmesh.size = Vector2(RUNWAY_WIDTH, RUNWAY_LENGTH)
 		strip.mesh = pmesh
+		# Graspiste: gemähter, etwas abgefahrener Streifen (Rauschtextur gegen Einheitsfläche)
 		var smat := StandardMaterial3D.new()
-		smat.albedo_color = Color(0.36, 0.45, 0.2)
+		var nt := NoiseTexture2D.new()
+		nt.seamless = true
+		nt.width = 256
+		nt.height = 256
+		var nn := FastNoiseLite.new()
+		nn.frequency = 0.03
+		nt.noise = nn
+		var grad := Gradient.new()
+		grad.set_color(0, Color(0.20, 0.27, 0.10))
+		grad.set_color(1, Color(0.33, 0.37, 0.19))
+		nt.color_ramp = grad
+		smat.albedo_texture = nt
+		smat.uv1_scale = Vector3(1.0, 20.0, 1.0)
 		smat.roughness = 1.0
 		strip.material_override = smat
 		strip.position = Vector3(0, 0.06, 0)
