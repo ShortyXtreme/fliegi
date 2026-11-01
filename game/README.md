@@ -1,12 +1,25 @@
-# Flugkern – Meilenstein 1.1 (+ M2 Paket 0 „Vertragsschnitt“)
+# Flugkern – Meilenstein 2 „Luftkampf 1 gegen 3“
 
-Prototyp des Flugkerns für das Luftkampf-Spiel (Godot **4.7.2**, GDScript, Jolt-Physik, 60 Hz mit Physik-Interpolation).
-Ein Tier-I-Jäger („Falke“, 2.500 kg, 700 kW) startet von einer Graspiste. Ein zweites, KI-gesteuertes Flugzeug kreist über dem Platz.
+Prototyp des Luftkampf-Spiels (Godot **4.7.2**, GDScript, Jolt-Physik, 60 Hz mit Physik-Interpolation).
+Ein Tier-I-Jäger („Falke“, 2.500 kg, 700 kW) startet vom **Platz Blau** im neuen 40-km-Gelände. Drei rote KI-Jäger (Stufe „Erfahren“) patrouillieren 6–10 km entfernt Richtung Platz Rot und greifen an. Bewaffnung: 2 × MG 7,92 mm, zusammen 1.000 Schuss, Leuchtspur jeder 5. Schuss.
+
+## Szenario M2
+- **Ziel:** rote Jäger abschießen. Ist der Spieler in der Luft und mehr als 2,5 km vom eigenen Platz entfernt, leitet die „Bodenleitung“ freie Gegner zu ihm.
+- **Abgeschossene Gegner** starten nach 30–60 s über dem Platz Rot (ca. 25 km entfernt) neu – der Kampf geht weiter.
+- **Eigener Verlust:** Neustart auf Platz Blau nach 15 s (Parkbremse gesetzt). Notausstieg nur bei schwerem Schaden (J bzw. Steuerkreuz ← 1 s halten).
+- **Erfahrung (XP):** Abschuss +100, Mithilfe +40. Gutgeschrieben wird erst nach der Landung und dem Stillstand auf Platz Blau (Meldung im Kill-Feed).
+- **Kill-Feed** oben rechts mit Namen („Rot 1“, „Rot 2“ … neu gestartete Gegner zählen weiter).
+- **Einstellungen:** Datei `%APPDATA%/Godot/app_userdata/Flugkern M2/flugkern.cfg` anlegen:
+  ```
+  [m2]
+  ki_stufe="erfahren"   ; "rekrut" | "erfahren" | "veteran"
+  gegner=3              ; 1..6
+  ```
+  oder Startoption `Flugkern.exe -- --ki=veteran --gegner=2`. Die alte Testwelt aus M1: `-- --testwelt`.
 
 ## Starten
 
-**Windows (fertiger Build):** `builds/flugkern_m1_1_windows.zip` entpacken und `Flugkern.exe` starten. `Flugkern.pck` muss im selben Ordner liegen.
-**Update von M1:** Es reicht, die neue `Flugkern.pck` über die alte zu kopieren. `Flugkern.exe` (Godot 4.7.2) ist unverändert. Der Fenstertitel zeigt danach „Flugkern M1.1“.
+**Windows:** Die neue `Flugkern.pck` (aus `builds/m2/`) über die alte kopieren. `Flugkern.exe` (Godot 4.7.2) bleibt unverändert. Der Fenstertitel zeigt danach „Flugkern M2“.
 Der Build ist nicht signiert. Wenn Windows SmartScreen warnt: „Weitere Informationen“ → „Trotzdem ausführen“.
 
 **Aus dem Editor:** Godot 4.7.x öffnen → `game/project.godot` importieren → F5.
@@ -26,7 +39,7 @@ Im Spiel blendet **F1** (Xbox: View-Taste) die Hilfe ein und aus. Beim Start ist
 | A / D (oder ← / →) | Rollen links / rechts |
 | Q / E | Seitenruder links / rechts (am Boden: Heckradlenkung) |
 | Shift / Strg | Gas mehr / weniger (halten) |
-| Leertaste | Feuer (Primärwaffen) |
+| Leertaste oder linke Maustaste | Feuer (Primärwaffen; Maus nur, wenn gefangen) |
 | V | Sekundärwaffe |
 | J (1 s halten) | Notausstieg (nur bei schwerem Schaden, sonst „gesperrt“) |
 | F | Klappen 0 → 50 → 100 % |
@@ -64,12 +77,12 @@ Im Spiel blendet **F1** (Xbox: View-Taste) die Hilfe ein und aus. Beim Start ist
 | View | Hilfe |
 
 Die Sticks haben eine Deadzone von 0,15 und eine weiche Expo-Kurve. Die Werte stehen in `core/input_bindings.gd`.
-**Geändert in M2 (Entscheidung 1):** Die Trigger sind jetzt Abzüge. Das Seitenruder liegt auf LB/RB, das Gas nur noch auf dem Steuerkreuz ↑/↓. Das Fahrwerk wandert von Steuerkreuz ↓ nach →. So liegt jede Funktion auf einem eigenen Knopf, ohne Doppelbelegung und ohne Kurz/Lang-Unterscheidung. Der Test `test_binding_conflicts` prüft das. Bis Paket 2 fertig ist, feuern die Waffen noch nicht (Stub).
+**Geändert in M2 (Entscheidung 1):** Die Trigger sind jetzt Abzüge. Das Seitenruder liegt auf LB/RB, das Gas nur noch auf dem Steuerkreuz ↑/↓. Das Fahrwerk wandert von Steuerkreuz ↓ nach →. So liegt jede Funktion auf einem eigenen Knopf, ohne Doppelbelegung und ohne Kurz/Lang-Unterscheidung. Der Test `test_binding_conflicts` prüft das. 
 
 ### Flugmodi
 - **Arcade:** Der Knüppel gibt eine Drehrate vor statt eines Ruderausschlags. Die Hilfe dämpft automatisch, koordiniert Kurven über das Seitenruder und verhindert einen Strömungsabriss: Sie begrenzt den Anstellwinkel stetig auf ca. 1,25° unter dem Abriss (beim Hochziehen ca. 11–11,5° statt früher 7,5°). Unter ca. 190 km/h begrenzt sie zusätzlich die Nicklage, damit das Flugzeug nicht über das Heck abkippt. Beim Bremsen schützt sie vor einem Überschlag.
 - **Realistisch:** Der Knüppel wirkt direkt aufs Ruder, nur mit leichter Gierdämpfung. Oberhalb von ca. 240 km/h wird das Höhenruder schwächer (wie steigende Knüppelkraft), die Nickrate liegt bei max. ca. 48°/s. Ein Strömungsabriss ist möglich.
-- **Vorwarnung (beide Modi):** Ca. 3° vor dem Abriss beginnt die Kamera zu rütteln (stärker, je näher am Abriss). Gleichzeitig erscheint „STALL-WARNUNG“ mit Warnton und Rumpeln. Der Abriss selbst ist weich: Der Auftrieb sinkt auf etwa 75 %, vor allem steigt der Widerstand.
+- **Vorwarnung (beide Modi):** Ca. 1,5° vor dem Abriss (M2, vorher 3°) beginnt die Kamera leicht zu rütteln und wird bis zum Abriss deutlich stärker. Gleichzeitig erscheint „STALL-WARNUNG“ mit Warnton (lauter werdend) und Rumpeln. Der Abriss selbst ist weich: Der Auftrieb sinkt auf etwa 75 %, vor allem steigt der Widerstand.
 
 ### Fahrwerk
 - **G** bzw. **Steuerkreuz →** fährt das Fahrwerk ein oder aus (ca. 6,5 s, mit Animation). Das HUD zeigt den Zustand.
@@ -99,7 +112,7 @@ Controller (control/controller.gd)
 - `vehicles/aircraft/`: `Aircraft` (RigidBody3D, komplett im Code aufgebaut), `AircraftVisual`, `physics/` (Flugmodell hinter der Schnittstelle `FlightModel.integrate(state, commands)`), `data/` (`AircraftData`, `AeroSurfaceDef`, `WheelDef` und `fighter_t1.tres`).
 - `world/`: Testwelt, Kamera-Rig, Hauptszene (`main.tscn` enthält nur einen Knoten mit `game.gd`).
 - `ui/`: HUD. `tests/`: Headless-Tests. `tools/`: Datengenerator, Screenshot-Skript, Modell-Sync.
-- M2-Stubs (Paket 0): `weapons/` (WeaponSystem, ProjectileSystem, `fx/`), `vehicles/aircraft/damage/` (DamageModel, HitboxSet), `physics/flight_modifiers.gd`, `ui/combat/`, `ai/brain/`, `world/terrain/`, `world/spawn_manager.gd`, `characters/`. Leer: `ground_ops/`, `vehicles/ground/`.
+- M2: `weapons/` (Waffen, Geschosse, Trefferprüfung, `fx/`), `vehicles/aircraft/damage/` (Schadenszonen, Hitboxen, Wrack), `ui/combat/` (Kampf-HUD), `ai/` (AIPilotBrain, Wahrnehmung, Stufen), `world/terrain/` (Gelände), `world/combat_scenario.gd` (Szenario 1 gegen 3), `world/spawn_manager.gd`, `characters/`. Leer: `ground_ops/`, `vehicles/ground/`.
 
 ### Flugzeugwerte ändern
 `vehicles/aircraft/data/fighter_t1.tres` lässt sich im Inspector bearbeiten. Alternativ die Werte in `tools/build_fighter_t1.gd` ändern und die Datei neu erzeugen:
@@ -107,6 +120,13 @@ Controller (control/controller.gd)
 
 ### 3D-Modell
 `AircraftData.model_path` zeigt auf `res://vehicles/aircraft/models/fighter_t1.glb`. `tools/sync_art.sh` kopiert neue Modelle aus `art/models/`. Fehlt die Datei, baut `AircraftVisual` automatisch einen Platzhalter aus den Aero-Flächen. Ausrichtung, Versatz und Maßstab werden über `model_rotation_deg`, `model_offset` und `model_scale`/`model_fit_span` eingestellt. Ein Knoten mit „prop“ im Namen dreht sich als Propeller.
+
+## Messwerte M2 (Duell-Suite slow, KI gegen KI, echter Schaden, 180 s)
+| Serie | Abschüsse | Treffer/Schuss | Ablage beim Feuern | Bodenkollisionen |
+|---|---|---|---|---|
+| Flach, Erfahren gegen Erfahren | 6/10 (Ziel 8/10) | 19,8 % | 4,0 m | 0 % |
+| Hügel, Erfahren gegen Erfahren | 8/10 | 25,2 % | 3,7 m | 0 % |
+| Veteran gegen Rekrut | 8 : 0 | – | – | 0 % |
 
 ## Messwerte (Headless-Tests, Stand M1.1)
 | Größe | Wert |

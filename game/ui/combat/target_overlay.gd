@@ -79,7 +79,8 @@ func _draw_contact(c: Dictionary, vs: Vector2, focal: float) -> void:
 	var sp := Vector2.ZERO
 	if not cam.is_position_behind(p):
 		sp = cam.unproject_position(p)
-		on_screen = Rect2(Vector2(inset, inset), vs - Vector2(inset, inset) * 2).has_point(sp)
+		var inner := vs - Vector2(inset, inset) * 2
+		on_screen = inner.x > 0.0 and inner.y > 0.0 and Rect2(Vector2(inset, inset), inner).has_point(sp)
 	if on_screen:
 		var half := clampf(11.0 / maxf(c.dist, 1.0) * focal * 0.5, 13.0 * s, 56.0 * s)
 		var k := half * 0.45
