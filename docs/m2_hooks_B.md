@@ -16,8 +16,10 @@ Stand: 01.11.2026. Diese Punkte brauchen Änderungen an gemeinsamen (eingefroren
 ## hud.gd / ui/combat
 8. Anzeigen: `damage.fuel.fraction()`, `damage.pilot_wounded()` (Vignette), `spawn_manager.time_to_respawn(a)` (Countdown), `eject_requested(allowed=false)` → „gesperrt“.
 
-## aircraft_visual.gd (Paket 11, siehe unten)
-9. Modellwechsel auf `art/models/fighter_t1_game.glb` (Gegner: `fighter_t1_game_enemy.glb`) – siehe Abschnitt Paket 11.
+## Modellwechsel (Paket 11)
+9. `aircraft_visual.gd` lädt das Spielmodell schon selbst (`art/models/fighter_t1_game.glb`, Rot: `*_enemy.glb`, Laufzeit-Import ~1 s, danach gecacht) und animiert es nach `fighter_t1_rig.json`. Die Datei liegt aber **außerhalb von `res://`** und kommt nicht in einen Export. Paket 14: GLBs nach `game/vehicles/aircraft/models/` kopieren (importiert) und `RIG_MODEL`/`model_path` in `fighter_t1.tres` darauf umstellen; das alte `fighter_t1.glb` + `model_offset/rotation/scale` werden dann nicht mehr gebraucht. Gegner-Variante wird über `nation_id != BLUE` beim Eintritt in den Baum gewählt (nation_id vor `add_child` setzen).
+11. `game.gd` färbt die KI über `ai_data.body_color` – beim Rig-Modell wirkungslos (Gegner-Texturen im GLB).
+12. Kamera Cockpitansicht ruft `set_cockpit_view()` – blendet jetzt auch die Pilotenfigur aus.
 
 ## XP
 10. „Landung am eigenen Platz“ gibt es noch nicht als Ort; `PilotRecord.bank_xp()` muss Paket 14 (oder Bodenbetrieb) bei Stillstand auf dem eigenen Flugplatz aufrufen. Kills/Assists → `add_xp()` ebenfalls dort (Bus-Listener).
