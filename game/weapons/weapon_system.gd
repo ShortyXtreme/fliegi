@@ -25,6 +25,8 @@ var shot_counter := 0
 ## Je Waffe: Magazin, Restzeit bis zum nächsten Schuss (s), justierte Richtung (lokal).
 var magazines: Array[AmmoMagazine] = []
 var cooldown := PackedFloat32Array()
+## Je Waffe Hitze/Ladehemmung (Paket 15; ohne heat_per_shot wirkungslos).
+var heat: Array[Heat] = []
 var aim_dirs := PackedVector3Array()
 ## Abzugsphasen (neueste zuletzt, max. MAX_EVENTS), offene Phase hat tick_off = -1.
 var fire_events: Array[FireEvent] = []
@@ -46,12 +48,14 @@ func _init(a: Node3D) -> void:
 func set_loadout(lo: Resource) -> void:
 	loadout = lo
 	magazines.clear()
+	heat.clear()
 	var lw := lo as WeaponLoadout
 	if lw != null:
 		convergence = lw.convergence
 		for m in lw.mounts:
 			var t: StringName = m.weapon.ammo_type if m.weapon != null else &""
 			magazines.append(AmmoMagazine.new(t, m.ammo))
+			heat.append(Heat.new(m.weapon))
 	cooldown.resize(magazines.size())
 	cooldown.fill(0.0)
 	set_convergence(convergence)
@@ -68,6 +72,8 @@ func reset() -> void:
 	cooldown.fill(0.0)
 	for m in magazines:
 		m.fill()
+	for h in heat:
+		h.reset()
 	_close_events(-1)
 
 
@@ -86,9 +92,11 @@ func tick(intent: PilotIntent, dt: float) -> void:
 	for gi in ms.size():
 		var m: GunMountDef = ms[gi]
 		var c := cooldown[gi] - dt
+		var h := heat[gi]
+		h.cool(dt)
 		if trigger[m.group] and server and m.weapon != null:
 			var interval := m.weapon.shot_interval()
-			while c <= 0.0 and not magazines[gi].is_empty():
+			while c <= 0.0 and not magazines[gi].is_empty() and h.can_fire():
 				_fire(gi, m, -c)
 				c += interval
 		cooldown[gi] = maxf(c, 0.0)
@@ -99,6 +107,7 @@ func _fire(gi: int, m: GunMountDef, late: float) -> void:
 	magazines[gi].take(1)
 	var shot_id := shot_counter
 	shot_counter += 1
+	heat[gi].on_shot(ProjectileSystem.id_of(aircraft), gi, shot_id)
 	var xf := aircraft.global_transform
 	var base_v: Vector3 = aircraft.get("linear_velocity") if aircraft is RigidBody3D else Vector3.ZERO
 	var w := m.weapon
@@ -204,3 +213,21 @@ func rearm(store: Object) -> int:
 	for m in magazines:
 		n += m.refill(store)
 	return n
+
+
+## Hitze der Gruppe (höchster Wert, 1 = heiß) für das HUD.
+func heat_level(group: int = Group.PRIMARY) -> float:
+	var v := 0.0
+	var ms := mounts()
+	for i in ms.size():
+		if ms[i].group == group:
+			v = maxf(v, heat[i].value)
+	return v
+
+
+func is_jammed(group: int = Group.PRIMARY) -> bool:
+	var ms := mounts()
+	for i in ms.size():
+		if ms[i].group == group and heat[i].jammed:
+			return true
+	return false

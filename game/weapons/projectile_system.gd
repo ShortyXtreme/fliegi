@@ -157,6 +157,11 @@ static func unregister_target(node: Node3D) -> void:
 			_targets.remove_at(i)
 
 
+## Alle Ziele vergessen (Testläufer/Neustart einer Welt).
+static func reset_targets() -> void:
+	_targets.clear()
+
+
 static func targets() -> Array[Target]:
 	return _targets
 
