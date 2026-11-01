@@ -7,3 +7,4 @@ tools_bin/
 *.zip
 # Mess-Ausgaben
 game/tests/diag/out*/
+.claude/
