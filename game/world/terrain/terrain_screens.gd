@@ -32,7 +32,12 @@ func _shots() -> void:
 					mi.visible = l == keep
 					mi.visibility_range_begin = 0.0
 					mi.visibility_range_end = 0.0
-	var c: Vector3 = _tw.airfield(0).center
+	if OS.has_environment("SHIFT"):   # Prüfung Floating Origin: Bild muss gleich bleiben
+		var sh := OriginShifter.new()
+		_tw.add_child(sh)
+		sh.shift(Vector3(-7000, 0, 6000))
+		await process_frame
+	var c: Vector3 = _tw.to_scene(_tw.airfield(0).center)
 	var thr := _tw.runway_start(0)
 	# Luftbild: ~800 m über Grund südlich vom Platz Blau, Blick nach Nordosten zum Talzug
 	await _shot("luft", c + Vector3(-1500, 800, 3500), c + Vector3(4000, 0, -6000))

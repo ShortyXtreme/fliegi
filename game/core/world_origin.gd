@@ -1,7 +1,8 @@
 class_name WorldOrigin
 extends RefCounted
-## Floating Origin (Paket 13, gehört danach Agent F). Gameplay/Netz rechnen absolut;
-## nur die Client-Darstellung kann verschoben sein. Stub: keine Verschiebung.
+## Floating Origin (Paket 13, Agent F). Gameplay/Netz rechnen absolut; nur die
+## Client-Darstellung kann verschoben sein. `offset` = absolute Lage des Szenen-Ursprungs,
+## gesetzt ausschließlich von OriginShifter (world/origin_shifter.gd); ohne Shifter ZERO.
 
 static var offset := Vector3.ZERO
 
