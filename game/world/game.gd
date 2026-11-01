@@ -30,6 +30,10 @@ var origin_shifter: OriginShifter
 
 
 func _ready() -> void:
+	# Fenstertitel mit Version; config/name bleibt „Flugkern M2“, damit der Ordner
+	# user:// (Einstellungen, Logs) zwischen M2 und M2.1 gleich bleibt.
+	if DisplayServer.get_name() != "headless":
+		DisplayServer.window_set_title("Flugkern %s" % Hud.VERSION)
 	CombatEvents.reset()
 	ProjectileSystem.reset_targets()
 	var terrain := use_terrain and not "--testwelt" in OS.get_cmdline_user_args() \
@@ -98,6 +102,7 @@ func _ready() -> void:
 
 	player.camera_next_requested.connect(cam.next_mode)
 	player.debug_toggle_requested.connect(hud.toggle_debug)
+	player.debug_forces_requested.connect(hud.toggle_forces)
 	player.help_toggle_requested.connect(hud.toggle_help)
 	player.reset_requested.connect(_on_reset)
 	player.gear_toggled.connect(hud.on_gear_toggled)

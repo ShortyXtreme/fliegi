@@ -77,6 +77,8 @@ static func setup() -> void:
 	_button("help_toggle", JOY_BUTTON_BACK)
 	_button("reset_runway", JOY_BUTTON_START)
 	_button("look_reset", JOY_BUTTON_RIGHT_STICK)
+	_button("debug_toggle", JOY_BUTTON_LEFT_STICK)       # M2.1: L3 = Treffer-Debug
+	_button("debug_toggle", JOY_BUTTON_MISC1)            # M2.1: Share-Taste (Series X|S)
 
 	# --- Maus ---
 	# LMT ist bewusst KEINE Aktion: erster Klick fängt die Maus, erst danach feuert sie

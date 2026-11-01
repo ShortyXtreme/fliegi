@@ -7,6 +7,8 @@ extends Controller
 
 signal camera_next_requested
 signal debug_toggle_requested
+## M2.1: Shift+F3 – Kräfte-Debug (alter F3-Inhalt); F3 allein = Treffer-Debug.
+signal debug_forces_requested
 signal help_toggle_requested
 signal reset_requested(in_air: bool)
 ## Fahrwerkshebel betätigt; accepted = false, wenn Einfahren am Boden verweigert wurde.
@@ -86,7 +88,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("camera_next"):
 		camera_next_requested.emit()
 	if event.is_action_pressed("debug_toggle"):
-		debug_toggle_requested.emit()
+		if event is InputEventKey and (event as InputEventKey).shift_pressed:
+			debug_forces_requested.emit()
+		else:
+			debug_toggle_requested.emit()
 	if event.is_action_pressed("help_toggle"):
 		help_toggle_requested.emit()
 	if event.is_action_pressed("look_reset"):

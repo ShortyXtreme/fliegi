@@ -1,10 +1,11 @@
 class_name Hud
 extends CanvasLayer
 ## Einfaches HUD: Fahrt, Höhe, Gas, Anstellwinkel, Stall-Warnung, Modus, FPS.
-## F3: Debug-Overlay mit Kräften (Text + 3D-Pfeile), F1: Steuerungshilfe.
+## F3: Treffer-Debug (M2.1, ui/debug/), Shift+F3: Kräfte-Overlay (Text + 3D-Pfeile),
+## F1: Steuerungshilfe.
 
-const VERSION := "M2"
-const HELP_TEXT := """[b]STEUERUNG[/b]  Flugkern M2 – Luftkampf 1 gegen 3  (F1 / Xbox-View-Taste schließt)
+const VERSION := "M2.1"
+const HELP_TEXT := """[b]STEUERUNG[/b]  Flugkern M2.1 – Luftkampf 1 gegen 3  (F1 / Xbox-View-Taste schließt)
 [b]Tastatur[/b]
   W / S  ........ Nase runter / hoch      A / D ..... rollen links / rechts
   Q / E  ........ Seitenruder             Shift / Strg .. Gas mehr / weniger
@@ -14,7 +15,8 @@ const HELP_TEXT := """[b]STEUERUNG[/b]  Flugkern M2 – Luftkampf 1 gegen 3  (F1
   J (1 s halten)  Notausstieg (nur bei schwerem Schaden)
   C  ............ Kamera wechseln         X ......... Arcade / Realistisch
   M  ............ Maus-Zielsteuerung an/aus  R / T ... Neustart Piste / Luft
-  F3 ............ Debug-Kräfte             Esc ...... Maus freigeben
+  F3 / Xbox L3 .. Treffer-Debug (darin F4 Hitboxen, F5 Bahnen, F6 andere)
+  Shift+F3 ...... Kräfte-Debug             Esc ...... Maus freigeben
 [b]Maus[/b] (erster Linksklick fängt die Maus, danach feuert Linksklick)
   Arcade + Maus-Ziel: Maus zielt, Flugzeug folgt dem Kreis. Tastatur übersteuert.
   Rechte Maustaste halten: umsehen.  Mittlere Taste: Sekundär.  Mausrad: Orbit-Zoom.
@@ -30,12 +32,20 @@ const HELP_TEXT := """[b]STEUERUNG[/b]  Flugkern M2 – Luftkampf 1 gegen 3  (F1
   Schütteln + STALL-WARNUNG = ca. 1,5° vor dem Abriss, wird stärker: nachlassen.
   Auftrag: 3 rote Jäger kreisen 6–10 km entfernt. Abgeschossene Gegner starten nach
   30–60 s am Platz Rot neu. Eigener Neustart 15 s nach Verlust. Landen am Platz Blau
-  schreibt die Erfahrung (XP) gut."""
+  schreibt die Erfahrung (XP) gut.
+[b]Treffer-Log[/b]  %APPDATA%\\Godot\\app_userdata\\Flugkern M2\\logs\\kampf_*.csv
+  (bei Problemen bitte mitschicken)"""
 
 var aircraft: Aircraft
 var player: PlayerController
 var camera_rig: CameraRig
+## Kräfte-Overlay (Shift+F3)
 var debug_visible := false
+## Treffer-Debug-Modus (F3 / Xbox L3)
+var hit_debug_visible := false
+var hit_debug: HitDebug
+var hit_overlay: HitDebugOverlay
+var hit_sound: HitSound
 ## Kampf-HUD (ui/combat/, Agent D). Einziger Registrierungspunkt, siehe _ready().
 var combat: CombatHud
 
@@ -75,7 +85,7 @@ func _ready() -> void:
 	_warn2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_warn2.add_theme_color_override("font_color", Color(1, 0.75, 0.2))
 	_setup_audio()
-	_debug = _label(Vector2(20, 420), 15)
+	_debug = _label(Vector2(380, 236), 15)
 	_debug.visible = false
 	_help = RichTextLabel.new()
 	_help.bbcode_enabled = true
@@ -102,6 +112,20 @@ func _ready() -> void:
 	add_child(_help)
 	CombatHud.replace_legacy_text = true   # Paket 14: neues Flug-Panel ersetzt Text-HUD
 	combat = CombatHud.create(self); add_child(combat)   # M2-Vertrag: einzige Kampf-HUD-Zeile
+	hit_debug = HitDebug.new()
+	# Log nur im echten Spiel (nicht in Tests/Diagnose mit --script, außer mit --log)
+	var args := OS.get_cmdline_args()
+	hit_debug.log_enabled = not "--script" in args or "--log" in OS.get_cmdline_user_args()
+	add_child(hit_debug)
+	hit_overlay = HitDebugOverlay.new()
+	hit_overlay.hud = self
+	hit_overlay.data = hit_debug
+	add_child(hit_overlay)
+	hit_sound = HitSound.new()
+	add_child(hit_sound)
+	if hit_debug.log_enabled:
+		hit_debug.open_log()
+		print("Treffer-Log: ", hit_debug.absolute_log_path())
 	_aim_marker = _make_circle(14.0, Color(1, 1, 1, 0.9))
 	_nose_marker = _make_cross(10.0, Color(0.4, 1.0, 0.4, 0.9))
 	_debug_mesh = ImmediateMesh.new()
@@ -146,7 +170,27 @@ func _make_cross(r: float, c: Color) -> Control:
 	return ctl
 
 
+## F3: Treffer-Debug-Modus an/aus.
 func toggle_debug() -> void:
+	hit_debug_visible = not hit_debug_visible
+	hit_overlay.set_active(hit_debug_visible)
+
+
+## Debug-Tasten im Treffer-Debug-Modus (nur Tastatur): F4 Hitboxen, F5 Bahnen, F6 andere.
+func _unhandled_input(event: InputEvent) -> void:
+	if not hit_debug_visible or not event is InputEventKey or not event.pressed or event.echo:
+		return
+	match (event as InputEventKey).physical_keycode:
+		KEY_F4:
+			hit_overlay.show_hitboxes = not hit_overlay.show_hitboxes
+		KEY_F5:
+			hit_overlay.show_tracers = not hit_overlay.show_tracers
+		KEY_F6:
+			hit_debug.show_others = not hit_debug.show_others
+
+
+## Shift+F3: Kräfte-Overlay (M1-Debug) an/aus.
+func toggle_forces() -> void:
 	debug_visible = not debug_visible
 	_debug.visible = debug_visible
 	if aircraft:
@@ -209,6 +253,8 @@ func toggle_help() -> void:
 func _process(dt: float) -> void:
 	if aircraft == null or not is_instance_valid(aircraft):
 		return
+	hit_debug.own = aircraft
+	hit_sound.own = aircraft
 	var t := aircraft.telemetry()
 	var thr := player.throttle if player else t.throttle_actual
 	var flaps := int(round(aircraft.pilot_seat.intent.flaps * 100.0))
@@ -290,7 +336,7 @@ func _update_markers() -> void:
 func _update_debug(t: FlightTelemetry) -> void:
 	var c := t.commands
 	var g := 9.81 * aircraft.mass
-	_debug.text = "DEBUG (F3)\nAuftrieb   %7.0f N  (%.2f × G)\nWiderstand %7.0f N\nSchub      %7.0f N\nGewicht    %7.0f N\nFahrwerk   %d Räder Kontakt\nSchiebew.  %+5.1f°\nDrehraten  N %+5.2f  G %+5.2f  R %+5.2f rad/s\nRuder: Höhe %+4.2f  Quer %+4.2f  Seite %+4.2f\nAbriss Hauptflügel %3.0f %%  Buffet %3.0f %%\nAbwind Leitwerk %4.1f°  Begrenzer %3.0f %%" % [
+	_debug.text = "KRÄFTE (Shift+F3)\nAuftrieb   %7.0f N  (%.2f × G)\nWiderstand %7.0f N\nSchub      %7.0f N\nGewicht    %7.0f N\nFahrwerk   %d Räder Kontakt\nSchiebew.  %+5.1f°\nDrehraten  N %+5.2f  G %+5.2f  R %+5.2f rad/s\nRuder: Höhe %+4.2f  Quer %+4.2f  Seite %+4.2f\nAbriss Hauptflügel %3.0f %%  Buffet %3.0f %%\nAbwind Leitwerk %4.1f°  Begrenzer %3.0f %%" % [
 		t.lift, t.lift / g, t.drag, t.thrust, g, t.wheels_in_contact,
 		rad_to_deg(t.sideslip),
 		t.angular_velocity_local.x, t.angular_velocity_local.y, t.angular_velocity_local.z,

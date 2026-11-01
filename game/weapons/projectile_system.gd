@@ -29,6 +29,10 @@ const F_FRESH := 4
 ## Neues Geschoss im Slot (für Effekte, z. B. Mündungsfeuer/Leuchtspur).
 signal spawned(slot: int)
 ## Geschoss endet: Ort, Geschwindigkeit, Art (Impact), getroffenes Ziel (oder null), Zone.
+## M2.1 (Treffer-Debug): jeder Zieltreffer mit Ort und Ergebnis der Trefferprüfung
+## (result = HitValidator.Result, OK = 0). damage = Nennschaden (0 bei Freund ohne FF).
+signal hit_resolved(shooter: Node, target: Node, zone: int, damage: float, world_point: Vector3,
+		local_point: Vector3, result: int)
 signal impact(slot: int, position: Vector3, velocity: Vector3, kind: int, target: Node, zone: int)
 
 static var current: ProjectileSystem = null
@@ -432,8 +436,10 @@ func _hit_target(i: int, t: Target, hit: Dictionary, world_point: Vector3, serve
 		r.zone = zone
 		r.tick = tick_now
 		r.local_point = hit.get("point", Vector3.ZERO)
-		if validator.validate(r, tick_now) != HitValidator.Result.OK:
+		var res := validator.validate(r, tick_now)
+		if res != HitValidator.Result.OK:
 			hits_rejected += 1
+			hit_resolved.emit(shooter, t.node, zone, 0.0, world_point, r.local_point, res)
 			_end(i, world_point, Impact.TARGET, t.node, zone)
 			return
 	var w := _weapons[_wi[i]]
@@ -451,6 +457,8 @@ func _hit_target(i: int, t: Target, hit: Dictionary, world_point: Vector3, serve
 			dm.apply_hit(zone, dmg, shooter, lp)
 		elif t.node.has_method("apply_hit"):
 			t.node.apply_hit(zone, dmg, shooter, lp)
+	hit_resolved.emit(shooter, t.node, zone, dmg, world_point, hit.get("point", Vector3.ZERO),
+			HitValidator.Result.OK)
 	CombatEvents.bus().hit_confirmed.emit(shooter, t.node, zone, dmg)
 	_end(i, world_point, Impact.TARGET, t.node, zone)
 
