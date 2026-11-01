@@ -287,7 +287,9 @@ func _at_point(j: GroundJob, pt: String) -> bool:
 	var a := j.target as Aircraft
 	if a == null:
 		return true
-	return w.global_position.distance_to(a.service_point(pt)) <= rules.work_range
+	var p := a.service_point(pt)
+	var d := w.global_position - p
+	return Vector2(d.x, d.z).length() <= rules.work_range and absf(d.y) <= 4.0
 
 
 func _controller_of(worker: Node) -> Controller:

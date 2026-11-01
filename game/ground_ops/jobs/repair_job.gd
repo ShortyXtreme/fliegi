@@ -72,8 +72,8 @@ func has_toolbox() -> bool:
 		return false
 	if c is StringName or c is String:
 		return String(c).to_lower().contains("toolbox") or String(c).to_lower().contains("werkzeug")
-	if c is Object and c.get("item_kind") != null:
-		return String(c.get("item_kind")) == "toolbox"
+	if c is Object and c.get("kind") != null:       # CarryItem.TOOL (Strang H)
+		return String(c.get("kind")) in ["tool", "toolbox"]
 	return c is Node and String(c.name).to_lower().contains("toolbox")
 
 
