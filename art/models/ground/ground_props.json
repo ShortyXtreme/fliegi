@@ -1,0 +1,408 @@
+{
+ "convention": {
+  "up": "+Y",
+  "forward": "-Z (Fahrzeugfront, Gebaeudeoeffnung)",
+  "right": "+X",
+  "units": "m",
+  "origin": "Boden y=0; Fahrzeuge Mitte zwischen den Achsen; sonst Mitte der Grundflaeche"
+ },
+ "vehicle": {
+  "wheelbase": 3.7,
+  "track": 1.6,
+  "wheel_radius": 0.46,
+  "nodes": "wheel_FL/FR/RL/RR (Drehpunkt = Nabe, rollen um lokale X), hose_reel_drum (um X), tailgate (Scharnier unten, um X)"
+ },
+ "assets": {
+  "fuel_truck": {
+   "file": "ground/fuel_truck.glb",
+   "triangles": 4904,
+   "per_node": {
+    "cab": 792,
+    "chassis": 248,
+    "fenders": 752,
+    "tank": 1032,
+    "hose_end": 84,
+    "ground_strap": 32,
+    "wheel_FL": 416,
+    "wheel_FR": 416,
+    "wheel_RL": 416,
+    "wheel_RR": 416,
+    "hose_reel_drum": 300
+   },
+   "texture_size": 1024,
+   "size_mb": 2.54,
+   "markers": {
+    "seat_driver": {
+     "pos": [
+      -0.4,
+      1.42,
+      -0.92
+     ]
+    },
+    "seat_passenger": {
+     "pos": [
+      0.4,
+      1.42,
+      -0.92
+     ]
+    },
+    "entry_driver": {
+     "pos": [
+      -1.25,
+      0.0,
+      -1.0
+     ]
+    },
+    "entry_passenger": {
+     "pos": [
+      1.25,
+      0.0,
+      -1.0
+     ]
+    },
+    "hose_reel": {
+     "pos": [
+      0.0,
+      1.16,
+      3.08
+     ]
+    },
+    "hose_nozzle": {
+     "pos": [
+      -0.72,
+      0.8,
+      3.35
+     ]
+    },
+    "ground_clip": {
+     "pos": [
+      -0.62,
+      0.58,
+      3.3
+     ]
+    },
+    "fuel_fill": {
+     "pos": [
+      0.0,
+      2.12,
+      1.75
+     ]
+    }
+   }
+  },
+  "ammo_crate": {
+   "file": "ground/ammo_crate.glb",
+   "triangles": 204,
+   "per_node": {
+    "crate": 204
+   },
+   "texture_size": 512,
+   "size_mb": 0.71,
+   "markers": {
+    "carry": {
+     "pos": [
+      0.0,
+      0.15,
+      -0.0
+     ]
+    },
+    "hand_L": {
+     "pos": [
+      -0.35,
+      0.15,
+      -0.0
+     ]
+    },
+    "hand_R": {
+     "pos": [
+      0.35,
+      0.15,
+      -0.0
+     ]
+    }
+   }
+  },
+  "ammo_cart": {
+   "file": "ground/ammo_cart.glb",
+   "triangles": 3724,
+   "per_node": {
+    "cab": 792,
+    "chassis": 248,
+    "fenders": 752,
+    "bed": 244,
+    "wheel_FL": 416,
+    "wheel_FR": 416,
+    "wheel_RL": 416,
+    "wheel_RR": 416,
+    "tailgate": 24
+   },
+   "texture_size": 1024,
+   "size_mb": 2.64,
+   "markers": {
+    "seat_driver": {
+     "pos": [
+      -0.4,
+      1.42,
+      -0.92
+     ]
+    },
+    "seat_passenger": {
+     "pos": [
+      0.4,
+      1.42,
+      -0.92
+     ]
+    },
+    "entry_driver": {
+     "pos": [
+      -1.25,
+      0.0,
+      -1.0
+     ]
+    },
+    "entry_passenger": {
+     "pos": [
+      1.25,
+      0.0,
+      -1.0
+     ]
+    },
+    "crate_slot_1": {
+     "pos": [
+      -0.45,
+      1.05,
+      0.55
+     ]
+    },
+    "crate_slot_2": {
+     "pos": [
+      0.45,
+      1.05,
+      0.55
+     ]
+    },
+    "crate_slot_3": {
+     "pos": [
+      -0.45,
+      1.05,
+      1.4
+     ]
+    },
+    "crate_slot_4": {
+     "pos": [
+      0.45,
+      1.05,
+      1.4
+     ]
+    },
+    "crate_slot_5": {
+     "pos": [
+      -0.45,
+      1.05,
+      2.25
+     ]
+    },
+    "crate_slot_6": {
+     "pos": [
+      0.45,
+      1.05,
+      2.25
+     ]
+    },
+    "cargo_access": {
+     "pos": [
+      0.0,
+      0.0,
+      3.9
+     ]
+    }
+   }
+  },
+  "fuel_drum": {
+   "file": "ground/fuel_drum.glb",
+   "triangles": 768,
+   "per_node": {
+    "drum": 768
+   },
+   "texture_size": 512,
+   "size_mb": 0.71,
+   "markers": {
+    "carry": {
+     "pos": [
+      0.0,
+      0.44,
+      -0.0
+     ]
+    }
+   }
+  },
+  "hangar": {
+   "file": "ground/hangar.glb",
+   "triangles": 3200,
+   "per_node": {
+    "roof": 256,
+    "frame": 1868,
+    "front_wall": 284,
+    "back_wall": 260,
+    "door_rail": 24,
+    "details": 76,
+    "door_leaf_1": 108,
+    "door_leaf_2": 108,
+    "door_leaf_3": 108,
+    "door_leaf_4": 108
+   },
+   "texture_size": 1024,
+   "size_mb": 2.97,
+   "markers": {
+    "door": {
+     "pos": [
+      0.0,
+      1.0,
+      -9.4
+     ]
+    },
+    "aircraft_spot": {
+     "pos": [
+      0.0,
+      0.0,
+      -0.0
+     ]
+    }
+   }
+  },
+  "fuel_depot": {
+   "file": "ground/fuel_depot.glb",
+   "triangles": 9488,
+   "per_node": {
+    "depot": 1232,
+    "drum_stack": 3048,
+    "sandbags": 5208
+   },
+   "texture_size": 1024,
+   "size_mb": 3.21,
+   "markers": {
+    "fuel_tap": {
+     "pos": [
+      1.0,
+      0.85,
+      -2.07
+     ]
+    },
+    "fuel_tap_truck": {
+     "pos": [
+      2.8,
+      0.0,
+      -2.8
+     ]
+    }
+   }
+  },
+  "ammo_bunker": {
+   "file": "ground/ammo_bunker.glb",
+   "triangles": 1644,
+   "per_node": {
+    "mound": 1176,
+    "headwall": 292,
+    "ammo_door_L": 88,
+    "ammo_door_R": 88
+   },
+   "texture_size": 1024,
+   "size_mb": 2.56,
+   "markers": {
+    "ammo_door": {
+     "pos": [
+      0.0,
+      1.0,
+      -3.15
+     ]
+    },
+    "ammo_door_truck": {
+     "pos": [
+      0.0,
+      0.0,
+      -7.9
+     ]
+    }
+   }
+  },
+  "toolbox": {
+   "file": "ground/toolbox.glb",
+   "triangles": 196,
+   "per_node": {
+    "toolbox.001": 196
+   },
+   "texture_size": 256,
+   "size_mb": 0.2,
+   "markers": {
+    "carry": {
+     "pos": [
+      0.0,
+      0.29,
+      -0.0
+     ]
+    }
+   }
+  },
+  "extinguisher": {
+   "file": "ground/extinguisher.glb",
+   "triangles": 312,
+   "per_node": {
+    "extinguisher.001": 312
+   },
+   "texture_size": 256,
+   "size_mb": 0.2,
+   "markers": {
+    "carry": {
+     "pos": [
+      0.0,
+      0.62,
+      -0.0
+     ]
+    }
+   }
+  },
+  "wheel_chocks": {
+   "file": "ground/wheel_chocks.glb",
+   "triangles": 84,
+   "per_node": {
+    "chocks": 84
+   },
+   "texture_size": 256,
+   "size_mb": 0.16,
+   "markers": {
+    "carry": {
+     "pos": [
+      0.0,
+      0.05,
+      0.2
+     ]
+    }
+   }
+  },
+  "parking_mark": {
+   "file": "ground/parking_mark.glb",
+   "triangles": 128,
+   "per_node": {
+    "mark": 128
+   },
+   "texture_size": 512,
+   "size_mb": 0.34,
+   "markers": {
+    "stand_point": {
+     "pos": [
+      0.0,
+      0.0,
+      -0.0
+     ]
+    },
+    "main_wheel_stop": {
+     "pos": [
+      0.0,
+      0.0,
+      -0.35
+     ]
+    }
+   }
+  }
+ }
+}

@@ -1,0 +1,106 @@
+{
+ "model": "crew_mechanic.glb",
+ "triangles": 2300,
+ "texture_size": 1024,
+ "convention": {
+  "up": "+Y",
+  "forward": "-Z",
+  "origin": "Boden zwischen den Fuessen",
+  "rest_pose": "T-Pose",
+  "skeleton": "Godot SkeletonProfileHumanoid (ohne Finger/Augen/Kiefer)"
+ },
+ "bones": [
+  "Root",
+  "Hips",
+  "Spine",
+  "Chest",
+  "UpperChest",
+  "Neck",
+  "Head",
+  "LeftShoulder",
+  "LeftUpperArm",
+  "LeftLowerArm",
+  "LeftHand",
+  "LeftUpperLeg",
+  "LeftLowerLeg",
+  "LeftFoot",
+  "LeftToes",
+  "RightShoulder",
+  "RightUpperArm",
+  "RightLowerArm",
+  "RightHand",
+  "RightUpperLeg",
+  "RightLowerLeg",
+  "RightFoot",
+  "RightToes"
+ ],
+ "animations": {
+  "idle": {
+   "seconds": 2.4,
+   "loop": true,
+   "frames": 73
+  },
+  "walk": {
+   "seconds": 1.0,
+   "loop": true,
+   "frames": 31
+  },
+  "run": {
+   "seconds": 0.7,
+   "loop": true,
+   "frames": 22
+  },
+  "carry": {
+   "seconds": 1.1,
+   "loop": true,
+   "frames": 34
+  },
+  "hose": {
+   "seconds": 2.4,
+   "loop": true,
+   "frames": 73
+  },
+  "lift": {
+   "seconds": 1.6,
+   "loop": false,
+   "frames": 49
+  },
+  "work": {
+   "seconds": 1.6,
+   "loop": true,
+   "frames": 49
+  },
+  "enter": {
+   "seconds": 1.2,
+   "loop": false,
+   "frames": 37
+  }
+ },
+ "markers": {
+  "hand_R": {
+   "pos": [
+    0.775,
+    1.41,
+    -0.0
+   ],
+   "bone": "RightHand"
+  },
+  "hand_L": {
+   "pos": [
+    -0.775,
+    1.41,
+    -0.0
+   ],
+   "bone": "LeftHand"
+  },
+  "carry": {
+   "pos": [
+    0.0,
+    1.0,
+    -0.42
+   ],
+   "bone": null
+  }
+ },
+ "size_mb": 2.47
+}

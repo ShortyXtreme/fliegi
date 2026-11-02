@@ -6,6 +6,8 @@ Aufruf (headless, Cycles CPU):
   blender -b -P build_game_aircraft.py -- --build            # Geometrie, UVs, Bake, Export (eigen + Gegner)
   blender -b -P build_game_aircraft.py -- --build --quick    # schneller Testlauf (512er Texturen)
   blender -b -P build_game_aircraft.py -- --render-check [--glb pfad] [--tag name]
+  blender -b -P build_game_aircraft.py -- --add-svc          # M3: nur svc_*-Marker in vorhandene GLBs
+                                                             #     einfuegen (verlustfrei, ohne Neu-Bake)
 
 Ergebnisse:
   models/fighter_t1_game.glb, models/fighter_t1_game_enemy.glb, models/fighter_t1_rig.json
@@ -20,7 +22,7 @@ import numpy as np
 from mathutils import Vector, Matrix
 from mathutils.bvhtree import BVHTree
 
-ART = "/home/claude/flugzeug/art"
+ART = os.environ.get("ART_DIR") or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 MODELS = os.path.join(ART, "models")
 TEX = os.path.join(ART, "textures")
 PREV = os.path.join(ART, "previews")
@@ -29,7 +31,7 @@ for d in (MODELS, TEX, PREV):
 
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 OPT = {"build": "--build" in argv, "quick": "--quick" in argv,
-       "render": "--render-check" in argv, "closeups": "--closeups" in argv, "glb": None, "tag": "own"}
+       "render": "--render-check" in argv, "add_svc": "--add-svc" in argv, "closeups": "--closeups" in argv, "glb": None, "tag": "own"}
 for k, a in enumerate(argv):
     if a == "--glb": OPT["glb"] = argv[k + 1]
     if a == "--tag": OPT["tag"] = argv[k + 1]
@@ -1601,6 +1603,9 @@ def main_build():
     marker("contact_tail", rig['wheel_tail']['pivot'] - Vector((0, 0, 0.115)))
     marker("cam_cockpit", Vector((0, 0.08, 0.80)))
     marker("cg", cg)
+    # M3 Bodenbetrieb: Service-Marker (feste Namen, ServiceMarkers.AIRCRAFT)
+    for nm_, (o_, d_, off_) in SVC_SPECS.items():
+        marker(nm_, surf_point(W_all, Vector(o_), Vector(d_)) + Vector(off_) + cg)
 
     # ---------------- Kollision ----------------
     def hull(name, pts):
@@ -1762,6 +1767,74 @@ def main_build():
 
 
 # ============================================================================
+# M3: Service-Marker (Bodenbetrieb). Blender-Koordinaten relativ zum Schwerpunkt:
+# Strahl-Ursprung, Richtung, Versatz nach dem Treffer. Namen = ServiceMarkers.AIRCRAFT.
+# ============================================================================
+SVC_SPECS = {
+    "svc_fuel_cap": ((0.0, -0.25, 3.0), (0, 0, -1), (0, 0, 0.02)),        # Tankdeckel oben vor der Haube
+    "svc_gun_hatch_L": ((2.35, 0.10, 3.0), (0, 0, -1), (0, 0, 0.02)),     # MG-Klappe Fluegeloberseite links
+    "svc_gun_hatch_R": ((-2.35, 0.10, 3.0), (0, 0, -1), (0, 0, 0.02)),    # ... rechts
+    "svc_entry": ((1.05, 0.75, 3.0), (0, 0, -1), (0, 0, 0.02)),           # Trittflaeche Fluegelwurzel links
+    "svc_engine": ((2.5, -2.0, 0.10), (-1, 0, 0), (0.05, 0, 0)),          # Motorhaube linke Seite
+}
+
+
+def add_svc_markers():
+    """Fuegt die svc_*-Marker als leere Knoten in die fertigen GLBs ein, ohne Geometrie,
+    Materialien oder Texturen anzufassen (nur der JSON-Block wird ergaenzt). Positionen per
+    Strahl auf Rumpf/Fluegel des re-importierten Modells. Bestehende Marker bleiben unveraendert."""
+    import struct
+    own = os.path.join(MODELS, "fighter_t1_game.glb")
+    reset_scene()
+    bpy.ops.import_scene.gltf(filepath=own)
+    bpy.context.view_layer.update()
+    W = [o for o in bpy.context.scene.objects if o.type == 'MESH' and o.name in ('fuselage', 'wing_L', 'wing_R')]
+    pts = {}
+    for nm, (o_, d_, off_) in SVC_SPECS.items():
+        best = None
+        org, dr = Vector(o_), Vector(d_).normalized()
+        for o in W:
+            inv = o.matrix_world.inverted()
+            ok, loc, _n, _i = o.ray_cast(inv @ org, (inv.to_3x3() @ dr).normalized())
+            if ok:
+                wl = o.matrix_world @ loc
+                if best is None or (wl - org).length < (best - org).length:
+                    best = wl
+        if best is None:
+            raise RuntimeError("kein Treffer fuer " + nm)
+        pts[nm] = C(best + Vector(off_))
+    print("SVC", pts)
+    for fn in ("fighter_t1_game.glb", "fighter_t1_game_enemy.glb"):
+        path = os.path.join(MODELS, fn)
+        b = open(path, "rb").read()
+        jl = struct.unpack("<I", b[12:16])[0]
+        j = json.loads(b[20:20 + jl].decode("utf-8"))
+        rest = b[20 + jl:]
+        nodes = j["nodes"]
+        root = j["scenes"][j.get("scene", 0)]["nodes"][0]
+        kids = nodes[root].setdefault("children", [])
+        for nm, pos in pts.items():
+            idx = next((i for i, n in enumerate(nodes) if n.get("name") == nm), None)
+            if idx is None:
+                nodes.append({"name": nm, "translation": pos})
+                kids.append(len(nodes) - 1)
+            else:
+                nodes[idx]["translation"] = pos
+        js = json.dumps(j, separators=(",", ":")).encode("utf-8")
+        js += b" " * ((4 - len(js) % 4) % 4)
+        out = struct.pack("<III", 0x46546C67, 2, 12 + 8 + len(js) + len(rest)) + struct.pack("<II", len(js), 0x4E4F534A) + js + rest
+        open(path, "wb").write(out)
+        print("GLB gepatcht:", path, len(out) / 1e6, "MB")
+    rp = os.path.join(MODELS, "fighter_t1_rig.json")
+    with open(rp) as fh:
+        rig = json.load(fh)
+    for nm, pos in pts.items():
+        rig["markers"][nm] = dict(pos=pos)
+    with open(rp, "w") as fh:
+        json.dump(rig, fh, indent=2, ensure_ascii=False)
+
+
+# ============================================================================
 # Pruef-Renders (GLB re-importiert)
 # ============================================================================
 def look_at(obj, target):
@@ -1881,5 +1954,7 @@ def render_check(glb, tagname):
 
 if OPT["build"]:
     main_build()
+if OPT["add_svc"]:
+    add_svc_markers()
 if OPT["render"]:
     render_check(OPT["glb"] or os.path.join(MODELS, "fighter_t1_game.glb"), OPT["tag"])
