@@ -20,6 +20,10 @@ Stand: 02.11.2026 · Branch `m3-grafik`
 - `art/models/fighter_t1_game.glb` und `_enemy.glb` enthalten jetzt `svc_fuel_cap`, `svc_gun_hatch_L/R`,
   `svc_entry`, `svc_engine` (verlustfrei in den GLB-JSON-Block eingefügt, Geometrie/Texturen unverändert).
   Extraktion geprüft: 7 Trefferzonen, 2 Waffen, 3 Außenlasten wie vorher, Punkte 29 → 34.
+  Vergleich (02.11.): `tools/extract_markers.gd` mit dem neuen GLB in eine Scratch-.tres; die Felder
+  `zone_names`, `zone_centers`, `zone_half_extents` sind byte-gleich mit der bestehenden
+  `vehicles/aircraft/data/markers/fighter_t1_markers.tres` (md5 identisch). Die Diagnosezeile „Hitbox-Zonen 9“
+  bleibt: `HitboxSet.from_markers` ergänzt zu den 7 Marker-Zonen 2 Rumpf-Füllboxen (`_add_fuselage_fillers`).
 - **Paket 14:** `tools/sync_art.sh` ausführen (kopiert nach `vehicles/aircraft/models/`) und
   `tools/extract_markers.gd` neu laufen lassen → `vehicles/aircraft/data/markers/fighter_t1_markers.tres`
   (gemeinsame Dateien, darum nicht von Grafik geändert). Bis dahin greifen die Ersatzpositionen in `ServiceMarkers`.
