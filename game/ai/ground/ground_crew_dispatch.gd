@@ -28,6 +28,9 @@ var center := Vector3.ZERO
 var radius := 0.0
 var fuel_target := 1.0
 var crews: Array = []
+## Fahrzeuge des Platzes (Strang H). Gesetzt: Tanken aus truck.tank, Munition aus cart.store.
+var fuel_truck: FuelTruck = null
+var ammo_cart: AmmoCart = null
 var _known := {}
 
 ## Nachtanken erst ab dieser Lücke (Leerlauf verbraucht etwas, kein Dauer-Nachfüllen).
@@ -101,10 +104,32 @@ func _check(a: Aircraft) -> void:
 		return
 	if not board.open_jobs(a).is_empty() or not needs_service(a):
 		return
-	var ids := board.plan_service(a, depot, store, {"priority": priority_for(a), "fuel_target": fuel_target})
+	var ids := board.plan_service(a, fuel_source(), ammo_store(), {"priority": priority_for(a),
+		"fuel_target": fuel_target, "fuel_node": fuel_truck})
 	if not ids.is_empty() and not _known.has(a):
 		_known[a] = true
 		announced.emit("%s gelandet" % _name_of(a), a)
+
+
+func fuel_source() -> FuelSource:
+	return fuel_truck.tank if fuel_truck != null and is_instance_valid(fuel_truck) else depot
+
+
+func ammo_store() -> AmmoStore:
+	return ammo_cart.store if ammo_cart != null and is_instance_valid(ammo_cart) else store
+
+
+## Befehl (Befehlsrad): Jobs für a nach Befehl anlegen. Rückgabe: neue Job-Ids.
+func plan_for(a: Aircraft, cmd: int) -> Array:
+	if board == null or a == null:
+		return []
+	var C := GroundCrewBrain.Command
+	if cmd == C.QUICK_SERVICE:
+		return Turnaround.quick_service(board, a, fuel_source(), ammo_store())
+	var o := {"priority": GroundCrewBrain.Priority.PLAYER_AIRCRAFT * 10, "fuel_target": fuel_target,
+		"fuel_node": fuel_truck, "fuel": cmd in [C.FULL_SERVICE, C.FUEL_ONLY],
+		"ammo": cmd in [C.FULL_SERVICE, C.AMMO_ONLY], "repair": cmd in [C.FULL_SERVICE, C.REPAIR]}
+	return board.plan_service(a, fuel_source(), ammo_store(), o)
 
 
 func _watched() -> Array:
