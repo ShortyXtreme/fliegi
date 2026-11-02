@@ -107,9 +107,36 @@ func _begin_step(s: StringName, r: GroundRules) -> bool:
 
 
 func _finish_step(s: StringName, r: GroundRules) -> bool:
-	if s != &"pump":
-		return true
-	return fill_reached() and not r.pump_watch
+	match s:
+		&"attach": _couple_hose()
+		&"detach": _uncouple_hose()
+		&"pump": return fill_reached() and not r.pump_watch
+	return true
+
+
+## Schlauch des Tankwagens (FuelTruck.hose, Strang H) am Tankdeckel an-/abkoppeln.
+func hose() -> Object:
+	if source_node == null or not is_instance_valid(source_node):
+		return null
+	var h = source_node.get("hose")
+	return h if h is Object and h.has_method("couple") else null
+
+
+func _couple_hose() -> void:
+	var h := hose()
+	var a := aircraft()
+	if h != null and a != null and not h.is_coupled():
+		h.couple(a, ServiceMarkers.aircraft_point(a, ServiceMarkers.SVC_FUEL_CAP))
+
+
+func _uncouple_hose() -> void:
+	var h := hose()
+	if h != null and h.is_coupled() and h.coupled_to == aircraft():
+		h.uncouple()
+
+
+func cleanup() -> void:
+	_uncouple_hose()
 
 
 ## Pumpen um dt Sekunden (autonom, vom JobBoard). Rückgabe: true = Schritt fertig.

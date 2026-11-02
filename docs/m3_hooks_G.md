@@ -1,10 +1,11 @@
 # M3 Hooks Strang G (Bodenlogik) – für Paket 14 und die Stränge H und C
 
-Stand: 01.11.2026 · Branch `m3-g` · Pakete 1, 2, 3 und 7a fertig, 7b offen (wartet auf Fahrzeuge aus Paket 6)
+Stand: 01.11.2026 · Branch `m3-g` · Pakete 1, 2, 3, 7a und 7b fertig (m3-h mit Paket 6 eingemergt)
 
 ## Gemeinsame Dateien (nicht geändert, Vorschlag für Paket 14)
 1. `core/ground_events.gd`: `depot_changed(depot: Node)`. Die Lager (`FuelSource`, `FuelDepot`, `AmmoBunker`) sind RefCounted. Das Senden klappt, weil Signale den Typ nicht prüfen, aber ein typisierter Empfänger `func(d: Node)` scheitert. Vorschlag: den Parameter auf `Object` ändern.
 2. `AmmoBunker.AMMO_792` ist jetzt `&"7.92mm"` (wie `WeaponDef.ammo_type`). Vorher stand dort `&"7.92"`, und damit lud der Bunker keine MGs.
+3. **Änderung in H-Hoheit (freigegeben vom Projektmanager):** `vehicles/ground/ammo_cart.gd` hat jetzt `const AMMO := AmmoBunker.AMMO_792` statt `&"7.92"`. Sonst lieferte `take_crate()` 0 Schuss (Test `test_ammo_cart_crates` war rot). Weitere Stellen mit "7.92" ohne "mm" gibt es nicht.
 
 ## Paket 14 (Integration)
 - `JobBoard` als Kind von Game anlegen (`rules = GroundRules.for_realism()`, nach `MatchRules.load_ground_config`).
@@ -23,10 +24,15 @@ Stand: 01.11.2026 · Branch `m3-g` · Pakete 1, 2, 3 und 7a fertig, 7b offen (wa
 - `AirfieldPhases` soll erst dann Gas geben, wenn `GroundCrewBrain.zone_clear(a)` gilt. Im PARKED-Zustand bleibt das Gas auf 0, sonst gilt der Propeller als drehend (`prop_danger`), und das Personal arbeitet nicht.
 - Die Mindestmengen für den Start (60 %/80 %) liest die Phase selbst. Die Abfertigung legt der Dispatch automatisch an.
 
-## Offen in Strang G (Paket 7b, nach Paket 6)
-- `GroundCrewBrain.command()` (Befehlsrad) ist noch ein Stub. Die Filter (`command_kind`, `command_target`) sind schon da.
-- Ohne Fahrzeug läuft der Weg „Tankwagen holen“ in beiden Darstellungen als reine Zeit (Fahrt + Aufsteigen). Das Befüllen am Lager (Authentisch) kostet ebenfalls nur Zeit. Mit Paket 6 fährt die KI den Wagen wirklich, und die Wagen werden über `RefuelJob.dest_source` nachgefüllt (Priorität `REFILL_VEHICLE`).
+## Paket 7b (fertig): Befehlsrad und Fahrzeuge
+- Befehlsrad-API: `GroundCrewBrain.wheel_entries()` liefert `[{id, label}]` mit 8 Befehlen. `GroundCrewBrain.issue(cmd, target, crew=[])` gibt Job-Befehle an alle, „Tankwagen zu mir“ und „Folgen“ an die nächste Figur. `brain.command(cmd, target)` gilt nur auf dem Server. `FULL_SERVICE` mit `null` schaltet zurück auf Automatik.
+- Paket 14: `dispatch.fuel_truck = FuelTruck` und `dispatch.ammo_cart = AmmoCart` des Platzes setzen, außerdem `truck.depot = dispatch.depot` und `depot.position` (macht `setup_from_layout`). Tankjobs nehmen dann aus `truck.tank`. Die KI geht zum Wagen, steigt über `SeatService` ein, fährt ihn auf ~7 m an den Tankdeckel, steigt aus und koppelt den Schlauch an (`RefuelJob` ruft `hose.couple/uncouple`). In Authentisch befüllt sie den Wagen vorher am Lager mit `FuelTruck.fill_from`. Den Munitionswagen fährt sie heran, wenn er weiter als 15 m weg steht. Munition entnimmt sie direkt aus `cart.store`; die KI trägt dabei keinen `CarryItem`.
+- Ohne `SeatService.current` steigt die KI direkt per `possess` ein und aus (Ersatz).
+
+## Offen
+- „Wagen nachfüllen“ als eigener Job (Priorität `REFILL_VEHICLE`) fehlt. Ein leerer Tankwagen blockiert den Job mit „Lager leer“, nur in Authentisch füllt die KI ihn im Zuge des Tankjobs auf.
 - Ein Funkenbrand (Authentisch, Erden vergessen) meldet nur `job_blocked(id, &"spark_fire")` und hat noch keine Brandwirkung (Feuerlöschen ist laut Plan §7 außerhalb).
+- Die KI fährt auf direktem Weg ohne Rollweg-Graph und weicht Flugzeugen nicht aus (in Tests unauffällig).
 
 ## Hinweise
 - Der Motor verbraucht auch im Leerlauf am Abstellplatz Treibstoff. Darum tankt der Dispatch erst ab 3 % Lücke nach (`TOP_UP_MARGIN`).

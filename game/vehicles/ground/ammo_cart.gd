@@ -12,7 +12,7 @@ const CRATE_SLOTS := 6
 const ROUNDS_PER_CRATE := 500
 const CAPACITY := CRATE_SLOTS * ROUNDS_PER_CRATE
 const FILL_RANGE := 10.0
-const AMMO := &"7.92"
+const AMMO := AmmoBunker.AMMO_792
 
 var crates := CRATE_SLOTS
 var store := AmmoBunker.new({AmmoBunker.AMMO_792: CRATE_SLOTS * ROUNDS_PER_CRATE})
