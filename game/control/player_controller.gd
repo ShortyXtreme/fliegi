@@ -77,6 +77,17 @@ func mouse_aim_active() -> bool:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	# M3: zu Fuß/im Fahrzeug gelten nur die globalen Aktionen (F, G, C usw. sind dort anders belegt).
+	if session != null and session.get("context") != null \
+			and int(session.get("context")) != InputBindings.Context.FLIGHT:
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed \
+				and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		if event.is_action_pressed("release_mouse"):
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		if event.is_action_pressed("help_toggle"):
+			help_toggle_requested.emit()
+		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		_on_left_mouse(event.pressed)
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:

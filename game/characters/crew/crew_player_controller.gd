@@ -34,7 +34,8 @@ func on_possess(new_seat: Seat) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if seat == null:
 		return
-	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED \
+			and not Input.is_action_pressed("crew_wheel"):
 		look_yaw = wrapf(look_yaw - event.relative.x * MOUSE_SENS, -PI, PI)
 		look_pitch = clampf(look_pitch - event.relative.y * MOUSE_SENS, -1.4, 1.4)
 
@@ -46,6 +47,8 @@ func compute_crew_intent(dt: float) -> CrewIntent:
 		Input.get_axis("crew_move_back", "crew_move_forward") + Input.get_axis("joy_crew_move_back", "joy_crew_move_forward"))
 	i.move = mv.limit_length(1.0)
 	var look := Vector2(Input.get_axis("look_right", "look_left"), Input.get_axis("look_down", "look_up"))
+	if Input.is_action_pressed("crew_wheel"):
+		look = Vector2.ZERO   # Paket 14: offenes Befehlsrad – rechter Stick wählt, Blick steht
 	look_yaw = wrapf(look_yaw + look.x * STICK_LOOK_RATE * dt, -PI, PI)
 	look_pitch = clampf(look_pitch + look.y * STICK_LOOK_RATE * 0.6 * dt, -1.4, 1.4)
 	i.look_yaw = look_yaw

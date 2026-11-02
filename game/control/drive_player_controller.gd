@@ -13,6 +13,9 @@ var _intent := PilotIntent.new()
 var _exit_t := 0.0
 var exit_hold_progress := 0.0
 var _exit_sent := false
+## Paket 14: Handbremse getrennt von der Bremse (GroundVehicle fährt mit Handbremse nie
+## rückwärts, nur „Bremse halten im Stand“ legt den Rückwärtsgang ein).
+var handbrake := false
 
 
 func _init() -> void:
@@ -28,8 +31,8 @@ func _unhandled_input(event: InputEvent) -> void:
 func compute_intent(dt: float) -> PilotIntent:
 	var i := _intent
 	i.throttle = Input.get_action_strength("drive_throttle")
-	i.brakes = maxf(Input.get_action_strength("drive_brake"),
-		1.0 if Input.is_action_pressed("drive_handbrake") else 0.0)
+	handbrake = Input.is_action_pressed("drive_handbrake")
+	i.brakes = maxf(Input.get_action_strength("drive_brake"), 1.0 if handbrake else 0.0)
 	i.yaw = Input.get_axis("drive_steer_left", "drive_steer_right") \
 		+ Input.get_axis("joy_drive_steer_left", "joy_drive_steer_right")
 	i.fire_primary = false

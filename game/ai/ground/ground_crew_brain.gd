@@ -28,6 +28,17 @@ const TRUCK_PARK := 7.0         # Tankwagen zum Tanken: Abstand zum Tankdeckel (
 const CART_PARK := 6.0
 const CART_MAX := 15.0          # Munitionswagen weiter weg: erst hinfahren
 const DRIVE_ARRIVE := 2.5
+const VIA_ARRIVE := 5.0
+const WALK_ROUTE_MIN := 30.0
+## Festlaufen (Figur schiebt gegen Wand/Fahrzeug): seitlich ausweichen.
+const STUCK_SPEED := 0.3
+const STUCK_TIME := 0.4
+const STUCK_ARRIVE := 2.6
+const SIDESTEP_TIME := 1.2
+var _stuck_t := 0.0
+var _side_t := 0.0
+var _side_sign := 1.0
+var _last_pos := Vector3.ZERO
 const FOLLOW_DIST := 3.0
 
 enum State { IDLE, TRAVEL, WORK, CLEAR }
@@ -167,7 +178,7 @@ func command(cmd: int, target: Node) -> bool:
 			away.y = 0.0
 			if away.length_squared() < 0.01:
 				away = Vector3.RIGHT
-			_legs = [{drive = t, pos = goal + away.normalized() * TRUCK_STOP}]
+			_legs = _route_drives([{drive = t, pos = goal + away.normalized() * TRUCK_STOP}])
 			_leg_for = "cmd"
 	return true
 
@@ -263,6 +274,12 @@ func _work_on(j: GroundJob, dt: float) -> void:
 	var r := b.rules
 	var s := j.current_step()
 	if j.autonomous(s, r):
+		if j is RefuelJob and j.dest_source != null:
+			if r.pump_watch and j.fill_reached():
+				b.request_step(peer_id, j.id, j.steps[j.step_index + 1], dt)
+			elif not r.pump_watch:
+				_drop_focus(false)
+			return
 		if j is RefuelJob and r.pump_watch:
 			if _go_to(j.aircraft().service_point(ServiceMarkers.SVC_FUEL_CAP), dt) and j.fill_reached():
 				b.request_step(peer_id, j.id, j.steps[j.step_index + 1], dt)
@@ -307,7 +324,10 @@ func _pick_job() -> GroundJob:
 		if j.autonomous(j.current_step(), b.rules) and not (j is RefuelJob and b.rules.pump_watch):
 			continue
 		var a := j.aircraft()
-		if a == null or prop_danger(a) or (dispatch != null and not dispatch.is_parked(a)):
+		var refill: bool = j is RefuelJob and j.dest_source != null
+		if not refill and (a == null or prop_danger(a) or (dispatch != null and not dispatch.is_parked(a))):
+			continue
+		if refill and (dispatch == null or j.target != dispatch.fuel_truck):
 			continue
 		var d := here.distance_to(_rough_pos(j))
 		if not mine and _idle_other_closer(j, d):
@@ -379,9 +399,64 @@ func _worker_node() -> Node:
 
 ## Wege zum Schritt: Liste von Zielen; wait = feste Zeit (z. B. Tankwagen fahren).
 func _plan_legs(j: GroundJob, s: StringName) -> Array:
+	return _route_drives(_plan_legs_raw(j, s))
+
+
+## Paket 14: Fahrten über die Fahrspur des Platzes (dispatch.drive_route), damit Wagen nicht
+## quer durch Hallen oder abgestellte Maschinen fahren. Zwischenpunkte: {drive, pos, via = true}.
+func _route_drives(legs: Array) -> Array:
+	if dispatch == null or not dispatch.has_method("drive_route"):
+		return legs
+	var out := []
+	var at := {}
+	var cur := position_now()
+	for leg in legs:
+		if leg.has("drive") and not leg.get("via", false):
+			var v: GroundVehicle = leg.drive
+			var from: Vector3 = at.get(v, v.global_position)
+			for p in dispatch.drive_route(from, leg.pos):
+				out.append({drive = v, pos = p, via = true})
+			at[v] = leg.pos
+			cur = leg.pos
+		elif leg.has("pos") and not leg.has("fill") and not leg.get("teleport", false) \
+				and float(leg.get("wait", 0.0)) <= 0.0 and _flat_dist(cur, leg.pos) > WALK_ROUTE_MIN:
+			for p in dispatch.drive_route(cur, leg.pos):
+				out.append({pos = p, wait = 0.0, teleport = false})
+			cur = leg.pos
+		elif leg.has("pos"):
+			cur = leg.pos
+		out.append(leg)
+	return out
+
+
+## Nach dem Einsteigen: Zwischenpunkte ab der aktuellen Wagenposition neu bestimmen (die Wege
+## wurden evtl. geplant, als der Wagen noch woanders stand).
+func _reroute(v: GroundVehicle) -> void:
+	if dispatch == null or not dispatch.has_method("drive_route"):
+		return
+	while not _legs.is_empty() and _legs[0].get("drive") == v and _legs[0].get("via", false):
+		_legs.pop_front()
+	if _legs.is_empty() or _legs[0].get("drive") != v:
+		return
+	var pts: Array = dispatch.drive_route(v.global_position, _legs[0].pos)
+	pts.reverse()
+	for p in pts:
+		_legs.push_front({drive = v, pos = p, via = true})
+
+
+func _plan_legs_raw(j: GroundJob, s: StringName) -> Array:
 	var r := _board().rules
 	var a := j.aircraft()
 	var legs := []
+	if j is RefuelJob and j.dest_source != null and j.target is GroundVehicle:
+		# Paket 14: Wagen nachfüllen – Wagen zum Lager fahren, dort an der Trommel arbeiten.
+		var tv := j.target as GroundVehicle
+		if s == &"bring" and not j.source_in_reach(r):
+			legs.append({drive = tv, pos = _depot_fill_pos(tv, dispatch.depot if dispatch != null else j.source)})
+		var at := tv.global_position + tv.global_transform.basis.x * 1.8
+		if position_now().distance_to(at) > ARRIVE_R + 1.0 or not legs.is_empty():
+			legs.append({pos = at, wait = 0.0, teleport = false})
+		return legs
 	if a == null:
 		return legs
 	if j is RefuelJob:
@@ -398,7 +473,7 @@ func _plan_legs(j: GroundJob, s: StringName) -> Array:
 						var dp := _depot_fill_pos(truck, depot)
 						legs.append({drive = truck, pos = dp})
 						legs.append({fill = truck, src = depot, grade = j.grade, need = need})
-					legs.append({drive = truck, pos = cap + _away(a, cap) * TRUCK_PARK})
+					legs.append({drive = truck, pos = _vehicle_spot(a, cap, false)})
 				legs.append({pos = cap, wait = 0.0, teleport = false})
 				return legs
 			if not r.truck_at_spot and j.source_node == null:
@@ -420,8 +495,11 @@ func _plan_legs(j: GroundJob, s: StringName) -> Array:
 			var cart := dispatch.ammo_cart if dispatch != null else null
 			if cart != null and is_instance_valid(cart) and j.store == cart.store:
 				if _flat_dist(cart.global_position, hatch) > CART_MAX:
-					legs.append({drive = cart, pos = hatch + _away(a, hatch) * CART_PARK})
-					legs.append({pos = hatch + _away(a, hatch) * (CART_PARK - 2.0), wait = 0.0, teleport = false})
+					var cs := _vehicle_spot(a, hatch, true)
+					legs.append({drive = cart, pos = cs})
+					var to_h := hatch - cs
+					to_h.y = 0.0
+					legs.append({pos = cs + to_h.normalized() * 2.5, wait = 0.0, teleport = false})
 				else:
 					legs.append({pos = cart.global_position + (hatch - cart.global_position).normalized() * 2.0,
 						wait = 0.0, teleport = false})
@@ -499,6 +577,26 @@ func _go_to(p: Vector3, _dt: float) -> bool:
 	if dir.length_squared() < 1e-6:
 		dir = d.normalized()
 	dir = dir.normalized()
+	# Paket 14: festgelaufen -> eine Weile seitlich ausweichen (gleiche Seite, bis es klappt)
+	var cb := body() as CharacterBody3D
+	if cb != null:
+		var dt := get_physics_process_delta_time()
+		var moved := _flat_dist(cb.global_position, _last_pos)
+		_last_pos = cb.global_position
+		var moving := moved > STUCK_SPEED * dt
+		_stuck_t = 0.0 if moving else _stuck_t + dt
+		if _stuck_t > STUCK_TIME and d.length() <= STUCK_ARRIVE:
+			_stuck_t = 0.0
+			_side_t = 0.0
+			return true          # Ziel liegt im Flugzeug/Fahrzeug: nah genug (JobBoard: work_range)
+		if _stuck_t > STUCK_TIME:
+			_stuck_t = 0.0
+			if _side_t > 0.0:
+				_side_sign = -_side_sign
+			_side_t = SIDESTEP_TIME
+		if _side_t > 0.0:
+			_side_t -= dt
+			dir = (dir * 0.3 + dir.cross(Vector3.UP) * _side_sign).normalized()
 	_intent.look_yaw = atan2(-dir.x, -dir.z)
 	_intent.move = Vector2(0.0, 1.0)
 	_intent.sprint = d.length() > SPRINT_FROM and not _carrying
@@ -569,6 +667,16 @@ func _rough_pos(j: GroundJob) -> Vector3:
 
 
 ## Waagerechte Richtung vom Flugzeug weg (seitlich des Servicepunkts).
+## Paket 14: Halteplatz für Tankwagen (cart = false) bzw. Munitionswagen an der Seite zur
+## Fahrspur (dispatch.vehicle_spot), sonst wie bisher vom Servicepunkt weg.
+func _vehicle_spot(a: Aircraft, p: Vector3, cart: bool) -> Vector3:
+	if dispatch != null and dispatch.has_method("vehicle_spot"):
+		var v = dispatch.vehicle_spot(a, cart)
+		if v is Vector3:
+			return v
+	return p + _away(a, p) * (CART_PARK if cart else TRUCK_PARK)
+
+
 func _away(a: Aircraft, p: Vector3) -> Vector3:
 	var d := p - a.global_position
 	d.y = 0.0
@@ -714,6 +822,15 @@ func _run_drive(leg: Dictionary, dt: float) -> void:
 		if v.driver_seat.controller != null and v.driver_seat.controller != self:
 			return                                     # jemand anderes fährt: warten
 		var entry := v.driver_seat.entry_position()
+		if not leg.get("routed", false):
+			leg["routed"] = true
+			if dispatch != null and dispatch.has_method("drive_route") and not abstract_mode \
+					and _flat_dist(position_now(), entry) > WALK_ROUTE_MIN:
+				var pts: Array = dispatch.drive_route(position_now(), entry)
+				pts.reverse()
+				for p in pts:
+					_legs.push_front({pos = p, wait = 0.0, teleport = false})
+				return
 		if not abstract_mode and body() != null and not _go_to(entry, dt):
 			return
 		if abstract_mode or body() == null:
@@ -727,6 +844,8 @@ func _run_drive(leg: Dictionary, dt: float) -> void:
 		_leg_left = -1.0
 		if not _enter(v.driver_seat):
 			_legs.pop_front()
+		else:
+			_reroute(v)
 		return
 	travel_time += dt
 	if abstract_mode:
@@ -743,6 +862,10 @@ func _run_drive(leg: Dictionary, dt: float) -> void:
 		_after_drive()
 		return
 	_drive_goal = leg.pos
+	if leg.get("via", false):
+		if _flat_dist(v.global_position, leg.pos) <= VIA_ARRIVE:
+			_legs.pop_front()
+		return
 	if _flat_dist(v.global_position, leg.pos) <= DRIVE_ARRIVE and v.seat_speed() < 0.3:
 		_drive_goal = null
 		_legs.pop_front()

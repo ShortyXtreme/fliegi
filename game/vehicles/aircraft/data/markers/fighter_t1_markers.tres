@@ -42,6 +42,11 @@ points = {
 "pivot_wheel_main_L": Vector3(-1.6999999, -1.48, -0.3506),
 "pivot_wheel_main_R": Vector3(1.6999999, -1.48, -0.3506),
 "pivot_wheel_tail": Vector3(0, -0.32999998, 5.7394),
+"svc_engine": Vector3(-0.5049, 0.099999994, -2),
+"svc_entry": Vector3(-1.05, -0.076799996, 0.75),
+"svc_fuel_cap": Vector3(0, 0.60139996, -0.25),
+"svc_gun_hatch_L": Vector3(-2.35, 0.0705, 0.099999994),
+"svc_gun_hatch_R": Vector3(2.35, 0.0705, 0.099999994),
 "wingtip_L": Vector3(-5.3231997, 0.2279, 0.0089),
 "wingtip_R": Vector3(5.3231997, 0.2279, 0.0089)
 }

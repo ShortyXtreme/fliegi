@@ -149,15 +149,18 @@ func drive(i: PilotIntent, dt: float, has_driver := true) -> void:
 	steer = move_toward(steer, want, STEER_RATE * dt)
 	# Längs: vorwärts Gas/Bremse, im Stand Bremse halten = rückwärts
 	var standing := absf(speed) < STANDSTILL
-	_brake_hold = _brake_hold + dt if standing and brk > 0.1 and thr < 0.05 else 0.0
+	var hb: bool = has_driver and driver_seat.controller != null and driver_seat.controller.get("handbrake") == true
+	_brake_hold = _brake_hold + dt if standing and brk > 0.1 and thr < 0.05 and not hb else 0.0
 	var a := 0.0
 	if speed > STANDSTILL or (standing and thr >= 0.05):
 		a = thr * ACCEL * (1.0 - 0.5 * speed / MAX_SPEED) - brk * BRAKE_DECEL
+	elif hb and speed < -STANDSTILL:
+		a = BRAKE_DECEL   # Handbremse beim Rückwärtsrollen: bremsen, nicht beschleunigen
 	elif speed < -STANDSTILL or (standing and _brake_hold >= REVERSE_DELAY and has_driver):
 		a = -brk * REVERSE_ACCEL + thr * BRAKE_DECEL
 	var s0 := speed
 	speed += a * dt
-	if (s0 > 0.0 and speed < 0.0 and a < 0.0 and brk > thr) or (s0 < 0.0 and speed > 0.0 and thr > 0.0):
+	if (s0 > 0.0 and speed < 0.0 and a < 0.0 and brk > thr) or (s0 < 0.0 and speed > 0.0 and (thr > 0.0 or hb)):
 		speed = 0.0   # Bremsen bis Stillstand, nicht durch null
 	speed = move_toward(speed, 0.0, ROLL_DECEL * dt)
 	speed = clampf(speed, -REVERSE_SPEED, MAX_SPEED)

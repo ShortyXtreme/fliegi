@@ -128,6 +128,26 @@ func _build_placeholder() -> void:
 	hand_l = _marker(ServiceMarkers.HAND_L, Vector3(-0.22, 0.95, -0.35))
 
 
+## Paket 14: Modell (characters/crew/anim/crew_model.tscn) statt Platzhalter. Übernimmt den
+## AnimationTree (Zustände wie ANIM_NAMES). Rückgabe: Anzahl MeshInstance3D im Modell.
+func apply_model(model: Node3D) -> int:
+	if model == null:
+		return 0
+	for c in visual.get_children():
+		visual.remove_child(c)
+		c.queue_free()
+	model.name = "Model"
+	visual.add_child(model)
+	var at := model.find_child("AnimationTree", true, false) as AnimationTree
+	if at != null:
+		at.active = true
+		anim_tree = at
+		var s := anim_state
+		anim_state = -1
+		set_anim_state(s)
+	return model.find_children("*", "MeshInstance3D", true, false).size()
+
+
 func _marker(n: String, p: Vector3) -> Node3D:
 	var m := Node3D.new()
 	m.name = n

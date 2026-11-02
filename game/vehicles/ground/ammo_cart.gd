@@ -17,7 +17,7 @@ const AMMO := AmmoBunker.AMMO_792
 var crates := CRATE_SLOTS
 var store := AmmoBunker.new({AmmoBunker.AMMO_792: CRATE_SLOTS * ROUNDS_PER_CRATE})
 var slot_points: Array[Interactable] = []
-var _crate_meshes: Array[MeshInstance3D] = []
+var _crate_meshes: Array[Node3D] = []
 var realism: int = MatchRules.GroundRealism.STANDARD
 
 
@@ -112,10 +112,32 @@ func fill_from(bunker: AmmoStore, n := CAPACITY) -> int:
 	return got
 
 
+## Paket 14: nach apply_model (Modell ersetzt den Platzhalter) Kisten neu an crate_slot_* setzen.
+func _markers_changed() -> void:
+	for m in _crate_meshes:
+		if is_instance_valid(m):
+			m.queue_free()
+	_crate_meshes.clear()
+	var ps: PackedScene = load("res://assets/ground/ammo_crate.glb") \
+		if ResourceLoader.exists("res://assets/ground/ammo_crate.glb") else null
+	for i in CRATE_SLOTS:
+		var p := marker_point(ServiceMarkers.crate_slot(i + 1))
+		var c: Node3D
+		if ps != null:
+			c = ps.instantiate()
+			c.position = p
+			visual.add_child(c)
+		else:
+			c = _box(Vector3(0.6, 0.3, 0.35), p + Vector3(0, 0.15, 0), Color(0.36, 0.4, 0.24))
+		_crate_meshes.append(c)
+	_update_crates()
+
+
 func _update_crates() -> void:
 	var n := mini(CRATE_SLOTS, ceili(store.available(AMMO) / float(ROUNDS_PER_CRATE)))
 	for i in _crate_meshes.size():
-		_crate_meshes[i].visible = i < n
+		if is_instance_valid(_crate_meshes[i]):
+			_crate_meshes[i].visible = i < n
 	if n != crates:
 		crates = n
 		crates_changed.emit(n)

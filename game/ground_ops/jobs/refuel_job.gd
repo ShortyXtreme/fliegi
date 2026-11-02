@@ -35,7 +35,7 @@ func duration(s: StringName, r: GroundRules) -> float:
 		&"ground": return r.grounding_s
 		&"attach": return r.hose_attach_s + (r.cap_valve_s if r.cap_and_valve else 0.0)
 		&"detach": return r.hose_detach_s + (r.cap_valve_s * 0.5 if r.cap_and_valve else 0.0)
-		&"pump": return liters_needed() / maxf(r.pump_lps, 0.01)
+		&"pump": return liters_needed() / maxf(_rate(r), 0.01)
 	return 0.0
 
 
@@ -72,7 +72,10 @@ func fill_reached() -> bool:
 
 
 func source_in_reach(r: GroundRules) -> bool:
-	if r.truck_at_spot or source_node == null or dest_source != null:
+	if dest_source != null:
+		# Paket 14 „Wagen nachfüllen“: Wagen (target) muss am Lager stehen.
+		return target == null or not target.has_method("in_fill_range") or bool(target.call("in_fill_range", source))
+	if r.truck_at_spot or source_node == null:
 		return true
 	var a := aircraft()
 	if a == null:
@@ -143,7 +146,7 @@ func cleanup() -> void:
 func pump(dt: float, r: GroundRules) -> bool:
 	if current_step() != &"pump" or blocked_reason != &"" or source == null:
 		return false
-	var want := r.pump_lps * dt
+	var want := _rate(r) * dt
 	var need := liters_needed()
 	var got := 0.0
 	if dest_source != null:
@@ -169,6 +172,11 @@ func pump(dt: float, r: GroundRules) -> bool:
 			return true   # Rest fehlt: weiter zum Abkoppeln, Hinweis gemeldet
 		grade = g
 	return fill_reached() and not r.pump_watch
+
+
+## Pumprate: Flugzeug pump_lps, Wagen am Lager befüllen truck_fill_lps.
+func _rate(r: GroundRules) -> float:
+	return r.truck_fill_lps if dest_source != null else r.pump_lps
 
 
 func recheck(r: GroundRules) -> void:

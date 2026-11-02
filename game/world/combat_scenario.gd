@@ -26,6 +26,10 @@ var difficulty := "erfahren"
 var enemy_count := 3
 var enemy_respawn_min := 30.0
 var enemy_respawn_max := 60.0
+## M3: Gegner starten am Boden (Platz Rot). false = M2-Verhalten (in der Luft).
+var ground_start := true
+## M3: Notstart-Zeit der ersten Maschinen (s), danach gilt die Abfertigung.
+var first_scramble_s := 30.0
 
 var game: Node
 var world: Node3D
@@ -122,11 +126,38 @@ func spawn_enemies(data: AircraftData, spawn_manager: SpawnManager) -> void:
 		game.add_child(br)
 		enemies.append(a)
 		brains.append(br)
+		if ground_start:
+			continue   # M3: Start am Boden über spawn_enemies_on_ground()
 		_place_enemy(k, true)
 		if Authority.is_server():
 			a.pilot_seat.possess(br)
 			spawn_manager.register(a, br, func(): _respawn_enemy(k),
 					func(): return _rng.randf_range(enemy_respawn_min, enemy_respawn_max))
+
+
+## M3 Paket 14: Gegner am Abstellplatz von Platz Rot (MatchRules-Startzustand FIRST), Neustart
+## nach Abschuss am Boden (AFTER_LOSS) über den SpawnManager. Die KI rollt, startet und landet
+## selbst (AirfieldPhases), die rote Bodenmannschaft versorgt sie.
+func spawn_enemies_on_ground(spawn_manager: SpawnManager, layout: AirfieldLayout) -> void:
+	for k in enemies.size():
+		var a := enemies[k]
+		var br := brains[k]
+		_name_counter += 1
+		a.set_meta("display_name", "Rot %d" % _name_counter)
+		br.patrol_center = patrol_points[k]
+		br.patrol_altitude = patrol_points[k].y
+		br.patrol_radius = 1500.0
+		br.home = field_center(red_field) + Vector3(0, 600.0, 0)
+		if not Authority.is_server():
+			continue
+		a.pilot_seat.possess(br)
+		spawn_manager.register_ground(a, br, layout,
+				func(): return _rng.randf_range(enemy_respawn_min, enemy_respawn_max))
+		spawn_manager.spawn_on_ground(a, layout, MatchRules.StartKind.FIRST)
+		# Erste Maschine (50 %): nach spätestens first_scramble_s Notstart, gestaffelt
+		if br.airfield != null:
+			br.airfield.scramble_timeout = first_scramble_s + k * 15.0
+		a.pilot_seat.possess(br)
 
 
 func _place_enemy(k: int, initial: bool) -> void:

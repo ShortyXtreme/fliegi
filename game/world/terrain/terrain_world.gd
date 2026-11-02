@@ -408,6 +408,9 @@ func _build_airfields() -> void:
 		var mat_hangar := _mat(Color(0.55, 0.52, 0.45))
 		var mat_roof := _mat(Color(0.33, 0.29, 0.27))
 		for i in 3:
+			# M3: Halle 0 ersetzt das Hangar-Modell (AirfieldOps, AirfieldLayout.hangar)
+			if i == 0 and ResourceLoader.exists("res://assets/ground/hangar.glb"):
+				continue
 			_static_box(node, start + Vector3(-80, 0, -120 - i * 48), Vector3(24, 8, 30), mat_hangar)
 			_static_box(node, start + Vector3(-80, 8, -120 - i * 48), Vector3(25, 1, 31), mat_roof)
 		_static_box(node, start + Vector3(-70, 0, 30), Vector3(6, 14, 6), mat_hangar)

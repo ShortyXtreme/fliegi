@@ -1,5 +1,6 @@
 extends TestSuite
 ## M2.2 Regression: Das EXPORTIERTE Spiel (.pck) muss Treffer in beide Richtungen erzeugen.
+## M3: dazu die Boden-Phasen C–E und die Diagnose (Modelle, Animationen, Layout, Lager).
 ## Hintergrund: Beim Export gingen durch die Text->Binär-Umwandlung die Trefferzonen der
 ## Marker-Ressource verloren (0 Zonen -> nie ein Treffer), obwohl alle Projekttests grün waren.
 ## Ablauf: .pck exportieren (Preset „Windows Desktop“), Spiel daraus mit `--selbsttest` starten
@@ -31,8 +32,12 @@ func test_export_selftest_hits_both_ways() -> Array:
 	var text := "\n".join(out)
 	var lines := []
 	for l in text.split("\n"):
-		if l.begins_with("Diagnose") or l.contains("_schiesst") or l.begins_with("SELBSTTEST"):
+		if l.begins_with("Diagnose") or l.contains("_schiesst") or l.begins_with("SELBSTTEST") \
+				or l.begins_with("C_") or l.begins_with("D1_") or l.begins_with("D2_") or l.begins_with("D3_") \
+				or l.begins_with("E_") or l.begins_with("Phase "):
 			lines.append(l.strip_edges())
 	var ok := code == 0 and text.contains("SELBSTTEST OK") and not text.contains("Hitbox-Zonen 0 ") \
-			and not text.contains("keine Trefferzonen") and not text.contains("Marker-Quelle fallback")
+			and not text.contains("keine Trefferzonen") and not text.contains("Marker-Quelle fallback") \
+			and text.contains("C_ki_abfertigung: fertig") and text.contains("E_ki_start") \
+			and not text.contains("Animationen 0") and not text.contains("SCRIPT ERROR")
 	return [ok, "Exit %d | %s" % [code, " | ".join(lines)]]

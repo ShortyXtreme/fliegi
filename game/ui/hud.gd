@@ -4,15 +4,15 @@ extends CanvasLayer
 ## F3: Treffer-Debug (M2.1, ui/debug/), Shift+F3: Kräfte-Overlay (Text + 3D-Pfeile),
 ## F1: Steuerungshilfe.
 
-const VERSION := "M2.2"
-const HELP_TEXT := """[b]STEUERUNG[/b]  Flugkern M2.1 – Luftkampf 1 gegen 3  (F1 / Xbox-View-Taste schließt)
+const VERSION := "M3"
+const HELP_TEXT := """[b]STEUERUNG[/b]  Flugkern M3 – Bodenbetrieb, Luftkampf 1 gegen 3  (F1 / Xbox-View-Taste schließt)
 [b]Tastatur[/b]
   W / S  ........ Nase runter / hoch      A / D ..... rollen links / rechts
   Q / E  ........ Seitenruder             Shift / Strg .. Gas mehr / weniger
   F  ............ Klappen (0 / 50 / 100 %) B ........ Bremsen (halten / Parkbremse lösen)
   G  ............ Fahrwerk ein / aus (ca. 6 s, nicht am Boden, max. 300 km/h ausgefahren)
   Leertaste / Linksklick .. Feuer         V ......... Sekundärwaffe
-  J (1 s halten)  Notausstieg (nur bei schwerem Schaden)
+  J (1 s halten)  im Stand am Boden: Aussteigen, in der Luft: Notausstieg (schwerer Schaden)
   C  ............ Kamera wechseln         X ......... Arcade / Realistisch
   M  ............ Maus-Zielsteuerung an/aus  R / T ... Neustart Piste / Luft
   F3 / Xbox L3 .. Treffer-Debug (darin F4 Hitboxen, F5 Bahnen, F6 andere)
@@ -24,15 +24,16 @@ const HELP_TEXT := """[b]STEUERUNG[/b]  Flugkern M2.1 – Luftkampf 1 gegen 3  (
   Linker Stick .. Nicken / Rollen         RT / LT ... Feuer / Sekundärwaffe
   LB / RB ....... Seitenruder links / rechts
   Steuerkreuz hoch / runter: Gas mehr / weniger (halten)
-  Steuerkreuz rechts: Fahrwerk     Steuerkreuz links 1 s halten: Notausstieg
+  Steuerkreuz rechts: Fahrwerk     Steuerkreuz links 1 s halten: Aussteigen / Notausstieg
   A ............. Klappen                 B ......... Bremsen
   Y ............. Kamera                  X ......... Arcade / Realistisch
   Rechter Stick . umsehen (Klick: zurück) Start ..... Neustart Piste
 [b]Hinweise[/b]  Beim Start ist die Parkbremse an (löst bei Gas > 10 % oder B).
   Schütteln + STALL-WARNUNG = ca. 1,5° vor dem Abriss, wird stärker: nachlassen.
-  Auftrag: 3 rote Jäger kreisen 6–10 km entfernt. Abgeschossene Gegner starten nach
-  30–60 s am Platz Rot neu. Eigener Neustart 15 s nach Verlust. Landen am Platz Blau
-  schreibt die Erfahrung (XP) gut.
+  Start am Abstellplatz (50 % Treibstoff, volle Munition). Rote Jäger starten am Platz Rot.
+  Nach Abschuss: neue Maschine am Abstellplatz (15 % Treibstoff, keine Munition).
+  Landen, zum Abstellplatz rollen, J halten = aussteigen, tanken/Munition/Reparatur (E halten)
+  oder Befehlsrad (Tab). F9 = Alarmstart (Debug). Zu Fuß zeigt F1 die Bodenbelegung.
 [b]Treffer-Log[/b]  %APPDATA%\\Godot\\app_userdata\\Flugkern M2\\logs\\kampf_*.csv
   (bei Problemen bitte mitschicken)"""
 
@@ -48,6 +49,8 @@ var hit_overlay: HitDebugOverlay
 var hit_sound: HitSound
 ## Kampf-HUD (ui/combat/, Agent D). Einziger Registrierungspunkt, siehe _ready().
 var combat: CombatHud
+## M3 Boden-HUD (ui/ground/, Paket 13). Einziger Registrierungspunkt, siehe _ready().
+var ground_hud: GroundHud
 
 var _info: Label
 var _warn: Label
@@ -112,6 +115,7 @@ func _ready() -> void:
 	add_child(_help)
 	CombatHud.replace_legacy_text = true   # Paket 14: neues Flug-Panel ersetzt Text-HUD
 	combat = CombatHud.create(self); add_child(combat)   # M2-Vertrag: einzige Kampf-HUD-Zeile
+	ground_hud = GroundHud.create(self); add_child(ground_hud)   # M3-Vertrag: einzige Boden-HUD-Zeile
 	hit_debug = HitDebug.new()
 	# Log nur im echten Spiel (nicht in Tests/Diagnose mit --script, außer mit --log)
 	var args := OS.get_cmdline_args()

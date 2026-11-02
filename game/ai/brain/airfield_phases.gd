@@ -172,7 +172,10 @@ func _parked(a: Aircraft, i: PilotIntent, _dt: float) -> bool:
 	var ready := fuel >= MIN_FUEL and ammo_fraction(a) >= MIN_AMMO
 	var scramble := phase_time >= scramble_timeout and fuel > RTB_FUEL + 0.05 \
 			and ammo_fraction(a) >= RTB_AMMO * 2.0
-	if (ready or scramble) and phase_time > 1.0:
+	# Paket 14: erst losrollen, wenn kein Bodenpersonal in der Propellerzone steht.
+	var serviced := JobBoard.current == null or JobBoard.current.is_serviced(a) \
+			or phase_time > scramble_timeout * 2.0
+	if (ready or scramble) and phase_time > 1.0 and serviced and GroundCrewBrain.zone_clear(a):
 		scrambled = not ready
 		set_phase(Phase.TAXI_OUT)
 		var spot := parking_index

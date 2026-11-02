@@ -21,7 +21,8 @@ static func help_rows(ctx: int) -> Array:
 			return [["Gehen", "W A S D", "linker Stick"], ["Umsehen", "Maus", "rechter Stick"],
 				["Sprinten", "Shift", "L3"], ["Interagieren (halten)", "E", "A"], ["Ablegen", "G", "B"],
 				["Einsteigen", "F", "Y"], ["Befehlsrad (halten)", "Tab", "LB"],
-				["Ego / Third-Person", "C", "R3"], ["Hilfe", "F1", "Back"], ["Maus freigeben", "Esc", ""]]
+				["Ego / Third-Person", "C", "R3"], ["Hilfe", "F1", "Back"], ["Maus freigeben", "Esc", ""],
+				["Alarmstart (Debug)", "F9", ""]]
 		InputBindings.Context.DRIVE:
 			return [["Gas", "W", "RT"], ["Bremse / rückwärts", "S", "LT"], ["Lenken", "A D", "linker Stick"],
 				["Handbremse", "Leertaste", "B"], ["Aussteigen (1 s halten)", "J", "Kreuz ←"],

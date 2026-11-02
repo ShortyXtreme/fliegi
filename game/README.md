@@ -1,7 +1,19 @@
-# Flugkern – M2.2 „Luftkampf 1 gegen 3“ mit Treffer-Debug und Trefferfix
+# Flugkern – M3 „Bodenbetrieb“ (Luftkampf 1 gegen 3 mit Tanken, Munition, Reparatur und KI-Flugbetrieb)
 
 Prototyp des Luftkampf-Spiels (Godot **4.7.2**, GDScript, Jolt-Physik, 60 Hz mit Physik-Interpolation).
 Ein Tier-I-Jäger („Falke“, 2.500 kg, 700 kW) startet vom **Platz Blau** im neuen 40-km-Gelände. Drei rote KI-Jäger (Stufe „Erfahren“) patrouillieren 6–10 km entfernt Richtung Platz Rot und greifen an. Bewaffnung: 2 × MG 7,92 mm, zusammen 1.000 Schuss, Leuchtspur jeder 5. Schuss.
+
+## Bodenbetrieb (M3)
+- **Start am Abstellplatz** von Platz Blau (Parkbremse): erste Maschine 50 % Treibstoff und volle Munition, nach einem Abschuss eine neue Maschine am freien Abstellplatz mit 15 % und ohne Munition (Stufe Standard). Nach einer Landung bleibt der Restzustand.
+- **Aussteigen:** im Stand am Boden J bzw. Steuerkreuz ← 1 s halten (in der Luft bleibt es der Notausstieg). Danach Third-Person zu Fuß (C = Ego-Sicht). **Einsteigen:** am Cockpit bzw. an der Fahrertür F (Xbox Y).
+- **Arbeiten (E bzw. A halten):** am Tankdeckel (Schlauch vom Tankwagen tragen, ankoppeln, abkoppeln), an der MG-Klappe links/rechts (Kiste vom Munitionswagen nehmen, Klappe, Gurt, Klappe), Reparatur light an den Servicepunkten. Der Hinweis unten zeigt Taste, Schritt, Fortschritt und fehlende Gegenstände; G legt ab.
+- **Fahrzeuge:** Tankwagen (2.000 l, Schlauch 12 m) und Munitionswagen (6 Kisten à 500 Schuss) je Platz. W/RT Gas, S/LT Bremse (im Stand halten = rückwärts), Leertaste/B Handbremse (rollt nie rückwärts), A/D lenken, J 1 s = aussteigen.
+- **KI-Bodenpersonal:** 2 Mechaniker je Platz. Die Automatik versorgt gelandete Maschinen ohne Befehl (Spieler-Maschine zuerst), fährt Tankwagen und Munitionswagen selbst und füllt einen fast leeren Tankwagen am Tanklager wieder auf. **Befehlsrad** Tab/LB halten (8 Befehle: Voll abfertigen, Nur tanken, Nur Munition, Schnellabfertigung, Tankwagen zu mir, Folgen, Reparieren, Zurück/Pause).
+- **Lager:** Tanklager (8.000 l Flugbenzin, 3.000 l Ersatz; Ersatz senkt die Leistung) und Munitionsbunker (20.000 Schuss); jeder Liter und jeder Schuss im Flugzeug kommt aus einem Lager (Lagerleiste unten).
+- **Alarmstart:** alle 12–15 min oder mit **F9** (Debug): Countdown 3:00, die KI arbeitet 25 % schneller (Schnellabfertigung 50 % Tank, volle Munition), Zeitwertung und Bestzeit.
+- **Rote KI** startet am Boden von Platz Rot, rollt, startet, kehrt bei Bedarf zurück, landet, rollt zum Abstellplatz und wird von der roten Mannschaft versorgt.
+- **Realismus-Stufe:** `flugkern.cfg` Abschnitt `[m3]` `bodenbetrieb="einfach" | "standard" | "authentisch"` oder `-- --boden=einfach` (Standard voreingestellt).
+- **F1** zeigt die Belegung je Kontext (Flug / Zu Fuß / Fahren).
 
 ## Szenario M2
 - **Ziel:** rote Jäger abschießen. Ist der Spieler in der Luft und mehr als 2,5 km vom eigenen Platz entfernt, leitet die „Bodenleitung“ freie Gegner zu ihm.
@@ -21,10 +33,10 @@ Ein Tier-I-Jäger („Falke“, 2.500 kg, 700 kW) startet vom **Platz Blau** im 
 
 ## Starten
 
-**Windows:** Die neue `Flugkern.pck` (aus `builds/m2_2/`) über die alte kopieren. `Flugkern.exe` (Godot 4.7.2) bleibt unverändert. Der Fenstertitel zeigt danach „Flugkern M2.2“.
+**Windows:** Die neue `Flugkern.pck` (aus `builds/m3/`) über die alte kopieren. `Flugkern.exe` (Godot 4.7.2) bleibt unverändert. Der Fenstertitel zeigt danach „Flugkern M3“.
 Der Build ist nicht signiert. Wenn Windows SmartScreen warnt: „Weitere Informationen“ → „Trotzdem ausführen“.
 
-**Selbsttest (M2.2):** `Flugkern.exe --selbsttest` (Windows-Verknüpfung: bei „Ziel“ ` --selbsttest` anhängen; Kommandozeile: `godot --path game -- --selbsttest`). Prüft im echten Spiel Treffer Spieler → Gegner und Gegner → Spieler (je 3 s Feuer auf 250 m) und beendet sich (Exit-Code 0 = OK). Ergebnis im Godot-Log und in `%APPDATA%\Godot\app_userdata\Flugkern M2\logs\selbsttest_JJJJMMTT_HHMMSS.txt` (Linux: `~/.local/share/godot/app_userdata/Flugkern M2/logs/`). Dort liegen auch `godot.log` (mit Diagnosezeilen „Hitbox-Zonen …, Waffen …“ je Flugzeug) und die Treffer-Logs `kampf_*.csv`.
+**Selbsttest (M2.2/M3):** `Flugkern.exe --selbsttest` (Windows-Verknüpfung: bei „Ziel“ ` --selbsttest` anhängen; Kommandozeile: `godot --path game -- --selbsttest`). Prüft im echten Spiel Treffer Spieler → Gegner und Gegner → Spieler (je 3 s Feuer auf 250 m), dann den Bodenbetrieb: D1 Aussteigen über J, C KI-Mannschaft fertigt die leere Maschine ab (Lagerabgang = Tankzufluss), D2 Kiste nehmen und MG laden über E, D3 Einsteigen über F, E rote KI rollt und erreicht 300 m über Grund in ≤ 90 s. Dauer ca. 4 min, beendet sich selbst (Exit-Code 0 = OK). Ergebnis im Godot-Log und in `%APPDATA%\Godot\app_userdata\Flugkern M2\logs\selbsttest_JJJJMMTT_HHMMSS.txt` (Linux: `~/.local/share/godot/app_userdata/Flugkern M2/logs/`). Dort liegen auch `godot.log` (mit Diagnosezeilen „Hitbox-Zonen …, Waffen …“ je Flugzeug) und die Treffer-Logs `kampf_*.csv`.
 
 **Build (Windows-.pck):** `GODOT=/pfad/godot game/tools/build_windows.sh <zielordner>` exportiert `Flugkern.pck`, führt Pflicht-Suite „export“ aus (Selbsttest mit der exportierten .pck) und kopiert `docs/build_readme.md` als README.md.
 
@@ -172,11 +184,12 @@ Controller (control/controller.gd)
 Änderungen je Version: `docs/changelog.md`. Diagnose-Skripte: `tests/diag/` (`stall_diag.gd`, `perf_diag.gd`, `spawn_diag.gd`, Auswertung `summarize.py`).
 
 ## Bekannte Grenzen
-- Abgeschossene KI-Gegner starten in der Luft über Platz Rot neu, nicht vom Boden. Die KI kann noch nicht selbst starten; das ist für M3 vorgemerkt.
+- M3: KI-Bodenpersonal und KI-Wagen haben keine echte Wegsuche: sie nutzen eine Fahrspur westlich der Abstellplätze, weichen festgelaufen seitlich aus und laufen durch Wagen und Flugzeuge hindurch (keine Kollision mit diesen). Die Spielerfigur kollidiert normal.
+- M3: Funkenbrand (Authentisch, Erden vergessen) wird nur gemeldet („Funkenbrand!“), Feuer und Löschen kommen später. Bomben/Außenlasten-Jobs sind vorbereitet, aber gesperrt.
+- M3: Die Abfertigung im echten Spiel dauert länger als die Sim-LOD-Richtwerte (Selbsttest: Standard, 2 Helfer, Tankwagen vom Lager ≈ 2:10 min statt 1:45), weil der Tankwagen erst 150 m vom Lager anfährt.
 - Kein Drehmoment- oder Propellerdrall-Effekt, kein Trudeln als eigenes Modell (der Abriss ist asymmetrisch möglich, aber nicht gezielt modelliert). Kein Schadensmodell: Ein Crash wird nur gemeldet, dann R drücken.
 - Ruder- und Klappenanimation gibt es nur am Platzhalter. Beim GLB dreht sich der Propeller, und das Hauptfahrwerk klappt als Ganzes nach innen (die Beine, Räder und Klappen sind getrennte Meshes; keine echte Kinematik, die Fahrwerksklappen bewegen sich mit). Das Spornrad ist fest.
 - Kein Schadensmodell: Fahrwerk über 300 km/h und Bauchlandung erzeugen nur HUD-Meldungen.
-- Abgeschossene KI-Gegner starten in der Luft über Platz Rot neu, nicht vom Boden (die KI kann noch nicht starten; vorgemerkt für M3).
 - Gelände flach mit einfachen Kegel-Hügeln. Bäume haben keine Kollision. Der Boden endet bei ±12 km.
 - Rendering wurde nur per Software-OpenGL (Linux, xvfb) geprüft, nicht auf echter Windows-GPU. Performance und Schatten bitte auf dem Zielrechner prüfen.
 - Gamepad-Belegung ist für das Xbox-Layout gedacht. Andere Pads funktionieren über SDL-Mapping, sind aber ungetestet. Eine Tastenbelegung im Spiel ist noch nicht änderbar.

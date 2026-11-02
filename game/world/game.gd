@@ -1,8 +1,10 @@
 class_name Game
 extends Node3D
-## Hauptszene M2: Gelände (TerrainWorld), Spieler auf Platz Blau (Parkbremse), Szenario
-## „Luftkampf 1 gegen 3“ (world/combat_scenario.gd). Wer welchen Sitz bekommt, entscheidet
-## der Server (offline: wir selbst, Peer 1).
+## Hauptszene M3: Gelände (TerrainWorld), Spieler am Abstellplatz von Platz Blau (Parkbremse,
+## Startzustand nach MatchRules), Szenario „Luftkampf 1 gegen 3“ (world/combat_scenario.gd,
+## Gegner starten am Boden von Platz Rot). Bodenbetrieb je Platz (AirfieldOps): Lager, Bunker,
+## Wagen, 2 KI-Mechaniker. Der Mensch ist eine PlayerSession (Flug / zu Fuß / Fahren).
+## Wer welchen Sitz bekommt, entscheidet der Server (offline: wir selbst, Peer 1).
 ## Umschalten auf die alte Testwelt: Startoption `-- --testwelt` (ohne Gegner-Szenario
 ## nur mit einem kreisenden KI-Flugzeug wie in M1).
 
@@ -31,6 +33,19 @@ var origin_shifter: OriginShifter
 ## Paket 14 voll startklar auf der Piste; PlayerSession verdrahtet erst Paket 14.
 var seat_service: SeatService
 var job_board: JobBoard
+## M3 Paket 14
+var session: PlayerSession
+var crew: CrewCharacter
+var crew_camera: CrewCamera
+var player_service: PlayerService
+var turnaround: Turnaround
+## AirfieldOps je Platzindex (nur Gelände).
+var airfields := {}
+var blue_ops: AirfieldOps
+var alarm_interval := Vector2(720.0, 900.0)
+var _alarm_next := -1.0
+var _was_airborne := false
+var _rng := RandomNumberGenerator.new()
 
 
 func _ready() -> void:
@@ -76,6 +91,19 @@ func _ready() -> void:
 	player = PlayerController.new()
 	player.name = "PlayerController"
 	add_child(player)
+	player.exit_on_ground = true
+	session = PlayerSession.new()
+	session.name = "PlayerSession"
+	session.adopt_flight(player)
+	session.seat_service = seat_service
+	add_child(session)
+	player_service = PlayerService.new()
+	player_service.name = "PlayerService"
+	player_service.board = job_board
+	add_child(player_service)
+	turnaround = Turnaround.new()
+	turnaround.board = job_board
+	turnaround.realism = MatchRules.ground_realism
 
 	if terrain:
 		scenario = CombatScenario.new()
@@ -86,13 +114,25 @@ func _ready() -> void:
 		ai_aircrafts = scenario.enemies
 		ai_aircraft = ai_aircrafts[0]
 		ai = scenario.brains[0]
+		_setup_airfields()
 	else:
 		_spawn_test_ai(data)
-	_place_player_on_ground()
+	player_service.attach(player_aircraft)
+	for a in ai_aircrafts:
+		player_service.attach(a)
+	_spawn_crew()
 
 	if Authority.is_server():
-		player_aircraft.pilot_seat.possess(player)
-		spawn_manager.register(player_aircraft, player, func(): _on_reset(false))
+		var lay := _player_layout()
+		if lay != null:
+			spawn_manager.register_ground(player_aircraft, player, lay)
+			spawn_manager.spawn_on_ground(player_aircraft, lay, MatchRules.StartKind.FIRST)
+			player.reset_state(0.0)
+		else:
+			_place_player_on_ground()
+			spawn_manager.register(player_aircraft, player, func(): _on_reset(false))
+		_board_player_seat()
+		spawn_manager.respawned.connect(_on_respawned)
 
 	cam = CameraRig.new()
 	cam.name = "CameraRig"
@@ -106,10 +146,22 @@ func _ready() -> void:
 	hud.camera_rig = cam
 	add_child(hud)
 
+	crew_camera = CrewCamera.new()
+	crew_camera.name = "CrewCamera"
+	add_child(crew_camera)
+	session.camera_rig = cam
+	session.crew_camera = crew_camera
+	session.hud = hud
+	_setup_ground_hud()
+	session.context_changed.connect(_on_context_changed)
+	session.apply_view(player_aircraft.pilot_seat)
+	GroundCrewBrain.player_probe = _player_positions
+	_alarm_next = _rng.randf_range(alarm_interval.x, alarm_interval.y)
+
 	# Floating Origin (Paket 13): Schalter, Standard aus (FLOATING_ORIGIN=1 schaltet ein)
 	origin_shifter = OriginShifter.new()
 	origin_shifter.name = "OriginShifter"
-	origin_shifter.focus = player_aircraft
+	origin_shifter.focus = player_aircraft   # (zu Fuß bleibt die Maschine in der Nähe)
 	add_child(origin_shifter)
 
 	player.camera_next_requested.connect(cam.next_mode)
@@ -119,6 +171,7 @@ func _ready() -> void:
 	player.reset_requested.connect(_on_reset)
 	player.gear_toggled.connect(hud.on_gear_toggled)
 	_print_diagnostics()
+	_print_ground_diagnostics()
 	if Selbsttest.requested():
 		var st := Selbsttest.new()
 		st.name = "Selbsttest"
@@ -169,6 +222,177 @@ func _runway_spawn(i: int) -> Vector3:
 	if world is TerrainWorld:
 		return (world as TerrainWorld).runway_spawn(i, scenario.blue_field if scenario else 0)
 	return (world as TestWorld).runway_spawn(i)
+
+
+# --- M3 Paket 14: Bodenbetrieb ---------------------------------------------------
+
+func _setup_airfields() -> void:
+	if not (world is TerrainWorld):
+		return
+	var tw := world as TerrainWorld
+	for i in tw.airfield_count():
+		var lay := tw.airfield_layout(i)
+		if lay == null or lay.parking_count() == 0:
+			continue
+		var ops := AirfieldOps.new()
+		add_child(ops)
+		ops.setup(lay, job_board, self, [player_aircraft] if lay.nation_id == Nations.BLUE else [])
+		airfields[i] = ops
+		if i == (scenario.blue_field if scenario != null else 0):
+			blue_ops = ops
+	if scenario != null:
+		scenario.spawn_enemies_on_ground(spawn_manager, tw.airfield_layout(scenario.red_field))
+
+
+func _player_layout() -> AirfieldLayout:
+	if world is TerrainWorld and scenario != null:
+		return (world as TerrainWorld).airfield_layout(scenario.blue_field)
+	return null
+
+
+## Spielerfigur (Mechaniker-Modell), sitzt zu Beginn im Cockpit.
+func _spawn_crew() -> void:
+	crew = CrewCharacter.new()
+	crew.name = "PlayerCrew"
+	crew.nation_id = Nations.BLUE
+	add_child(crew)
+	if ResourceLoader.exists(AirfieldOps.CREW_MODEL):
+		crew.apply_model((load(AirfieldOps.CREW_MODEL) as PackedScene).instantiate())
+	crew.global_position = player_aircraft.global_position
+
+
+## Figur sitzt im Pilotensitz (Rider), der FlightController steuert.
+func _board_player_seat() -> void:
+	var s := player_aircraft.pilot_seat
+	seat_service.riders[s] = crew
+	crew.on_entered_seat(s)
+	session.take_seat(s)
+
+
+func _setup_ground_hud() -> void:
+	var gh := hud.ground_hud
+	if gh == null:
+		return
+	gh.session = session            # Kontext lesen (NICHT session.ground_hud setzen)
+	gh.character = crew
+	gh.board = job_board
+	gh.turnaround = turnaround
+	gh.aircraft_list = [player_aircraft]
+	if blue_ops != null:
+		gh.depot = blue_ops.depot
+		gh.bunker = blue_ops.bunker
+		gh.dispatch = blue_ops.dispatch
+		blue_ops.dispatch.follow_target = crew
+	for ops in airfields.values():
+		ops.dispatch.announced.connect(func(text, a):
+			if hud.combat != null and ops == blue_ops:
+				hud.combat.kill_feed.add_text(a, text, a))
+
+
+func _on_context_changed(ctx: int) -> void:
+	if ctx != InputBindings.Context.FLIGHT and DisplayServer.get_name() != "headless":
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	origin_shifter.focus = crew if ctx == InputBindings.Context.CREW else \
+		(session.seat.vehicle if session.seat != null and session.seat.vehicle is Node3D else player_aircraft)
+	if ctx == InputBindings.Context.CREW and session.seat != null and session.seat.vehicle == crew:
+		# Ausgestiegen: Abfertigungszeit läuft, Bodenmarke aus
+		if hud.ground_hud != null:
+			hud.ground_hud.has_parking_target = false
+		var a := player_aircraft
+		if not turnaround.running and blue_ops != null and blue_ops.dispatch.is_parked(a) \
+				and blue_ops.dispatch.needs_service(a):
+			turnaround.start(a)
+
+
+func _player_positions() -> Array:
+	if session != null and session.seat != null and session.seat.vehicle is Node3D:
+		return [(session.seat.vehicle as Node3D).global_position]
+	return [player_aircraft.global_position]
+
+
+func trigger_alarm(seconds := Turnaround.ALARM_DEFAULT_S) -> void:
+	if turnaround == null or turnaround.alarm_active():
+		return
+	var src: FuelSource = blue_ops.dispatch.fuel_source() if blue_ops != null else null
+	var st: AmmoStore = blue_ops.dispatch.ammo_store() if blue_ops != null else null
+	turnaround.start_alarm(seconds, player_aircraft, src, st)
+	if not turnaround.running:
+		turnaround.start(player_aircraft)
+	if hud.combat != null:
+		hud.combat.kill_feed.add_text(null, "ALARM: Roter Verband im Anflug, %d:%02d min" % [
+			int(seconds) / 60, int(seconds) % 60], player_aircraft)
+	print("Alarmstart: %.0f s" % seconds)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("alarm_debug"):
+		trigger_alarm()
+
+
+func _physics_process(dt: float) -> void:
+	if turnaround != null:
+		turnaround.tick(dt)
+		# Ohne Abfertigungsbedarf läuft die Zeit nicht weiter (z. B. Spieler startet ohne Jobs)
+		if turnaround.running and turnaround.aircraft == player_aircraft and player_aircraft.seat_speed() > 5.0:
+			turnaround.finish()
+	if scenario != null and _alarm_next > 0.0:
+		_alarm_next -= dt
+		if _alarm_next <= 0.0:
+			trigger_alarm()
+			_alarm_next = _rng.randf_range(alarm_interval.x, alarm_interval.y)
+	_update_parking_guide()
+
+
+## Nach der Landung (Spieler im Cockpit, am Boden, langsam): gelbe Bodenmarke zum freien Platz.
+func _update_parking_guide() -> void:
+	var gh := hud.ground_hud if hud != null else null
+	if gh == null or session.context != InputBindings.Context.FLIGHT:
+		return
+	var t := player_aircraft.telemetry()
+	if not t.on_ground:
+		if t.height_agl > 30.0:
+			_was_airborne = true
+		return
+	var lay := _player_layout()
+	if _was_airborne and lay != null and player_aircraft.seat_speed() < 30.0:
+		_was_airborne = false
+		var spot := spawn_manager.free_spot(lay, player_aircraft)
+		if spot >= 0:
+			gh.parking_target = lay.parking_transform(spot).origin
+			gh.has_parking_target = true
+	if gh.has_parking_target and player_aircraft.global_position.distance_to(gh.parking_target) < 6.0 \
+			and player_aircraft.seat_speed() < 1.0:
+		gh.has_parking_target = false
+
+
+func _on_respawned(a: Node3D) -> void:
+	if a != player_aircraft:
+		return
+	_was_airborne = false
+	if session.seat == player_aircraft.pilot_seat or session.context == InputBindings.Context.FLIGHT:
+		if player_aircraft.pilot_seat.controller != player:
+			session.take_seat(player_aircraft.pilot_seat)
+		player.reset_state(0.0)
+
+
+func _print_ground_diagnostics() -> void:
+	for i in airfields:
+		print("Diagnose Boden ", airfields[i].diagnostics())
+	var n := AirfieldOps.mesh_count(crew.visual) if crew != null else 0
+	print("Diagnose Spielerfigur: Mesh %d, Animationen %d, AnimationTree %s" % [n,
+		_anim_count(crew), str(crew != null and crew.anim_tree != null)])
+
+
+static func _anim_count(c: CrewCharacter) -> int:
+	if c == null or c.anim_tree == null:
+		return 0
+	var ap := c.anim_tree.get_node_or_null(c.anim_tree.anim_player) as AnimationPlayer
+	return ap.get_animation_list().size() if ap != null else 0
+
+
+func _exit_tree() -> void:
+	if GroundCrewBrain.player_probe.is_valid() and GroundCrewBrain.player_probe.get_object() == self:
+		GroundCrewBrain.player_probe = Callable()
 
 
 func _place_player_on_ground() -> void:

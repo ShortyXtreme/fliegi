@@ -11,6 +11,11 @@ func _game() -> Game:
 	var g: Game = (load("res://world/main.tscn") as PackedScene).instantiate()
 	get_tree().root.add_child(g)
 	await _step(2)
+	# M3: Gegner starten am Platz Rot am Boden. Dieser Test prüft Treffer, darum wie in M2
+	# alle Gegner an ihren Patrouillenpunkten in die Luft setzen.
+	for k in g.scenario.enemies.size():
+		g.scenario.brains[k].airfield = null
+		g.scenario._place_enemy(k, true)
 	return g
 
 

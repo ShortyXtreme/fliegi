@@ -37,10 +37,51 @@ var _known := {}
 const TOP_UP_MARGIN := 0.03
 
 
+## Paket 14: Fahrspur westlich der Abstellplätze (Platz-Koordinaten x), null = ohne.
+const LANE_X := -61.0
+var layout: AirfieldLayout = null
+
+
+## Zwischenpunkte für eine Fahrt from -> to (Szenenkoordinaten): erst quer auf die Fahrspur,
+## dann längs, dann zum Ziel. Kurze Fahrten (< 15 m längs) direkt.
+func drive_route(from: Vector3, to: Vector3) -> Array:
+	if layout == null:
+		return []
+	var a := layout.to_local(from)
+	var b := layout.to_local(to)
+	if absf(a.z - b.z) < 15.0:
+		return []
+	var out := []
+	if absf(a.x - LANE_X) > 3.0:
+		out.append(layout.to_scene(Vector3(LANE_X, 0, a.z)))
+	out.append(layout.to_scene(Vector3(LANE_X, 0, b.z)))
+	for i in out.size():
+		out[i].y = WorldGround.height_at(out[i].x, out[i].z)
+	return out
+
+
+## Halteplatz eines Wagens neben der Maschine a: auf der Seite der Fahrspur, Tankwagen auf Höhe
+## des Tankdeckels, Munitionswagen weiter hinten (Richtung Heck). null = ohne Layout.
+const SPOT_SIDE := 7.5
+const SPOT_CART_BACK := 7.0
+func vehicle_spot(a: Node3D, cart: bool):
+	if layout == null or a == null:
+		return null
+	var l := layout.to_local(a.global_position)
+	var side := Vector3(signf(LANE_X - l.x), 0.0, 0.0)
+	var fwd := -a.global_transform.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	var p := a.global_position + side * SPOT_SIDE - (fwd * SPOT_CART_BACK if cart else Vector3.ZERO)
+	p.y = WorldGround.height_at(p.x, p.z)
+	return p
+
+
 ## Platz aus AirfieldLayout übernehmen.
 func setup_from_layout(l: AirfieldLayout) -> void:
 	if l == null:
 		return
+	layout = l
 	depot_pos = l.to_scene(l.fuel_depot)
 	truck_pos = l.to_scene(l.vehicle_spawns[0]) if l.vehicle_spawns.size() > 0 else depot_pos
 	crew_spawn = l.to_scene(l.crew_spawn)
@@ -66,6 +107,33 @@ func tick(_dt: float) -> void:
 		return
 	for a in _watched():
 		_check(a)
+	_check_refill()
+
+
+## Paket 14: „Wagen nachfüllen“ – fast leerer Tankwagen wird am Lager wieder befüllt
+## (RefuelJob mit dest_source = Tank des Wagens, Priorität REFILL_VEHICLE, Mengen-Erhalt).
+const REFILL_BELOW := 0.35
+func _check_refill() -> void:
+	if fuel_truck == null or not is_instance_valid(fuel_truck) or depot == null:
+		return
+	var tank: FuelSource = fuel_truck.tank
+	if tank.total() >= FuelTruck.TANK_CAPACITY * REFILL_BELOW:
+		return
+	for j in board.open_jobs():
+		if j is RefuelJob and (j.dest_source == tank or j.source == tank):
+			return
+	var g: StringName = tank.grade() if tank.total() > 0.5 else FuelSystem.GRADE_AVIATION
+	if depot.available(g) < 1.0:
+		return
+	var rj := RefuelJob.new()
+	rj.target = fuel_truck
+	rj.source = depot
+	rj.dest_source = tank
+	rj.grade = g
+	rj.allow_fallback = false
+	rj.target_fraction = 1.0
+	rj.priority = GroundCrewBrain.Priority.REFILL_VEHICLE * 10
+	board.add_job(rj)
 
 
 func is_parked(a: Aircraft) -> bool:
@@ -101,6 +169,9 @@ func _check(a: Aircraft) -> void:
 			_known.erase(a)
 			if a.seat_speed() > 3.0:
 				board.clear_finished(a)
+		if a.seat_speed() > 3.0 or not a.seat_on_ground():
+			for j in board.open_jobs(a):   # Paket 14: Maschine rollt/fliegt weg -> Abfertigung abbrechen
+				board.cancel(j.id)
 		return
 	if not board.open_jobs(a).is_empty() or not needs_service(a):
 		return
@@ -117,6 +188,23 @@ func fuel_source() -> FuelSource:
 
 func ammo_store() -> AmmoStore:
 	return ammo_cart.store if ammo_cart != null and is_instance_valid(ammo_cart) else store
+
+
+## Paket 14: Ziel für „Tankwagen zu mir“/„Folgen“ (Spielerfigur).
+var follow_target: Node3D = null
+
+
+## Befehlsrad (GroundHud.issue_command -> dispatch.command): verteilt an das Personal des
+## Platzes. Job-Befehle ohne Ziel gelten der Spieler-Maschine; „Voll abfertigen“ ohne Ziel
+## schaltet zurück auf Automatik. Rückgabe: Anzahl Empfänger.
+func command(cmd: int, target: Node) -> int:
+	var C := GroundCrewBrain.Command
+	var t: Node = target
+	if cmd == C.TRUCK_TO_ME or cmd == C.FOLLOW:
+		t = follow_target if follow_target != null and is_instance_valid(follow_target) else target
+	elif t == null and cmd != C.FULL_SERVICE and cmd != C.PAUSE and not player_aircraft.is_empty():
+		t = player_aircraft[0]
+	return GroundCrewBrain.issue(cmd, t, crews)
 
 
 ## Befehl (Befehlsrad): Jobs für a nach Befehl anlegen. Rückgabe: neue Job-Ids.

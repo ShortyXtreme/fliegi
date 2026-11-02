@@ -1,5 +1,34 @@
 # Änderungsprotokoll Flugkern
 
+## M3 „Bodenbetrieb“ (02.11.2026)
+
+### Neu (Pakete 1–15)
+- **Bodenbetrieb im Spiel** (Paket 14): Spieler startet im Cockpit am Abstellplatz von Platz Blau (`MatchRules`: erste Maschine 50 %/volle Munition, nach Abschuss 15 %/0, nach Landung Restzustand; `SpawnManager.register_ground/spawn_on_ground`). `PlayerSession` schaltet Flug / zu Fuß / Fahren um (Kamera `CameraRig` ↔ `CrewCamera`, Eingabe-Kontext, Boden-HUD liest `ground_hud.session`). Aussteigen im Stand mit J/Steuerkreuz ← 1 s, Einsteigen mit F/Y über den `SeatService`.
+- **Spielerfigur und KI-Mechaniker** mit Mechaniker-Modell (`crew_model.tscn`, 8 Animationen, AnimationTree an `CrewCharacter.anim_state` gekoppelt, `CrewCharacter.apply_model`).
+- **Je Platz** (`world/airfield_ops.gd`, aus `TerrainWorld.airfield_layout(i)`): Tanklager, Munitionsbunker, Hangar (ersetzt Halle 0), Bodenmarken an allen Abstellplätzen, Tankwagen und Munitionswagen mit den neuen Modellen, `GroundCrewDispatch`, 2 KI-Mechaniker mit `GroundCrewBrain`. Mengen-Erhalt auch beim Befüllen der Wagen aus Lager/Bunker.
+- **Spieler-Abfertigung** (`ground_ops/player_service.gd`): Interaktionspunkte an den svc_*-Markern des Jägers (`InteractionPoints.for_aircraft`) bekommen eine Daueraktion „E halten“, die den passenden Job-Schritt über `JobBoard.request_step` ausführt (Schlauch ankoppeln/abkoppeln, Erden, Kiste → Klappe → Gurt → Klappe, Reparatur light). Fehlende Gegenstände (Schlauch, Kiste, Werkzeug) zeigt der Hinweis.
+- **KI-Flugbetrieb in der Hauptszene:** rote Jäger starten am Boden von Platz Rot (`CombatScenario.spawn_enemies_on_ground`), rollen, starten, landen, werden von der roten Mannschaft versorgt; Neustart nach Abschuss am Boden. Erste Maschinen: Notstart nach 30–60 s, falls die Abfertigung länger dauert. `AirfieldPhases` rollt erst los, wenn die Abfertigung fertig ist und niemand in der Propellerzone steht.
+- **Befehlsrad → Dispatch:** `GroundCrewDispatch.command(cmd, target)` verteilt an das Personal des Platzes („Tankwagen zu mir“/„Folgen“ zur Spielerfigur).
+- **Job „Wagen nachfüllen“:** Fällt der Tankwagen unter 35 %, legt der Dispatch einen `RefuelJob` mit `dest_source = Wagen-Tank` an (Priorität REFILL_VEHICLE). Die KI fährt den Wagen zum Lager und füllt mit 20 l/s auf.
+- **Alarmstart** alle 12–15 min (Spielzeit) oder mit **F9** (`alarm_debug`, global): Countdown 3:00, KI ×1,25, Schnellabfertigung, Zeitwertung/Bestzeit (`Turnaround`).
+- **Bodenmarke nach der Landung** (gelb, zum freien Abstellplatz) und Kill-Feed-Meldung „Blau 1 gelandet“.
+- **Selbsttest** um Boden-Phasen erweitert: D1 Aussteigen über `eject_hold`, C KI-Abfertigung der leeren Maschine (Lagerabgang = Tankzufluss ±1 %, Zeitgrenze 300 s), D2 Kiste nehmen und MG laden über `crew_interact`, D3 Einsteigen über `crew_enter`, E rote KI rollt und erreicht 300 m über Grund in ≤ 90 s. Diagnose: Modelle (Meshes > 0), Animationen ≥ 6, Layout, Lager, Hitbox-Zonen.
+- Version „M3“ (Fenstertitel, HUD, F1), `config/version = 3.0`; F1-Hilfe je Kontext.
+- Jäger-GLB mit svc_*-Markern übernommen, Marker neu extrahiert (7 Marker-Zonen + 2 Rumpf-Füllboxen = 9 Hitbox-Zonen, unverändert).
+
+### Behoben / geändert
+- **Handbremse ≠ Bremse:** `DrivePlayerController.handbrake`; `GroundVehicle` legt mit Handbremse nie den Rückwärtsgang ein und bremst beim Rückwärtsrollen.
+- **Befehlsrad offen:** rechter Stick und Maus drehen die Kamera nicht mehr (`CrewPlayerController`).
+- `PlayerController` reagiert zu Fuß/im Fahrzeug nur auf globale Aktionen (F, G, C sind dort anders belegt).
+- KI-Personal: läuft im Fahrzeug weiter (Gehirn `PROCESS_MODE_PAUSABLE`, die Figur ist dann abgeschaltet), Fahrspur westlich der Abstellplätze für Wagen und lange Wege, Wagen halten seitlich (nicht vor dem Propeller), Neuplanung nach dem Einsteigen, seitliches Ausweichen beim Festlaufen. Offene Jobs werden abgebrochen, wenn die Maschine wegrollt oder fliegt.
+- Munitionswagen: Kisten nach `apply_model` an den crate_slot-Markern neu angelegt (vorher Absturz beim Kiste-Nehmen).
+
+### Bekannt / notiert
+- Funkenbrand (Authentisch, Erden vergessen) bleibt eine Meldung ohne Brandwirkung (Feuerlöschen außerhalb von M3).
+- Keine echte Wegsuche für Personal und Wagen; KI-Personal kollidiert nicht mit Wagen und Flugzeugen.
+- Abfertigung im echten Spiel (Wagen fährt 150 m vom Lager an) ≈ 2:10 min mit 2 Helfern in Standard; die Richtzeiten aus dem Plan gelten für das Sim-LOD.
+- `test_duels_flat` (slow) bleibt rot wie seit 3bd2292.
+
 ## M2.2 „Trefferfix“ (01.11.2026)
 
 ### Behoben
