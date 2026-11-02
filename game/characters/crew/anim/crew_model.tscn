@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/ground/crew_mechanic.glb" id="1_3pho0"]
+[ext_resource type="AnimationNodeStateMachine" path="res://characters/crew/anim/crew_anim_tree.tres" id="2_b2gn4"]
+
+[node name="CrewModel" type="Node3D" unique_id=2124092958]
+
+[node name="crew_mechanic2" type="Node3D" parent="." unique_id=728305069 instance=ExtResource("1_3pho0")]
+
+[node name="AnimationTree" type="AnimationTree" parent="." unique_id=434804914]
+tree_root = ExtResource("2_b2gn4")
+anim_player = NodePath("../crew_mechanic2/AnimationPlayer")

@@ -21,8 +21,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 _argv_saved = sys.argv
 sys.argv = [a for a in sys.argv if a not in ("--build", "--quick", "--render")]
 import build_game_aircraft as BGA  # noqa: E402
+import build_airfield_props as BAP  # noqa: E402  (Materialien; ohne --build importiert)
 sys.argv = _argv_saved
-import build_airfield_props as BAP  # noqa: E402  (Materialien)
 from build_game_aircraft import (NB, new_mat, col, loft, uv_unwrap, bake_group, pack_orm, save_image,  # noqa
                                  pbr_material, select_only, reset_scene, tri_count)
 
@@ -34,7 +34,7 @@ GAME = BAP.GAME
 for d in (MODELS, TEX):
     os.makedirs(d, exist_ok=True)
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
-OPT = {"build": "--build" in argv, "render": "--render" in argv, "quick": "--quick" in argv}
+OPT = {"build": "--build" in argv, "render": "--render" in argv, "side": "--side" in argv, "quick": "--quick" in argv}
 BGA.SAMPLES = dict(color=1, normal=2, ao=4 if OPT["quick"] else 16)
 FPS = 30
 
@@ -464,12 +464,12 @@ def anim_lift(t, L):
     P = base_pose()
     for S in ("Left", "Right"):
         P[S + "UpperLeg"] = leg_q(85 * down, 8 * down, S)
-        P[S + "LowerLeg"] = knee_q(110 * down + 4)
+        P[S + "LowerLeg"] = knee_q(104 * down + 4)
         P[S + "Foot"] = foot_q(-25 * down)
     P["Spine"] = spine_q(25 * down, 0, 0)
     P["Chest"] = spine_q(10 * down, 0, 0)
     P["Neck"] = spine_q(-15 * down, 0, 0)
-    P["_hips"] = Vector((0, -0.08 * down, -0.42 * down))
+    P["_hips"] = Vector((0, -0.08 * down, -0.45 * down))
     grip = min(1.0, u / 0.4)
     carry = max(0.0, (u - 0.45) / 0.55)
     for S in ("Left", "Right"):
@@ -645,7 +645,7 @@ def main_build():
     print("GLB", out, data["size_mb"], "MB,", tris, "Dreiecke,", len(info), "Animationen, %.1fs" % (time.time() - t0))
 
 
-def render_poses():
+def render_poses(side=False):
     reset_scene()
     scene = bpy.context.scene
     scene.render.engine = 'CYCLES'
@@ -679,8 +679,8 @@ def render_poses():
         armo = [o for o in new if o.type == 'ARMATURE'][0]
         root = [o for o in new if o.parent is None][0]
         root.rotation_mode = 'XYZ'
-        root.location = ((i % 4) * 1.2 - 1.8, -(i // 4) * 1.6, 0)
-        root.rotation_euler = (0, 0, math.radians(-35))
+        root.location = (side * 0.0, i * 1.1 - 3.85, 0) if side else ((i % 4) * 1.2 - 1.8, -(i // 4) * 1.6, 0)
+        root.rotation_euler = (0, 0, math.radians(-35 if not side else 0))
         act = bpy.data.actions.get(an)
         if armo.animation_data is None:
             armo.animation_data_create()
@@ -695,15 +695,15 @@ def render_poses():
         scene.frame_set(int(round(f0 + (f1 - f0) * frac)))
         bpy.context.view_layer.update()
         armo.animation_data.action = None   # Pose bleibt als Standbild stehen
-    cam.location = (3.4, 6.2, 2.6)
-    cam.data.lens = 36
-    d = Vector((0.0, -0.9, 0.85)) - cam.location
+    cam.location = (3.4, 6.2, 2.6) if not side else (11.0, 0.0, 1.0)
+    cam.data.lens = 36 if not side else 40
+    d = (Vector((0.0, -0.9, 0.85)) if not side else Vector((0, 0, 0.85))) - cam.location
     cam.rotation_euler = d.to_track_quat('-Z', 'Y').to_euler()
-    scene.render.filepath = os.path.join(PREV, "ground_crew_poses.png")
+    scene.render.filepath = os.path.join(PREV, "ground_crew_side.png" if side else "ground_crew_poses.png")
     bpy.ops.render.render(write_still=True)
 
 
 if OPT["build"]:
     main_build()
 if OPT["render"]:
-    render_poses()
+    render_poses(OPT["side"])

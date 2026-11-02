@@ -27,3 +27,16 @@ Stand: 02.11.2026 · Branch `m3-grafik`
 - **Paket 14:** `tools/sync_art.sh` ausführen (kopiert nach `vehicles/aircraft/models/`) und
   `tools/extract_markers.gd` neu laufen lassen → `vehicles/aircraft/data/markers/fighter_t1_markers.tres`
   (gemeinsame Dateien, darum nicht von Grafik geändert). Bis dahin greifen die Ersatzpositionen in `ServiceMarkers`.
+
+## Figur „Mechaniker“ (Paket 12)
+- `game/assets/ground/crew_mechanic.glb` (2.300 Dreiecke, 1024er Atlas). Blick **−Z**, Ursprung am Boden
+  zwischen den Füßen, T-Pose, Knochennamen nach `SkeletonProfileHumanoid` (ohne Finger/Augen/Kiefer, mit `Root`).
+- Animationen (30 fps, eigene prozedurale Keyframes): `idle`, `walk` (1,0 s ≙ 1,6 m/s), `run` (0,7 s ≙ 4,5 m/s),
+  `carry`, `hose`, `work` (Schleifen, gesetzt in `crew_mechanic.glb.import`), `lift` und `enter` (einmalig).
+  Namen = `CrewCharacter.ANIM_NAMES` plus `lift`.
+- Marker: `hand_R`/`hand_L` an den Handknochen (werden BoneAttachment3D), `carry` vor dem Körper (0, 1,0, −0,42).
+- `characters/crew/anim/crew_model.tscn`: GLB + `AnimationTree` mit `crew_anim_tree.tres` (StateMachine,
+  Zustände wie oben, Überblendung 0,2 s, `lift`/`enter` laufen automatisch nach `idle` zurück).
+  **Paket 14/Strang H:** `crew_model.tscn` unter `CrewCharacter.visual` instanziieren und
+  `anim_tree` auf dessen `AnimationTree` setzen (`parameters/playback` passt). Neu erzeugen mit
+  `characters/crew/anim/build_crew_anim.gd`.
