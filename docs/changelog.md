@@ -23,6 +23,9 @@
 - KI-Personal: läuft im Fahrzeug weiter (Gehirn `PROCESS_MODE_PAUSABLE`, die Figur ist dann abgeschaltet), Fahrspur westlich der Abstellplätze für Wagen und lange Wege, Wagen halten seitlich (nicht vor dem Propeller), Neuplanung nach dem Einsteigen, seitliches Ausweichen beim Festlaufen. Offene Jobs werden abgebrochen, wenn die Maschine wegrollt oder fliegt.
 - Munitionswagen: Kisten nach `apply_model` an den crate_slot-Markern neu angelegt (vorher Absturz beim Kiste-Nehmen).
 
+- **Build:** Platz-Texturen VRAM-komprimiert (S3TC), Albedo ≤ 512 px, Normal/ORM ≤ 256 px; ungenutzte Requisiten (Fass, Löscher, Werkzeugkiste, Bremsklötze) und `ui/ground/preview` vom Export ausgeschlossen. Flugkern.pck 30.459.596 Byte (29,0 MiB, vorher 41,9 MB).
+- Ergebnisse: fast 189/189, slow 10/11 (`test_duels_flat` bekannt rot), Suite export (exportierte .pck, xvfb/OpenGL) grün, Hauptszene 3 min headless ohne Fehler.
+
 ### Bekannt / notiert
 - Funkenbrand (Authentisch, Erden vergessen) bleibt eine Meldung ohne Brandwirkung (Feuerlöschen außerhalb von M3).
 - Keine echte Wegsuche für Personal und Wagen; KI-Personal kollidiert nicht mit Wagen und Flugzeugen.
