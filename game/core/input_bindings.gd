@@ -38,7 +38,8 @@ const EJECT_HOLD_TIME := 1.0
 enum Context { FLIGHT, CREW, DRIVE }
 
 ## In allen Kontexten aktiv.
-const GLOBAL_ACTIONS: Array[StringName] = [&"help_toggle", &"release_mouse", &"alarm_debug"]
+const GLOBAL_ACTIONS: Array[StringName] = [&"help_toggle", &"release_mouse", &"alarm_debug",
+	&"tutorial_skip", &"tutorial_quit"]   # M3.2: Tutorial F8 Schritt überspringen, F7 beenden
 ## Aktionen je Kontext (ohne GLOBAL). Neue Aktionen MÜSSEN hier eingetragen werden
 ## (test_every_action_in_context).
 const CONTEXT_ACTIONS := {
@@ -103,7 +104,9 @@ static func setup() -> void:
 	_keys("mouse_aim_toggle", [KEY_M])
 	_keys("help_toggle", [KEY_F1])
 	_keys("debug_toggle", [KEY_F3])
-	_keys("alarm_debug", [KEY_F9])                       # M3: Alarmstart sofort (Debug)
+	_keys("alarm_debug", [KEY_F9])
+	_keys("tutorial_skip", [KEY_F8])                     # M3.2: Tutorial-Schritt überspringen
+	_keys("tutorial_quit", [KEY_F7])                     # M3.2: Tutorial beenden                       # M3: Alarmstart sofort (Debug)
 	_keys("reset_runway", [KEY_R])
 	_keys("reset_air", [KEY_T])
 	_keys("release_mouse", [KEY_ESCAPE])

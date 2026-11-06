@@ -13,6 +13,9 @@ const TERRAIN_SCENE := "res://world/terrain/terrain_world.tscn"
 
 ## Gelände statt TestWorld (Standard an).
 static var use_terrain := true
+## M3.2: Tutorial-Szene (ruhig: keine roten Angreifer, kein Alarm, Übungsziel). Auch per --tutorial.
+static var tutorial_mode := false
+var tutorial: Tutorial
 
 var world: Node3D
 var player_aircraft: Aircraft
@@ -110,10 +113,13 @@ func _ready() -> void:
 		scenario.name = "Scenario"
 		add_child(scenario)
 		scenario.setup(self, world)
+		if is_tutorial():
+			scenario.enemy_count = 0
 		scenario.spawn_enemies(data, spawn_manager)
 		ai_aircrafts = scenario.enemies
-		ai_aircraft = ai_aircrafts[0]
-		ai = scenario.brains[0]
+		if not ai_aircrafts.is_empty():
+			ai_aircraft = ai_aircrafts[0]
+			ai = scenario.brains[0]
 		_setup_airfields()
 	else:
 		_spawn_test_ai(data)
@@ -170,6 +176,17 @@ func _ready() -> void:
 	player.help_toggle_requested.connect(hud.toggle_help)
 	player.reset_requested.connect(_on_reset)
 	player.gear_toggled.connect(hud.on_gear_toggled)
+	if is_tutorial():
+		_alarm_next = -1.0
+		start_tutorial()
+	elif not Tutorial.was_offered() and DisplayServer.get_name() != "headless" \
+			and not Selbsttest.requested() and not "--script" in OS.get_cmdline_args():
+		var offer := TutorialOffer.new()
+		offer.answered.connect(func(start: bool):
+			if start:
+				Game.tutorial_mode = true
+				get_tree().reload_current_scene())
+		hud.add_child(offer)
 	_print_diagnostics()
 	_print_ground_diagnostics()
 	if Selbsttest.requested():
@@ -180,6 +197,20 @@ func _ready() -> void:
 	if scenario != null:
 		print("Flugkern %s: Luftkampf 1 gegen %d, KI-Stufe %s" % [Hud.VERSION,
 				scenario.enemy_count, scenario.difficulty_name()])
+
+
+func is_tutorial() -> bool:
+	return tutorial_mode or "--tutorial" in OS.get_cmdline_user_args()
+
+
+func start_tutorial() -> Tutorial:
+	if tutorial != null and is_instance_valid(tutorial):
+		return tutorial
+	tutorial = Tutorial.new()
+	tutorial.game = self
+	add_child(tutorial)
+	print("Tutorial gestartet")
+	return tutorial
 
 
 ## M2.2: Diagnosezeile je Flugzeug (Hitbox-Zonen, Waffen, Herkunft der Marker), damit

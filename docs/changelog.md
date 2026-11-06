@@ -1,5 +1,21 @@
 # Änderungsprotokoll Flugkern
 
+## M3.2 „Oberfläche und Tutorial“ (06.11.2026)
+
+### Neu
+- **UI-Redesign** (Konzept `docs/ui_konzept_m3_2.md`): feste Zonen, kontextabhängige Einblendung (Waffen/Schaden nur bei Kampf/Änderung/Mangel, Lagerleiste nur nahe Lager/Maschine, Grundabstand unter 400 m), Warnungen oben Mitte (`AlertStack`), keine doppelte Schadensskizze im Cockpit, Notausstieg-Hinweis 5 s.
+- **Epochen-Theme Tier I** (`ui/theme/`: `HudPalette` + Godot-Theme), `HudStyle.apply()`; Anzeigeschrift Oswald (OFL), Fließtext Inter.
+- **Tasten-Leiste** (`KeyBar`) und gezeichnete Tastensymbole (`KeyGlyphs`, Tastatur/Maus/Xbox, Gerät automatisch, aus der InputMap).
+- **F1-Tafel** je Kontext mit Gruppen, Tastatur/Controller nebeneinander; öffnet nicht mehr automatisch.
+- **Radar-Light** einstellbar (`CombatHud.radar_mode`: immer = Standard / nur im Kampf).
+- **Tutorial** (`tutorial/`): 7 Schritte mit Prüfung der echten Aktion, ruhige Szene (keine roten Angreifer, kein Alarm, kinematisches Übungsziel ohne Waffen), Angebot beim ersten Start, Option `--tutorial` („Tutorial starten.bat“), F8/F7, Fortschritt `user://tutorial.cfg`. Selbsttest-Diagnose „Tutorial lädt“.
+
+### Behoben
+- Meldung „Blau 1 gelandet“ beim Start am Abstellplatz (nur noch nach echtem Flug); Kill-Feed-Einträge liefen am Boden nicht ab.
+
+### Tests
+- Neu `tests/suites/ui/test_ui_m3_2.gd` (Theme, Symbole, Leiste je Kontext, Hilfe-Gruppen, Waffen-Panel Ruhe/Kampf) und `test_tutorial.gd` (ganzer Ablauf headless mit simulierten Aktionen, Überspringen/Beenden, Diagnose).
+
 ## M3.1 „Bodenbetrieb – Korrekturen“ (06.11.2026)
 
 ### Behoben

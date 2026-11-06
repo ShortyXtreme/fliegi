@@ -4,7 +4,7 @@ extends CanvasLayer
 ## F3: Treffer-Debug (M2.1, ui/debug/), Shift+F3: Kräfte-Overlay (Text + 3D-Pfeile),
 ## F1: Steuerungshilfe.
 
-const VERSION := "M3.1"
+const VERSION := "M3.2"
 ## Hilfe: ui/ground/ground_help.gd (Tafel je Kontext, M3.2)
 
 var aircraft: Aircraft

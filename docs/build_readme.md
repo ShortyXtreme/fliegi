@@ -1,9 +1,15 @@
-# Flugkern M3.1 – Testversion „Bodenbetrieb“ (Korrekturen)
+# Flugkern M3.2 – Testversion „Oberfläche und Tutorial“
 
 ## Installation
 1. Die vorhandene **Flugkern.exe** (Godot 4.7.2) bleibt unverändert.
 2. Diese **Flugkern.pck** in denselben Ordner kopieren und die alte überschreiben.
 3. Flugkern.exe starten. Der Fenstertitel muss „Flugkern M3.1“ zeigen.
+
+## Neu in M3.2
+- **Geführtes Tutorial:** wird beim allerersten Start angeboten (Enter/A starten, Rücktaste/B freies Spiel) und lässt sich jederzeit über **„Tutorial starten.bat“** (Option `--tutorial`) starten. 7 Schritte: Starten, Fliegen, Zielen auf ein Übungsziel (schießt nicht), Notausstieg, Landen, Abfertigen, Abschluss. **F8** Schritt überspringen, **F7** beenden.
+- **Neue Oberfläche:** feste Bildschirmzonen, Ruhezustand ohne Waffen-/Schadensanzeige (erscheint im Kampf oder bei Änderungen), Warnungen oben Mitte, Epochen-Gestaltung (Elfenbein/Messing/Oliv, Schrift Oswald).
+- **Tasten-Leiste** unten Mitte: die gerade sinnvollen Tasten als Symbole, automatisch Tastatur oder Xbox-Controller.
+- **F1** ist jetzt eine übersichtliche Tafel je Kontext (Tastatur und Controller nebeneinander) und öffnet nicht mehr automatisch.
 
 ## Neu in M3.1
 - **KI-Mechaniker und Wagen weichen aus:** Wegsuche um Flugzeuge, Wagen, Hallen und laufende Propeller; Wagen bremsen vor Hindernissen und Personen im Fahrweg.

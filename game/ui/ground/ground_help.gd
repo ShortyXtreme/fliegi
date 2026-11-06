@@ -28,7 +28,8 @@ func _init() -> void:
 
 ## Gruppen: [Titel, Spalte 0/1, [[Aktion, Tastatur, Pad], …]].
 static func groups(ctx: int) -> Array:
-	var general := ["Allgemein", 1, [["Hilfe ein / aus", "F1", "View"], ["Maus freigeben", "Esc", ""]]]
+	var general := ["Allgemein", 1, [["Hilfe ein / aus", "F1", "View"], ["Maus freigeben", "Esc", ""],
+		["Tutorial: Schritt weiter / beenden", "F8 / F7", ""]]]
 	match ctx:
 		InputBindings.Context.CREW:
 			general[2].append(["Alarmstart (Debug)", "F9", ""])

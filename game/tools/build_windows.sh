@@ -12,4 +12,6 @@ mkdir -p "$OUT"
 FLUGKERN_PCK="$(realpath "$OUT/Flugkern.pck")" "$GODOT" --headless --path . \
 	--script res://tests/test_runner.gd -- --suite=export
 cp ../docs/build_readme.md "$OUT/README.md"
+# M3.2: Startoption Tutorial (Doppelklick startet das geführte Tutorial)
+printf '@echo off\r\nstart "" "%%~dp0Flugkern.exe" -- --tutorial\r\n' > "$OUT/Tutorial starten.bat"
 ls -la "$OUT"

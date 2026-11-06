@@ -56,6 +56,8 @@ var guide: ParkingGuide
 var help: GroundHelp
 ## M3.2: Tasten-Leiste unten Mitte (alle Kontexte, auch Flug).
 var key_bar: KeyBar
+## M3.2: Tutorial setzt hier die Tasten des Schritts (leer = automatisch je Lage).
+var key_override: Array = []
 ## Maschine im Statuspanel (für Tests).
 var status_aircraft: Node = null
 
@@ -280,7 +282,12 @@ func _process(dt: float) -> void:
 	if not ground:
 		help.visible = false
 	help.queue_redraw()
-	key_bar.set_entries(KeyBar.entries_for(key_state()), pad)
+	var ks := key_state()
+	var entries := KeyBar.entries_for(ks)
+	if not key_override.is_empty() and not ks.wheel_open:
+		entries = key_override.duplicate()
+		entries.append([&"help_toggle", "Hilfe"])
+	key_bar.set_entries(entries, pad)
 	_layout()
 
 

@@ -187,6 +187,9 @@ func _diag_lines() -> bool:
 			i, str(ops.model_meshes), str(meshes_ok), anim, str(ops.layout != null), ops.layout.parking_count(),
 			ops.depot.total(), ops.bunker.available(AmmoBunker.AMMO_792)])
 		ok = ok and meshes_ok and anim >= 6 and ops.layout.parking_count() > 0 and ops.depot.total() > 0.0
+	var tut := Tutorial.diagnose()
+	_log("Diagnose %s" % tut[1])
+	ok = ok and tut[0]
 	var pa := Game._anim_count(game.crew)
 	_log("Diagnose Spielerfigur: Meshes %d, Animationen %d" % [AirfieldOps.mesh_count(game.crew.visual), pa])
 	return ok and pa >= 6 and AirfieldOps.mesh_count(game.crew.visual) > 0

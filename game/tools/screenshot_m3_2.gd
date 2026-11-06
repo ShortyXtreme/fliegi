@@ -15,7 +15,38 @@ func _initialize() -> void:
 		out_dir = args[0]
 	if args.size() > 1:
 		prefix = args[1]
-	_run.call_deferred()
+	if args.size() > 2 and args[2] == "tutorial":
+		_run_tutorial.call_deferred()
+	else:
+		_run.call_deferred()
+
+
+## Tutorial: Schritt 3 „Zielen“ mit Übungsziel; dazu das Angebot beim ersten Start.
+func _run_tutorial() -> void:
+	CombatHud.replace_legacy_text = true
+	Game.tutorial_mode = true
+	game = load("res://world/main.tscn").instantiate()
+	root.add_child(game)
+	await _frames(30)
+	var offer := TutorialOffer.new()
+	game.hud.add_child(offer)
+	await _frames(4)
+	await _shot("f_tutorial_angebot")
+	offer.queue_free()
+	var tu: Tutorial = game.tutorial
+	var pa := game.player_aircraft
+	var p0 := pa.global_position + Vector3(0, 650, 0)
+	pa.place(Transform3D(Basis.looking_at(-pa.global_transform.basis.z, Vector3.UP), p0), 90.0, 0.8, false)
+	game.player.reset_state(0.8)
+	game.player.parking_brake = false
+	game.player.gear_down = false
+	tu.go_to(2)
+	tu.done[0] = true
+	tu._refresh()
+	tu._target_angle += 0.5
+	await _frames(90)
+	await _shot("e_tutorial_zielen")
+	quit(0)
 
 
 func _shot(name: String) -> void:
