@@ -372,11 +372,15 @@ def spine_q(fwd=0.0, side=0.0, twist=0.0):
     return R((0, 0, 1), twist) @ R((0, 1, 0), side) @ R((1, 0, 0), -fwd)
 
 
+## M3.1: Senkung der Oberarme aus der T-Pose (Grad); 84 = Haende seitlich an den Oberschenkeln.
+ARM_DOWN = 84.0
+
+
 def base_pose():
     P = {}
     for S in ("Left", "Right"):
-        P[S + "UpperArm"] = arm_q(S, 78, 2)
-        P[S + "LowerArm"] = elbow_q(S, 12)
+        P[S + "UpperArm"] = arm_q(S, ARM_DOWN, 3)        # M3.1: Arme am Koerper (vorher 78)
+        P[S + "LowerArm"] = elbow_q(S, 14)
     return P
 
 
@@ -393,7 +397,7 @@ def gait(ph, stride=25.0, knee=55.0, arm=18.0, elbow=18.0, bob=0.025, lean=3.0, 
         P[S + "UpperLeg"] = leg_q(stride * s + (8 if run else 0), side=S)
         P[S + "LowerLeg"] = knee_q(kf)
         P[S + "Foot"] = foot_q(-8 * c + (0.4 * kf if s > 0 else 0) * 0.3)
-        P[S + "UpperArm"] = arm_q(S, 76 if not run else 70, -arm * s + (10 if run else 0))
+        P[S + "UpperArm"] = arm_q(S, ARM_DOWN - 3 if not run else 74, -arm * s + (10 if run else 0))
         P[S + "LowerArm"] = elbow_q(S, elbow + (6 * max(0, -s)))
     P["Spine"] = spine_q(lean * 0.5, 0, twist * math.sin(w))
     P["Chest"] = spine_q(lean * 0.5, 0, -twist * 1.4 * math.sin(w))
@@ -424,7 +428,9 @@ def anim_idle(t, L):
     for S, sx in (("Left", -1), ("Right", 1)):
         P[S + "UpperLeg"] = leg_q(0, 2 - sx * 1.5 * math.sin(w * 0.5), S)
         P[S + "LowerLeg"] = knee_q(3 + 2 * (0.5 + 0.5 * sx * math.sin(w * 0.5)))
-        P[S + "UpperArm"] = arm_q(S, 78 + 1.5 * math.sin(w), 3)
+        P[S + "UpperArm"] = arm_q(S, ARM_DOWN + 1.0 * math.sin(w), 4)
+        P[S + "LowerArm"] = elbow_q(S, 14 + 2 * math.sin(w))
+        P[S + "Hand"] = R((0, 1, 0), sx * 5)            # Hand leicht zum Bein
     return P
 
 
@@ -475,7 +481,7 @@ def anim_lift(t, L):
     for S in ("Left", "Right"):
         a = arm_q(S, 70, 25, out=-10)
         b = arm_q(S, 64, 30, out=-8)
-        P[S + "UpperArm"] = arm_q(S, 78, 2).slerp(a, grip).slerp(b, carry)
+        P[S + "UpperArm"] = arm_q(S, ARM_DOWN, 3).slerp(a, grip).slerp(b, carry)
         P[S + "LowerArm"] = elbow_q(S, 12 + 10 * grip + 50 * carry)
     return P
 
@@ -484,11 +490,12 @@ def anim_work(t, L):
     """Arbeiten am Flugzeug: Haende vorn in Brust-/Kopfhoehe, rechte Hand mit Schraubbewegung."""
     w = 2 * math.pi * t / L
     P = base_pose()
-    P["RightUpperArm"] = arm_q("Right", 40 + 6 * math.sin(w * 2), 55, out=-10)
-    P["RightLowerArm"] = elbow_q("Right", 70 + 15 * math.sin(w * 2))
+    # M3.1: Arme nach vorn heben statt seitlich abspreizen
+    P["RightUpperArm"] = arm_q("Right", ARM_DOWN - 6, 52 + 5 * math.sin(w * 2))
+    P["RightLowerArm"] = elbow_q("Right", 45 + 12 * math.sin(w * 2))
     P["RightHand"] = R((1, 0, 0), 25 * math.sin(w * 2))
-    P["LeftUpperArm"] = arm_q("Left", 45, 60 + 3 * math.sin(w), out=-5)
-    P["LeftLowerArm"] = elbow_q("Left", 50)
+    P["LeftUpperArm"] = arm_q("Left", ARM_DOWN - 8, 46 + 3 * math.sin(w))
+    P["LeftLowerArm"] = elbow_q("Left", 48)
     P["Spine"] = spine_q(-3, 0, 5 * math.sin(w))
     P["Head"] = spine_q(8, 0, 5 * math.sin(w))
     for S, f in (("Left", 12), ("Right", -4)):
@@ -505,10 +512,10 @@ def anim_enter(t, L):
     s = lambda x: x * x * (3 - 2 * x)  # noqa
     reach, step, push, follow = s(e(0.0, 0.3)), s(e(0.1, 0.45)), s(e(0.4, 0.8)), s(e(0.6, 1.0))
     P = base_pose()
-    P["RightUpperArm"] = arm_q("Right", 78 - 70 * reach, 2 + 80 * reach)
-    P["RightLowerArm"] = elbow_q("Right", 12 + 30 * reach - 25 * push)
-    P["LeftUpperArm"] = arm_q("Left", 78 - 45 * reach, 2 + 70 * reach)
-    P["LeftLowerArm"] = elbow_q("Left", 12 + 50 * reach - 30 * push)
+    P["RightUpperArm"] = arm_q("Right", ARM_DOWN - 14 * reach, 3 + 125 * reach)   # M3.1: nach vorn-oben greifen
+    P["RightLowerArm"] = elbow_q("Right", 14 + 6 * reach - 10 * push)
+    P["LeftUpperArm"] = arm_q("Left", ARM_DOWN - 12 * reach, 3 + 100 * reach)
+    P["LeftLowerArm"] = elbow_q("Left", 14 + 12 * reach - 12 * push)
     P["RightUpperLeg"] = leg_q(85 * step - 75 * push, 0, "Right")
     P["RightLowerLeg"] = knee_q(100 * step - 95 * push + 5)
     P["LeftUpperLeg"] = leg_q(-10 * push + 70 * follow * (1 - follow) * 4 * 0.5, 0, "Left")
