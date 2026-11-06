@@ -17,6 +17,9 @@
 ### Tests
 - Neu `tests/suites/ui/test_ui_m3_2.gd` (Theme, Symbole, Leiste je Kontext, Hilfe-Gruppen, Waffen-Panel Ruhe/Kampf) `test_tutorial.gd` und `test_menu.gd` (Navigation, Einstellungen, Pause, Startoptionen) (ganzer Ablauf headless mit simulierten Aktionen, Überspringen/Beenden, Diagnose).
 
+### Build
+- Flugkern.pck 30.637.436 Byte (29,2 MiB), Selbsttest mit exportierter .pck OK (inkl. „Tutorial lädt“), Suite fast 202/202. `build_windows.sh` bricht jetzt ab, wenn die gitignorierten Boden-Texturen `assets/ground/*.png` fehlen (Headless-Import extrahiert sie nicht; ohne sie 45,9 MB).
+
 ## M3.1 „Bodenbetrieb – Korrekturen“ (06.11.2026)
 
 ### Behoben
