@@ -24,7 +24,7 @@ func set_data(d: Dictionary) -> void:
 ## Ring 0..1 im Uhrzeigersinn ab 12 Uhr.
 func _ring(c: Vector2, f: float, col: Color) -> void:
 	draw_arc(c, RING_R, 0, TAU, 48, Color(0, 0, 0, 0.45), RING_W + 3, true)
-	draw_arc(c, RING_R, 0, TAU, 48, Color(1, 1, 1, 0.14), RING_W, true)
+	draw_arc(c, RING_R, 0, TAU, 48, Color(HudStyle.VALUE, 0.14), RING_W, true)
 	if f > 0.002:
 		draw_arc(c, RING_R, -PI * 0.5, -PI * 0.5 + TAU * clampf(f, 0, 1), maxi(4, int(48 * f)), col,
 				RING_W, true)

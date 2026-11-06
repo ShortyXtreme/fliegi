@@ -63,7 +63,7 @@ func _ready() -> void:
 	_debug.theme = HudStyle.theme()   # Debug unverändert, nur Epochen-Theme (Schrift/Farbe)
 	_help = GroundHelp.new()       # M3.2: gemeinsame Hilfe-Tafel, hier Kontext Flug
 	_help.context = InputBindings.Context.FLIGHT
-	_help.visible = true   # beim ersten Start sichtbar
+	_help.visible = false   # M3.2: nicht mehr automatisch (übernimmt das Tutorial)
 	add_child(_help)
 	CombatHud.replace_legacy_text = true   # Paket 14: neues Flug-Panel ersetzt Text-HUD
 	combat = CombatHud.create(self); add_child(combat)   # M2-Vertrag: einzige Kampf-HUD-Zeile

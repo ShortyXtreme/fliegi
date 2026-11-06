@@ -36,12 +36,12 @@ static func project(own_xf: Transform3D, contacts: Array, rng := 3000.0) -> Arra
 
 func _draw() -> void:
 	var c := Vector2(R + 8, R + 8)
-	draw_circle(c, R, Color(HudStyle.BG, 0.5))
-	draw_arc(c, R, 0, TAU, 64, Color(1, 1, 1, 0.18), 1.5, true)
+	draw_circle(c, R, Color(HudStyle.BG, 0.78))
+	draw_arc(c, R, 0, TAU, 64, Color(HudStyle.VALUE, 0.18), 1.5, true)
 	for k in [1.0 / 3.0, 2.0 / 3.0]:
-		draw_arc(c, R * k, 0, TAU, 48, Color(1, 1, 1, 0.07), 1.0, true)
-	draw_line(c + Vector2(0, -R), c + Vector2(0, R), Color(1, 1, 1, 0.06), 1.0)
-	draw_line(c + Vector2(-R, 0), c + Vector2(R, 0), Color(1, 1, 1, 0.06), 1.0)
+		draw_arc(c, R * k, 0, TAU, 48, Color(HudStyle.VALUE, 0.07), 1.0, true)
+	draw_line(c + Vector2(0, -R), c + Vector2(0, R), Color(HudStyle.VALUE, 0.06), 1.0)
+	draw_line(c + Vector2(-R, 0), c + Vector2(R, 0), Color(HudStyle.VALUE, 0.06), 1.0)
 	# eigenes Flugzeug
 	draw_colored_polygon(PackedVector2Array([c + Vector2(0, -7), c + Vector2(5, 5),
 			c + Vector2(0, 2), c + Vector2(-5, 5)]), HudStyle.ACCENT)

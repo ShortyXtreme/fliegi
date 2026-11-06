@@ -20,7 +20,7 @@ func _init() -> void:
 func _draw() -> void:
 	var cx := W * 0.5
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(HudStyle.BG, 0.38)
+	sb.bg_color = Color(HudStyle.BG, 0.78)
 	sb.set_corner_radius_all(8)
 	draw_style_box(sb, Rect2(0, 0, W, H))
 	var half := cx / PX_PER_DEG
@@ -36,13 +36,13 @@ func _draw() -> void:
 			var big := dd % 90 == 0
 			HudStyle.text(self, Vector2(x, 22), NAMES[dd], 16 if big else 13,
 					Color(HudStyle.VALUE if big else HudStyle.LABEL, fade), true, 1)
-			draw_line(Vector2(x, H - 12), Vector2(x, H - 2), Color(1, 1, 1, 0.75 * fade), 2.0)
+			draw_line(Vector2(x, H - 12), Vector2(x, H - 2), Color(HudStyle.VALUE, 0.75 * fade), 2.0)
 		elif dd % 15 == 0:
 			HudStyle.text(self, Vector2(x, 21), str(dd), 12, Color(HudStyle.DIM, fade),
 					false, 1)
-			draw_line(Vector2(x, H - 10), Vector2(x, H - 2), Color(1, 1, 1, 0.5 * fade), 1.5)
+			draw_line(Vector2(x, H - 10), Vector2(x, H - 2), Color(HudStyle.VALUE, 0.5 * fade), 1.5)
 		else:
-			draw_line(Vector2(x, H - 6), Vector2(x, H - 2), Color(1, 1, 1, 0.35 * fade), 1.0)
+			draw_line(Vector2(x, H - 6), Vector2(x, H - 2), Color(HudStyle.VALUE, 0.35 * fade), 1.0)
 	for b in enemy_bearings:
 		var diff := wrapf(b - heading, -180.0, 180.0)
 		var x := clampf(cx + diff * PX_PER_DEG, 10, W - 10)
@@ -54,7 +54,7 @@ func _draw() -> void:
 	var tw := HudStyle.text_width(txt, 16, true) + 14
 	var box := Rect2(cx - tw * 0.5, H + 4, tw, 22)
 	var bb := StyleBoxFlat.new()
-	bb.bg_color = Color(0.05, 0.07, 0.09, 0.75)
+	bb.bg_color = Color(HudStyle.BG, 0.75)
 	bb.set_corner_radius_all(5)
 	bb.border_color = Color(HudStyle.ACCENT, 0.55)
 	bb.set_border_width_all(1)

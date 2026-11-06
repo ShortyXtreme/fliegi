@@ -29,7 +29,7 @@ func _run() -> void:
 	var game: Game = load("res://world/main.tscn").instantiate()
 	root.add_child(game)
 	await _frames(60)
-	game.hud.toggle_help()
+	game.hud._help.visible = false
 	await _frames(5)
 	await _shot("integration_flugplatz.png")
 	# Luftkampf: Spieler 160 m hinter dem ersten Gegner, Feuer gedrückt

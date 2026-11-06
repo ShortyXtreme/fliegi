@@ -113,10 +113,10 @@ static func token_width(t: String, h: float, is_pad: bool) -> float:
 	if is_pad:
 		if PAD_FACE.has(t) or t in ["L3", "R3", "linker Stick", "rechter Stick"] or t.begins_with("Kreuz"):
 			return h
-		return maxf(HudStyle.text_width(t, h * 0.48, true) + h * 0.6, h * 1.25)
+		return maxf(HudStyle.display(true).get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, int(h * 0.52)).x + h * 0.6, h * 1.25)
 	if t in MOUSE_TOKENS:
 		return h * 0.78
-	return maxf(HudStyle.text_width(t, h * 0.52, true) + h * 0.55, h)
+	return maxf(HudStyle.display(true).get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, int(h * 0.56)).x + h * 0.55, h)
 
 
 ## Einzelnes Symbol; pos = links, vertikale Mitte. Rückgabe: Breite.
@@ -174,8 +174,8 @@ static func draw_token(ci: CanvasItem, pos: Vector2, t: String, h: float, is_pad
 
 
 static func _centered(ci: CanvasItem, c: Vector2, s: String, size: float, col: Color) -> void:
-	var f := HudStyle.font(true)
-	var fs := int(round(size))
+	var f := HudStyle.display(true)
+	var fs := int(round(size * 1.08))
 	var sz := f.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
 	# Versalhöhe ≈ 0,72 × Schriftgröße (Inter): Grundlinie so, dass Großbuchstaben mittig sitzen
 	ci.draw_string(f, Vector2(c.x - sz.x * 0.5, c.y + size * 0.36), s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)

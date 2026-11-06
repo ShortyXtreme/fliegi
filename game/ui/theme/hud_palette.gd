@@ -9,7 +9,7 @@ extends Resource
 ## Godot-Theme für Control-Knoten (Schrift, Label-Farben); wird den HUD-Wurzeln zugewiesen.
 @export var theme: Theme
 @export_group("Flächen")
-@export var bg := Color(0.095, 0.088, 0.066, 0.74)
+@export var bg := Color(0.125, 0.105, 0.072, 0.82)
 @export var bg_edge := Color(0.80, 0.68, 0.42, 0.32)
 @export var bg_inner_edge := Color(1, 1, 1, 0.05)
 @export var corner_radius := 4

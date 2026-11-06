@@ -72,7 +72,7 @@ func _draw() -> void:
 	var out := PackedVector2Array()
 	for p in tri:
 		out.append(xf * p)
-	draw_circle(c, r * 1.45, Color(0.05, 0.07, 0.09, 0.5))
+	draw_circle(c, r * 1.45, Color(HudStyle.BG, 0.5))
 	draw_colored_polygon(out, col)
 	HudStyle.text(self, c + Vector2(0, r * 1.45 + 22 * s), "Abstellplatz  " + HudStyle.distance(dist),
 			16 * s, HudStyle.VALUE, true, 1)

@@ -29,7 +29,7 @@ func _cell(x: float, w: float, label: String, value: float, cap: float, unit: St
 	var s := "–" if value < 0 else HudStyle.thousands(value) + unit
 	HudStyle.text(self, Vector2(x + w - 12, 21), s, 17, col if value >= 0 else HudStyle.DIM, true, 2)
 	var r := Rect2(x, 31, w - 12, 4)
-	draw_rect(r, Color(1, 1, 1, 0.08))
+	draw_rect(r, Color(HudStyle.VALUE, 0.08))
 	if value > 0 and cap > 0:
 		draw_rect(Rect2(r.position, Vector2(r.size.x * clampf(f, 0, 1), r.size.y)), Color(col, 0.75))
 
@@ -43,4 +43,4 @@ func _draw() -> void:
 	_cell(16 + cw, cw, "ERSATZ", data.ersatz, data.ersatz_cap, " l")
 	_cell(16 + cw * 2, cw, "MUNITION 7,92", float(data.ammo), float(data.ammo_cap), "")
 	for i in [1, 2]:
-		draw_line(Vector2(8 + cw * i, 10), Vector2(8 + cw * i, H - 10), Color(1, 1, 1, 0.08), 1.0)
+		draw_line(Vector2(8 + cw * i, 10), Vector2(8 + cw * i, H - 10), Color(HudStyle.VALUE, 0.08), 1.0)

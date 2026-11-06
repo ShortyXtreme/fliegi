@@ -256,6 +256,8 @@ func _process(dt: float) -> void:
 	var ch = hud.get("combat") if hud != null and is_instance_valid(hud) else null
 	if ch is CombatHud:
 		(ch as CombatHud).suppress_weapon_panel = status.visible and not ground
+		if ground and (ch as CombatHud).kill_feed != null:
+			(ch as CombatHud).kill_feed.tick(dt)   # Meldungen laufen auch am Boden ab (M3.2)
 	if status.visible:
 		status.set_data(GroundHudData.aircraft_status(status_aircraft, b, character), dt)
 	# Lager: nur nahe Lager oder Maschine (M3.2)

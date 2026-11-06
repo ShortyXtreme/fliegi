@@ -39,7 +39,7 @@ func set_data(d: Dictionary, dt := 0.0) -> void:
 
 
 func _bar(r: Rect2, f: float, col: Color) -> void:
-	draw_rect(r, Color(1, 1, 1, 0.08))
+	draw_rect(r, Color(HudStyle.VALUE, 0.08))
 	draw_rect(Rect2(r.position, Vector2(r.size.x * clampf(f, 0, 1), r.size.y)), col)
 
 
@@ -84,7 +84,7 @@ func _draw() -> void:
 	if jobs.is_empty():
 		return
 	var y := 168.0
-	draw_line(Vector2(PAD, y), Vector2(W - PAD, y), Color(1, 1, 1, 0.08), 1.0)
+	draw_line(Vector2(PAD, y), Vector2(W - PAD, y), Color(HudStyle.VALUE, 0.08), 1.0)
 	HudStyle.heading(self, Vector2(PAD, y + 16), "ARBEITEN", 10)
 	y += 18.0
 	for j in jobs:

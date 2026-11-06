@@ -285,7 +285,8 @@ func _setup_ground_hud() -> void:
 		blue_ops.dispatch.follow_target = crew
 	for ops in airfields.values():
 		ops.dispatch.announced.connect(func(text, a):
-			if hud.combat != null and ops == blue_ops:
+			# M3.2: nur echte Landungen melden (nicht den Start am Abstellplatz)
+			if hud.combat != null and ops == blue_ops and String(text).ends_with("gelandet"):
 				hud.combat.kill_feed.add_text(a, text, a))
 
 

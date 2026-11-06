@@ -43,7 +43,7 @@ func _run() -> void:
 	game = load("res://world/main.tscn").instantiate()
 	root.add_child(game)
 	await _frames(5)
-	game.hud.toggle_help()
+	game.hud._help.visible = false
 	var pa := game.player_aircraft
 	var b := Basis.looking_at(Vector3(0, 0, -1), Vector3.UP)
 	pa.place(Transform3D(b, Vector3(0, 800, 0)), 95.0, 0.85, false)

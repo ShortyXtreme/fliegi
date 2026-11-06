@@ -78,7 +78,7 @@ static func entries_for(st: Dictionary) -> Array:
 func bar_width() -> float:
 	var w := 0.0
 	for e in entries:
-		w += _spec_w(e) + 8.0 + HudStyle.text_width(String(e[1]), 15, true) + GAP
+		w += _spec_w(e) + 8.0 + HudStyle.text_width(String(e[1]), 19, true) + GAP
 	return maxf(w - GAP + 32.0, 0.0)
 
 
@@ -126,5 +126,5 @@ func _draw() -> void:
 			s = parts[1] if use_pad else parts[0]
 		x += KeyGlyphs.draw_spec(self, Vector2(x, 0), s, CAP_H, _spec_pad(e))
 		x += 8.0
-		x += HudStyle.text(self, Vector2(x, 5.5), String(e[1]), 15, HudStyle.VALUE, true)
+		x += HudStyle.text(self, Vector2(x, 7), String(e[1]), 19, HudStyle.VALUE, true)
 		x += GAP

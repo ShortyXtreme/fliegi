@@ -26,7 +26,7 @@ func _run() -> void:
 	for i in 30:
 		await process_frame
 	await _shot("m1_runway_chase.png")
-	game.hud.toggle_help()
+	game.hud._help.visible = false
 	# Spieler in die Luft setzen, KI sichtbar machen
 	var b := Basis.looking_at(Vector3(0.3, 0, -1), Vector3.UP)
 	game.player_aircraft.place(Transform3D(b, Vector3(0, 300, 300)), 90.0, 0.8)

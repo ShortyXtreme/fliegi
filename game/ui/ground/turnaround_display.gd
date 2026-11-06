@@ -44,7 +44,7 @@ func _stars(x: float, y: float, n: int) -> void:
 			var r := 10.0 if k % 2 == 0 else 4.2
 			var a := -PI * 0.5 + k * TAU / 10.0
 			pts.append(c + Vector2(cos(a), sin(a)) * r)
-		draw_colored_polygon(pts, HudStyle.CAUTION if i < n else Color(1, 1, 1, 0.14))
+		draw_colored_polygon(pts, HudStyle.CAUTION if i < n else Color(HudStyle.VALUE, 0.14))
 
 
 func _draw() -> void:
@@ -53,7 +53,7 @@ func _draw() -> void:
 	var running: bool = timer.get("running", false)
 	var h := 84.0
 	HudStyle.draw_panel(self, Rect2(0, 0, W, h), 10)
-	HudStyle.text(self, Vector2(14, 20), "ABFERTIGUNG" if running else "ABFERTIGUNG FERTIG", 11, HudStyle.DIM)
+	HudStyle.heading(self, Vector2(14, 20), "ABFERTIGUNG" if running else "ABFERTIGUNG FERTIG", 10)
 	var t: float = timer.get("elapsed", 0.0)
 	HudStyle.text(self, Vector2(14, 56), GroundHudData.clock(t), 32, HudStyle.VALUE if running else HudStyle.ACCENT, true)
 	var best: float = timer.get("best", -1.0)
@@ -74,10 +74,10 @@ func _draw_alarm() -> void:
 	var r := Rect2(-w * 0.5, 0, w, 46)
 	var sb := StyleBoxFlat.new()
 	var a := 0.72 + 0.18 * (0.5 + 0.5 * cos(_pulse * TAU))
-	sb.bg_color = Color(0.42, 0.06, 0.05, a)
+	sb.bg_color = Color(0.34, 0.09, 0.05, a)
 	sb.border_color = Color(HudStyle.WARNING, 0.9)
 	sb.set_border_width_all(2)
-	sb.set_corner_radius_all(8)
+	sb.set_corner_radius_all(HudStyle.RADIUS)
 	sb.anti_aliasing = true
 	b.draw_style_box(sb, r)
 	HudStyle.text(b, Vector2(0, 32), s, 24, HudStyle.VALUE, true, 1)

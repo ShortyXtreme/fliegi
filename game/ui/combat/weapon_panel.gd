@@ -99,7 +99,7 @@ func _draw_sketch(o: Vector2) -> void:
 	var off := PackedVector2Array()
 	for p in body:
 		off.append(o + p)
-	draw_colored_polygon(off, Color(1, 1, 1, 0.16))
+	draw_colored_polygon(off, Color(HudStyle.VALUE, 0.16))
 	for sh in shapes:
 		var pts := PackedVector2Array()
 		for p in sh[1]:
@@ -139,7 +139,7 @@ func _draw() -> void:
 		HudStyle.text(self, Vector2(x0 + aw + 6, y + 30), "/ %s" % HudStyle.thousands(g.max), 13,
 				HudStyle.DIM)
 		var bar := Rect2(x0, y + 38, W - PAD - x0, 5)
-		draw_rect(bar, Color(1, 1, 1, 0.08))
+		draw_rect(bar, Color(HudStyle.VALUE, 0.08))
 		draw_rect(Rect2(bar.position, Vector2(bar.size.x * clampf(frac, 0, 1), bar.size.y)), Color(col, 0.8))
 		y += 52.0
 		if g.heat_active:
@@ -147,7 +147,7 @@ func _draw() -> void:
 			var hcol := HudStyle.ACCENT if h < 0.6 else (HudStyle.CAUTION if h < 0.9 else HudStyle.WARNING)
 			HudStyle.heading(self, Vector2(x0, y + 4), "HITZE", 10)
 			var hb := Rect2(x0 + 44, y - 4, W - PAD - x0 - 44, 6)
-			draw_rect(hb, Color(1, 1, 1, 0.08))
+			draw_rect(hb, Color(HudStyle.VALUE, 0.08))
 			draw_rect(Rect2(hb.position, Vector2(hb.size.x * h, hb.size.y)), hcol)
 			y += 16.0
 		if g.jammed:

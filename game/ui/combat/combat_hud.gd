@@ -18,6 +18,10 @@ const WEAPON_ATTN_TIME := 8.0
 ## true: blendet das alte Text-HUD aus hud.gd aus (_info, _warn, _warn2). Standard aus,
 ## bis Paket 14 umstellt (Hook, siehe docs/m2_hooks_DE.md).
 static var replace_legacy_text := false
+## M3.2: Radar-Light (Kreis-Karte) – Einstellung. Standard „immer“ (PO-Entscheidung), alternativ
+## nur im Kampf. Gilt nur, wo HudContacts.radar_allowed() es erlaubt (Arcade).
+enum RadarMode { ALWAYS, COMBAT_ONLY }
+static var radar_mode := RadarMode.ALWAYS
 
 var hud: Hud
 var flight_panel: FlightPanel
@@ -100,7 +104,7 @@ func _process(dt: float) -> void:
 	compass.enemy_bearings = bearings
 	compass.queue_redraw()
 	# Radar-Light (Arcade)
-	radar.visible = HudContacts.radar_allowed(a)
+	radar.visible = HudContacts.radar_allowed(a) and (radar_mode == RadarMode.ALWAYS or in_combat)
 	if radar.visible:
 		radar.blips = RadarLight.project(xf, contacts, HudContacts.RADAR_RANGE)
 		radar.queue_redraw()

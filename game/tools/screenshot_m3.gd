@@ -35,7 +35,7 @@ func _run() -> void:
 	var game: Game = load("res://world/main.tscn").instantiate()
 	root.add_child(game)
 	await _frames(60)
-	game.hud.toggle_help()
+	game.hud._help.visible = false
 	var pl := game.player_aircraft
 	# Tankwagen neben die Maschine, dann aussteigen
 	var ops: AirfieldOps = game.blue_ops

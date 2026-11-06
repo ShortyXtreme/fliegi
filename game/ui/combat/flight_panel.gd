@@ -114,7 +114,7 @@ func _draw() -> void:
 	# Gas-Balken
 	HudStyle.heading(self, Vector2(x0, 126), "GAS", 11)
 	var bar := Rect2(x0 + 40, 115, 210, 10)
-	draw_rect(bar, Color(1, 1, 1, 0.08))
+	draw_rect(bar, Color(HudStyle.VALUE, 0.08))
 	var thr: float = clampf(data.throttle, 0.0, 1.0)
 	draw_rect(Rect2(bar.position, Vector2(bar.size.x * thr, bar.size.y)),
 			HudStyle.ACCENT if thr < 0.995 else HudStyle.CAUTION)

@@ -97,7 +97,7 @@ func _draw() -> void:
 	for i in n:
 		var a0 := -PI * 0.5 + (i - 0.5) * seg + 0.012
 		var a1 := a0 + seg - 0.024
-		var col := Color(1, 1, 1, 0.07)
+		var col := Color(HudStyle.VALUE, 0.07)
 		if i == selected:
 			col = Color(HudStyle.ACCENT, 0.9)
 		var pts := PackedVector2Array()

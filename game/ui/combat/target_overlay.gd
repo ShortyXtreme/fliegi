@@ -196,7 +196,7 @@ func _draw_eject(vs: Vector2) -> void:
 		HudStyle.text(self, Vector2(x, y), txt, 22 * s, HudStyle.CAUTION, true, 1)
 		var bw := 220.0 * s
 		var r := Rect2(x - bw * 0.5, y + 10 * s, bw, 6 * s)
-		draw_rect(r, Color(1, 1, 1, 0.15))
+		draw_rect(r, Color(HudStyle.VALUE, 0.15))
 		draw_rect(Rect2(r.position, Vector2(bw * clampf(eject_progress, 0, 1), r.size.y)),
 				HudStyle.CAUTION)
 	elif eject_locked_t > 0.0:

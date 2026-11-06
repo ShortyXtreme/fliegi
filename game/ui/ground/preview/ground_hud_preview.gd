@@ -39,7 +39,7 @@ func _run() -> void:
 	game = load("res://world/main.tscn").instantiate()
 	root.add_child(game)
 	await _frames(5)
-	game.hud.toggle_help()
+	game.hud._help.visible = false
 	var layout: AirfieldLayout = game.world.airfield_layout(0) if game.world.has_method("airfield_layout") else null
 	var pxf := layout.parking_transform(0) if layout != null else Transform3D(Basis.IDENTITY, Vector3(0, 0, 300))
 	var a := game.player_aircraft

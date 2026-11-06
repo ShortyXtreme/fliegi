@@ -9,10 +9,15 @@ const FONT_SEMIBOLD := "res://ui/combat/fonts/Inter-SemiBold.otf"
 
 # Farben kommen aus dem Epochen-Theme (ui/theme/, HudPalette). Werte unten = Tier I,
 # damit auch ohne geladene Palette alles stimmig ist. apply() schaltet um.
+## M3.2: Anzeigeschrift (Zahlen, Überschriften, Tasten-Leiste): Oswald (OFL, ui/theme/fonts/
+## OFL_Oswald.txt), Nachfahrin der „Alternate Gothic“ (1903) – kantig, epochengerecht.
+## Fließtext bleibt Inter. Regel: fett ab DISPLAY_MIN_SIZE px = Anzeigeschrift.
+const FONT_DISPLAY := "res://ui/theme/fonts/Oswald-Variable.ttf"
+const DISPLAY_MIN_SIZE := 19.0
 const DEFAULT_PALETTE := "res://ui/theme/epoch_t1.tres"
-static var BG := Color(0.095, 0.088, 0.066, 0.74)
+static var BG := Color(0.125, 0.105, 0.072, 0.82)
 static var BG_EDGE := Color(0.80, 0.68, 0.42, 0.32)
-static var BG_INNER := Color(1, 1, 1, 0.05)
+static var BG_INNER := Color(HudStyle.VALUE, 0.05)
 static var LABEL := Color(0.73, 0.69, 0.58)
 static var VALUE := Color(0.95, 0.92, 0.84)
 static var DIM := Color(0.73, 0.69, 0.58, 0.58)
@@ -62,6 +67,8 @@ static func font(bold := false, heading := false) -> Font:
 	var key := ("h" if heading else "") + ("b" if bold else "m")
 	if _fonts.has(key):
 		return _fonts[key]
+	if heading:
+		return display(bold, true)
 	var base: Font = load(FONT_SEMIBOLD if bold else FONT_MEDIUM)
 	var fv := FontVariation.new()
 	if base == null:
@@ -79,6 +86,31 @@ static func font(bold := false, heading := false) -> Font:
 ## Skalierung relativ zu 1080p (0,75 … 1,6).
 static func ui_scale(viewport_size: Vector2) -> float:
 	return clampf(viewport_size.y / 1080.0, 0.75, 1.6)
+
+
+## Anzeigeschrift (Oswald, variabel: Gewicht 500 bzw. 600), tabellarische Ziffern.
+static func display(bold := true, spaced := false) -> Font:
+	var key := "d%s%s" % ["b" if bold else "m", "s" if spaced else ""]
+	if _fonts.has(key):
+		return _fonts[key]
+	var base: Font = load(FONT_DISPLAY) if ResourceLoader.exists(FONT_DISPLAY) else null
+	if base == null:
+		var fb := font(bold)
+		_fonts[key] = fb
+		return fb
+	var ts := TextServerManager.get_primary_interface()
+	var fv := FontVariation.new()
+	fv.base_font = base
+	fv.variation_opentype = {ts.name_to_tag("wght"): 600 if bold else 500}
+	fv.opentype_features = {ts.name_to_tag("tnum"): 1}
+	if spaced:
+		fv.spacing_glyph = HEADING_SPACING
+	_fonts[key] = fv
+	return fv
+
+
+static func _pick(bold: bool, size: float) -> Font:
+	return display(true) if bold and size >= DISPLAY_MIN_SIZE else font(bold)
 
 
 ## Halbtransparente Tafel mit Messingkante und feiner Innenlinie (Instrumententafel-Anmutung).
@@ -100,7 +132,7 @@ static func heading(ci: CanvasItem, pos: Vector2, s: String, size: float, col: C
 		align := 0) -> float:
 	var c := LABEL if col.r < 0 else col
 	var f := font(true, true)
-	var fs := int(round(size))
+	var fs := int(round(size * 1.18))   # Oswald ist schmal: etwas größer setzen
 	var t := s.to_upper()
 	var w := f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 	var p := pos
@@ -121,7 +153,7 @@ static func rule(ci: CanvasItem, a: Vector2, b: Vector2) -> void:
 ## Text mit weichem Schatten; align: 0 links, 1 Mitte, 2 rechts (pos = Grundlinie).
 static func text(ci: CanvasItem, pos: Vector2, s: String, size: float, col: Color,
 		bold := false, align := 0) -> float:
-	var f := font(bold)
+	var f := _pick(bold, size)
 	var fs := int(round(size))
 	var w := f.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 	var p := pos
@@ -136,7 +168,7 @@ static func text(ci: CanvasItem, pos: Vector2, s: String, size: float, col: Colo
 
 
 static func text_width(s: String, size: float, bold := false) -> float:
-	return font(bold).get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, int(round(size))).x
+	return _pick(bold, size).get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, int(round(size))).x
 
 
 ## Farbe für einen Zustand 0..1 (1 = heil): grün → gelb → rot, 0 = grau.

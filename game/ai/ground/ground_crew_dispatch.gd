@@ -167,11 +167,17 @@ func priority_for(a: Aircraft) -> int:
 	return GroundCrewBrain.Priority.AI_AIRCRAFT * 10
 
 
+## Maschinen, die seit der letzten Abfertigung in der Luft waren (M3.2).
+var _airborne := {}
+
+
 func is_player_aircraft(a: Aircraft) -> bool:
 	return player_aircraft.has(a) or a.pilot_seat.is_human_occupied()
 
 
 func _check(a: Aircraft) -> void:
+	if not a.seat_on_ground():
+		_airborne[a] = true      # M3.2: „gelandet“ nur nach echtem Flug melden
 	if not is_parked(a):
 		if _known.has(a):
 			_known.erase(a)
@@ -187,7 +193,9 @@ func _check(a: Aircraft) -> void:
 		"fuel_target": fuel_target, "fuel_node": fuel_truck})
 	if not ids.is_empty() and not _known.has(a):
 		_known[a] = true
-		announced.emit("%s gelandet" % _name_of(a), a)
+		var landed := _airborne.has(a)
+		_airborne.erase(a)
+		announced.emit(("%s gelandet" if landed else "%s wird abgefertigt") % _name_of(a), a)
 
 
 func fuel_source() -> FuelSource:

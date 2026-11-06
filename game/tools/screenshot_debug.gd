@@ -21,7 +21,7 @@ func _run() -> void:
 	var game: Game = load("res://world/main.tscn").instantiate()
 	root.add_child(game)
 	await _frames(40)
-	game.hud.toggle_help()
+	game.hud._help.visible = false
 	var zoom := "--zoom" in OS.get_cmdline_user_args()
 	if zoom:
 		game.player.zoom_override = true
