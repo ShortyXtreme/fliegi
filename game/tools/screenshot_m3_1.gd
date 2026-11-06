@@ -84,8 +84,8 @@ func _run() -> void:
 		await _shot("anims.png")
 	if which in ["platz", "alle"]:
 		var l: AirfieldLayout = ops.layout
-		var at := l.to_scene(Vector3(-75, 0, 300))
-		_cam(game, l.to_scene(Vector3(10, 0, 420)) + Vector3(0, 45, 0), at, 55.0)
+		var at := l.to_scene(Vector3(-85, 0, 330))
+		_cam(game, l.to_scene(Vector3(20, 0, 500)) + Vector3(0, 55, 0), at, 50.0)
 		await _frames(30)
 		await _shot("m3_1_platz.png")
 	quit(0)

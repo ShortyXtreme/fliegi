@@ -13,7 +13,7 @@ signal tank_changed
 const TANK_CAPACITY := 2000.0
 const HOSE_LENGTH := 12.0
 const FILL_RATE := 20.0
-const FILL_RANGE := 10.0
+const FILL_RANGE := 12.5          # M3.1: Wagen hält 8,5 m vor dem Lager (Gebäude mit Kollision)
 
 var tank := TruckTank.new(TANK_CAPACITY, FuelSystem.GRADE_AVIATION, TANK_CAPACITY)
 var hose: FuelHose

@@ -396,7 +396,7 @@ func _build_environment() -> void:
 	add_child(sun)
 
 
-## Pisten, Markierungen, Hallen, Windsack (Hallen/Turm mit Kollision, Layers.WORLD).
+## Pisten, Markierungen, Windsack; Hallen/Turm-Platzhalter nur ohne Gebäudemodelle (M3.1).
 func _build_airfields() -> void:
 	for ai in data.airfields.size():
 		var af: Dictionary = data.airfields[ai]
@@ -405,15 +405,15 @@ func _build_airfields() -> void:
 		node.position = af.center
 		terrain_root.add_child(node)
 		var start := Vector3(0, 0, RUNWAY_LENGTH * 0.5 - 20.0)
-		var mat_hangar := _mat(Color(0.55, 0.52, 0.45))
-		var mat_roof := _mat(Color(0.33, 0.29, 0.27))
-		for i in 3:
-			# M3: Halle 0 ersetzt das Hangar-Modell (AirfieldOps, AirfieldLayout.hangar)
-			if i == 0 and ResourceLoader.exists("res://assets/ground/hangar.glb"):
-				continue
-			_static_box(node, start + Vector3(-80, 0, -120 - i * 48), Vector3(24, 8, 30), mat_hangar)
-			_static_box(node, start + Vector3(-80, 8, -120 - i * 48), Vector3(25, 1, 31), mat_roof)
-		_static_box(node, start + Vector3(-70, 0, 30), Vector3(6, 14, 6), mat_hangar)
+		# M3.1: Hallen, Tanklager und Bunker sind Modelle (AirfieldOps, AirfieldLayout); die grauen
+		# Platzhalter-Klötze (Hallen, Turm) gibt es nur noch ohne Modelle.
+		if not ResourceLoader.exists("res://assets/ground/hangar.glb"):
+			var mat_hangar := _mat(Color(0.55, 0.52, 0.45))
+			var mat_roof := _mat(Color(0.33, 0.29, 0.27))
+			for i in 3:
+				_static_box(node, start + Vector3(-80, 0, -120 - i * 48), Vector3(24, 8, 30), mat_hangar)
+				_static_box(node, start + Vector3(-80, 8, -120 - i * 48), Vector3(25, 1, 31), mat_roof)
+			_static_box(node, start + Vector3(-70, 0, 30), Vector3(6, 14, 6), mat_hangar)
 		if not build_visuals:
 			continue
 		var strip := MeshInstance3D.new()

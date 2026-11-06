@@ -29,6 +29,8 @@ const CART_PARK := 6.0
 const CART_MAX := 15.0          # Munitionswagen weiter weg: erst hinfahren
 const DRIVE_ARRIVE := 2.5
 const VIA_ARRIVE := 5.0
+## M3.1: Halteabstand Tankwagen–Tanklager-Mitte (Gebäude hat Kollision; FILL_RANGE 10 m).
+const DEPOT_FILL_DIST := 8.5
 const WALK_ROUTE_MIN := 30.0
 ## Festlaufen (Figur schiebt gegen Wand/Fahrzeug): seitlich ausweichen.
 const STUCK_SPEED := 0.3
@@ -1029,7 +1031,7 @@ func _depot_fill_pos(truck: GroundVehicle, depot: FuelSource) -> Vector3:
 	d.y = 0.0
 	if d.length_squared() < 0.01:
 		d = Vector3.RIGHT
-	return dp + d.normalized() * 6.0
+	return dp + d.normalized() * DEPOT_FILL_DIST
 
 
 func _enter(s: Seat) -> bool:

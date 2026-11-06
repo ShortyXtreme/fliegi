@@ -12,6 +12,9 @@ const MODELS := "res://assets/ground/%s.glb"
 const CREW_NAMES := ["Mechaniker A", "Mechaniker B", "Mechaniker C"]
 ## Gebäude-Öffnung (−Z im Modell) zeigt nach +X (zum Rollweg/Abstellplatz).
 const FACE_EAST := -PI * 0.5
+## M3.1: Hallen nebeneinander nach Norden (Abstand Mitte–Mitte, m).
+const HANGAR_COUNT := 3
+const HANGAR_SPACING := 48.0
 
 var layout: AirfieldLayout
 var board: JobBoard
@@ -79,19 +82,25 @@ func _put(model: Node3D, key: String, pos: Vector3, yaw: float) -> Node3D:
 func _buildings() -> void:
 	var fd := _put(load_model("fuel_depot"), "fuel_depot", layout.to_scene(layout.fuel_depot), FACE_EAST)
 	var ab := _put(load_model("ammo_bunker"), "ammo_bunker", layout.to_scene(layout.ammo_bunker), FACE_EAST)
-	var h := _put(load_model("hangar"), "hangar", layout.to_scene(layout.hangar), FACE_EAST)
-	# M3.1: Gebäude als Hindernisse der Wegsuche (Personal und Wagen)
-	for m in [fd, ab, h]:
+	# M3.1: Gebäude als Hindernisse der Wegsuche (Personal und Wagen) und mit Kollision
+	for m in [fd, ab]:
 		if m != null:
 			GroundNav.register_model(m)
-	if h != null:
-		# Kollision: Rück- und Seitenwände (Tor offen zum Rollweg)
+			_solid(m)
+	# M3.1: alle Hallen als Modell (vorher Halle 1/2 und Turm graue Platzhalter in TerrainWorld)
+	for k in HANGAR_COUNT:
+		var key := "hangar" if k == 0 else "hangar_%d" % k
+		var h := _put(load_model("hangar"), key, layout.to_scene(layout.hangar + Vector3(0, 0, -HANGAR_SPACING * k)), FACE_EAST)
+		if h == null:
+			continue
+		GroundNav.register_model(h)
+		# Kollision: Rück- und Seitenwände, Dach (Tor offen zum Rollweg)
 		var body := StaticBody3D.new()
 		body.collision_layer = Layers.WORLD
 		body.collision_mask = 0
 		h.add_child(body)
 		for w in [[Vector3(24.0, 8.0, 0.6), Vector3(0, 4, 9.0)], [Vector3(0.6, 8.0, 24.0), Vector3(-12.0, 4, -3.0)],
-				[Vector3(0.6, 8.0, 24.0), Vector3(12.0, 4, -3.0)]]:
+				[Vector3(0.6, 8.0, 24.0), Vector3(12.0, 4, -3.0)], [Vector3(24.6, 0.6, 24.3), Vector3(0, 8.3, -2.85)]]:
 			var cs := CollisionShape3D.new()
 			var bs := BoxShape3D.new()
 			bs.size = w[0]
@@ -107,6 +116,21 @@ func _buildings() -> void:
 		m.name = "parking_mark_%d" % i
 		m.global_transform = Transform3D(xf.basis, _ground(xf.origin) + Vector3(0, 0.03, 0))
 		model_meshes["parking_mark"] = mesh_count(m)
+
+
+## Kollisionsbox um das Modell (Tanklager, Bunker), etwas kleiner als die Umrisse.
+func _solid(m: Node3D) -> void:
+	var bb := GroundNav.model_aabb(m)
+	var body := StaticBody3D.new()
+	body.collision_layer = Layers.WORLD
+	body.collision_mask = 0
+	m.add_child(body)
+	var cs := CollisionShape3D.new()
+	var bs := BoxShape3D.new()
+	bs.size = Vector3(maxf(bb.size.x - 0.4, 0.5), bb.size.y, maxf(bb.size.z - 0.4, 0.5))
+	cs.shape = bs
+	cs.position = bb.get_center()
+	body.add_child(cs)
 
 
 func _vehicles(host: Node) -> void:

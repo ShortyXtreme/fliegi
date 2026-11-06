@@ -156,8 +156,8 @@ func is_connected_graph() -> bool:
 	return seen.size() == taxi_nodes.size()
 
 
-## Bodenplan passend zu TerrainWorld._build_airfields (Hangars bei x = -80 und
-## z = Schwelle -120 … -216, Turm bei (-70, Schwelle + 30)). Siehe Plan oben.
+## Bodenplan; Gebäude stellt AirfieldOps auf (M3.1: 3 Hallen ab hangar je 48 m nach Norden,
+## Tore bei x = -73; Tanklager, Bunker). Siehe Plan oben.
 static func make_default(index: int, runway_length_m: float, runway_width_m: float = 40.0,
 		nation: int = Nations.NONE) -> AirfieldLayout:
 	var l := AirfieldLayout.new()
