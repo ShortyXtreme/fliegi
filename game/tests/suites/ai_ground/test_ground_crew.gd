@@ -172,7 +172,7 @@ func test_prop_zone() -> Array:
 	var ez := DamageModel.Zone.ENGINE
 	s.a.damage.hp[ez] = s.a.damage.hp_max[ez] * 0.5
 	var e: Vector3 = s.a.service_point(ServiceMarkers.SVC_ENGINE)
-	var br := _crew(s, 0, true, e + s.a.global_transform.basis.x * 3.0)
+	var br := _crew(s, 0, true, e - s.a.global_transform.basis.x * 3.0)    # M3.1: Seite des Motor-Servicepunkts
 	await _step(180)
 	var working := br.state == GroundCrewBrain.State.WORK
 	var clear0 := GroundCrewBrain.zone_clear(s.a)

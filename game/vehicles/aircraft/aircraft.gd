@@ -112,6 +112,15 @@ func _add_box(center: Vector3, size: Vector3) -> void:
 	add_child(cs)
 
 
+## M3.1: Hindernis für die Wegsuche am Boden (GroundNav).
+func _enter_tree() -> void:
+	GroundNav.add_mover(self)
+
+
+func _exit_tree() -> void:
+	GroundNav.remove_mover(self)
+
+
 func _ready() -> void:
 	_exclude = [get_rid()]
 	body_entered.connect(_on_body_entered)

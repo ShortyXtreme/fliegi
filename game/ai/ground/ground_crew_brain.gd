@@ -40,6 +40,17 @@ var _side_t := 0.0
 var _side_sign := 1.0
 var _last_pos := Vector3.ZERO
 const FOLLOW_DIST := 3.0
+## M3.1 Wegsuche: Wegpunkt erreicht, Prüftakt, Abstand zu anderem Personal.
+const NAV_REACH := 0.7
+const NAV_END_R := 0.45
+const NAV_CHECK := 0.5
+const CROWD_R := 1.0
+const SAFE_R := 0.35
+var _nav_path := PackedVector3Array()
+var _nav_goal := Vector3.INF
+var _nav_check := 0.0
+## Wagen steht vor einem Hindernis (s, Diagnose).
+var blocked_t := 0.0
 
 enum State { IDLE, TRAVEL, WORK, CLEAR }
 
@@ -205,11 +216,45 @@ func compute_intent(_dt: float) -> PilotIntent:
 		want = minf(want, 3.0)
 	if d < DRIVE_ARRIVE:
 		want = 0.0
+	# M3.1: vor Hindernissen (Flugzeug, Wagen, Gebäude, Figur) im Fahrweg bremsen
+	if want > 0.0 and _drive_blocked(v, d):
+		want = 0.0
+		if v.speed > 0.05:
+			i.brakes = 1.0
+		return i
 	if v.speed < want - 0.3:
 		i.throttle = 0.8
 	elif v.speed > want + 0.4 or (want == 0.0 and v.speed > 0.1):
 		i.brakes = 0.8
 	return i
+
+
+## Liegt im Fahrweg (Breite des Wagens + Saum, Länge Bremsweg + 2,5 m; vor dem Ziel höchstens
+## bis zur Endlage der Front) ein Hindernis?
+func _drive_blocked(v: GroundVehicle, d_goal: float) -> bool:
+	var via: bool = not _legs.is_empty() and _legs[0].get("via", false)
+	var hl := v.body_length * 0.5
+	var reach := maxf(v.speed, 0.0) ** 2 / (2.0 * GroundVehicle.BRAKE_DECEL * 0.7) + 2.5
+	if not via:
+		reach = minf(reach, d_goal - hl + 0.5)
+	if reach <= 0.0:
+		return false
+	var fwd := v.forward()
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	var right := Vector3(-fwd.z, 0.0, fwd.x)
+	var hw := maxf(v.body_radius, 1.12) + 0.3
+	var obs := GroundNav.obstacles([v, body()], false, true)
+	var k := 0.0
+	while k <= reach:
+		var c := v.global_position + fwd * (hl + k)
+		for lat in [-hw, 0.0, hw]:
+			if GroundNav.min_dist(obs, c.x + right.x * lat, c.z + right.z * lat) < 0.2:
+				blocked_t += get_physics_process_delta_time()
+				return true
+		k += 0.7
+	blocked_t = 0.0
+	return false
 
 
 func compute_crew_intent(_dt: float) -> CrewIntent:
@@ -418,11 +463,6 @@ func _route_drives(legs: Array) -> Array:
 				out.append({drive = v, pos = p, via = true})
 			at[v] = leg.pos
 			cur = leg.pos
-		elif leg.has("pos") and not leg.has("fill") and not leg.get("teleport", false) \
-				and float(leg.get("wait", 0.0)) <= 0.0 and _flat_dist(cur, leg.pos) > WALK_ROUTE_MIN:
-			for p in dispatch.drive_route(cur, leg.pos):
-				out.append({pos = p, wait = 0.0, teleport = false})
-			cur = leg.pos
 		elif leg.has("pos"):
 			cur = leg.pos
 		out.append(leg)
@@ -534,7 +574,7 @@ func _run_legs(dt: float) -> void:
 		if _leg_left < 0.0:
 			var t: float = leg.wait
 			if abstract_mode and not leg.teleport:
-				t += _walk_time(_flat_dist(position_now(), leg.pos))
+				t += _walk_time(_nav_len(position_now(), leg.pos))
 			_leg_left = t
 		_leg_left -= dt
 		travel_time += dt
@@ -572,10 +612,20 @@ func _go_to(p: Vector3, _dt: float) -> bool:
 	if abstract_mode or body() == null:
 		_place(p)
 		return true
-	var dir := d.normalized() + _prop_push(here)
+	# M3.1: Wegsuche (GroundNav) um Flugzeuge, Wagen, Gebäude und Propellerzonen
+	var tgt = _nav_target(p, here)
+	if tgt == null:
+		_nav_goal = Vector3.INF
+		_stuck_t = 0.0
+		_side_t = 0.0
+		return true          # Ziel liegt im Hindernis-Saum: an der letzten freien Stelle angekommen
+	var dn := Vector3(tgt.x - here.x, 0.0, tgt.z - here.z)
+	if dn.length_squared() < 1e-6:
+		dn = d
+	var dir := dn.normalized() + _prop_push(here) + _crowd_push(here)
 	dir.y = 0.0
 	if dir.length_squared() < 1e-6:
-		dir = d.normalized()
+		dir = dn.normalized()
 	dir = dir.normalized()
 	# Paket 14: festgelaufen -> eine Weile seitlich ausweichen (gleiche Seite, bis es klappt)
 	var cb := body() as CharacterBody3D
@@ -591,16 +641,103 @@ func _go_to(p: Vector3, _dt: float) -> bool:
 			return true          # Ziel liegt im Flugzeug/Fahrzeug: nah genug (JobBoard: work_range)
 		if _stuck_t > STUCK_TIME:
 			_stuck_t = 0.0
+			_nav_goal = Vector3.INF          # neu planen
 			if _side_t > 0.0:
 				_side_sign = -_side_sign
 			_side_t = SIDESTEP_TIME
 		if _side_t > 0.0:
 			_side_t -= dt
 			dir = (dir * 0.3 + dir.cross(Vector3.UP) * _side_sign).normalized()
+	# M3.1: nie in ein Hindernis hinein (Ausweichen, Gedränge, Seitschritt): Richtung drehen
+	# oder stehen bleiben
+	var safe := _safe_dir(here, dir)
+	if safe == Vector3.ZERO:
+		_intent.move = Vector2.ZERO
+		return false
+	dir = safe
 	_intent.look_yaw = atan2(-dir.x, -dir.z)
 	_intent.move = Vector2(0.0, 1.0)
 	_intent.sprint = d.length() > SPRINT_FROM and not _carrying
 	return false
+
+
+## Richtung (oder gedreht bis ±180°), die den Abstand zu Hindernissen nicht unter SAFE_R
+## drückt; Vector3.ZERO = keine.
+func _safe_dir(here: Vector3, dir: Vector3) -> Vector3:
+	var obs := GroundNav.obstacles([], true)
+	var lim := minf(GroundNav.min_dist(obs, here.x, here.z), SAFE_R)
+	for ang in [0.0, 0.5, -0.5, 1.0, -1.0, 1.57, -1.57, 2.2, -2.2, 3.14]:
+		var dd := dir.rotated(Vector3.UP, ang * _side_sign)
+		if GroundNav.min_dist(obs, here.x + dd.x * 0.25, here.z + dd.z * 0.25) >= lim - 0.01:
+			return dd
+	return Vector3.ZERO
+
+
+## Nächster Wegpunkt zu p (Szene) oder null = am Ende eines verkürzten Wegs angekommen.
+## Neu geplant wird bei neuem Ziel und alle NAV_CHECK s, wenn der nächste Abschnitt blockiert ist.
+func _nav_target(p: Vector3, here: Vector3):
+	var dt := get_physics_process_delta_time()
+	_nav_check -= dt
+	var obs: Array = []
+	if _flat_dist(p, _nav_goal) > 0.3 or _nav_path.is_empty():
+		obs = _nav_obstacles()
+		_nav_path = GroundNav.find_path(obs, here, p, GroundNav.CREW_CLEAR)
+		_nav_goal = p
+		_nav_check = NAV_CHECK
+	elif _nav_check <= 0.0:
+		_nav_check = NAV_CHECK
+		obs = _nav_obstacles()
+		var last := _nav_path.size() == 1
+		if not GroundNav.segment_free(obs, here, _nav_path[0], GroundNav.CREW_CLEAR * 0.5, 0.6 if last else 0.0):
+			_nav_path = GroundNav.find_path(obs, here, p, GroundNav.CREW_CLEAR)
+	while _nav_path.size() > 1 and _flat_dist(here, _nav_path[0]) < NAV_REACH:
+		_nav_path.remove_at(0)
+	var q := _nav_path[0]
+	if _nav_path.size() == 1 and _flat_dist(q, p) > 0.3 and _flat_dist(here, q) <= NAV_END_R:
+		return null
+	return q
+
+
+func _nav_obstacles() -> Array:
+	return GroundNav.obstacles([], true)
+
+
+func _nav_len(from: Vector3, to: Vector3) -> float:
+	return GroundNav.path_length(GroundNav.obstacles([], true), from, to, GroundNav.CREW_CLEAR)
+
+
+## Steht die Figur in einem Hindernis-Saum (z. B. im Fahrweg eines Wagens), zur nächsten freien
+## Stelle gehen.
+func _step_aside(_dt: float) -> void:
+	if abstract_mode or body() == null:
+		return
+	var here := position_now()
+	var obs := _nav_obstacles()
+	if GroundNav.min_dist(obs, here.x, here.z) >= GroundNav.CREW_CLEAR - 0.05:
+		return
+	var q = GroundNav.free_near(obs, here, GroundNav.CREW_CLEAR + 0.2, here)
+	if q == null:
+		return
+	var d := Vector3(q.x - here.x, 0.0, q.z - here.z)
+	if d.length() < 0.05:
+		return
+	var dir := _safe_dir(here, d.normalized())
+	if dir != Vector3.ZERO:
+		_intent.look_yaw = atan2(-dir.x, -dir.z)
+		_intent.move = Vector2(0.0, 1.0)
+
+
+## Abstand zu anderem Personal (nicht ineinander laufen).
+func _crowd_push(here: Vector3) -> Vector3:
+	var push := Vector3.ZERO
+	for br in all:
+		if br == self or not is_instance_valid(br) or br.in_vehicle() != null or br.abstract_mode:
+			continue
+		var d := Vector3(here.x, 0.0, here.z) - Vector3(br.position_now().x, 0.0, br.position_now().z)
+		var l := d.length()
+		if l < CROWD_R and l > 0.01:
+			push += d / l * (CROWD_R - l) * 1.5
+	return push
 
 
 func _place(p: Vector3) -> void:
@@ -820,22 +957,14 @@ func _run_drive(leg: Dictionary, dt: float) -> void:
 			_exit_vehicle()
 			return
 		if v.driver_seat.controller != null and v.driver_seat.controller != self:
-			return                                     # jemand anderes fährt: warten
+			_step_aside(dt)                            # jemand anderes fährt: warten (nicht im Fahrweg)
+			return
 		var entry := v.driver_seat.entry_position()
-		if not leg.get("routed", false):
-			leg["routed"] = true
-			if dispatch != null and dispatch.has_method("drive_route") and not abstract_mode \
-					and _flat_dist(position_now(), entry) > WALK_ROUTE_MIN:
-				var pts: Array = dispatch.drive_route(position_now(), entry)
-				pts.reverse()
-				for p in pts:
-					_legs.push_front({pos = p, wait = 0.0, teleport = false})
-				return
 		if not abstract_mode and body() != null and not _go_to(entry, dt):
 			return
 		if abstract_mode or body() == null:
 			if _leg_left < 0.0:
-				_leg_left = _walk_time(_flat_dist(position_now(), entry))
+				_leg_left = _walk_time(_nav_len(position_now(), entry))
 			_leg_left -= dt
 			travel_time += dt
 			if _leg_left > 0.0:

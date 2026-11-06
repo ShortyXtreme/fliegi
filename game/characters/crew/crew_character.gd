@@ -156,6 +156,15 @@ func _marker(n: String, p: Vector3) -> Node3D:
 	return m
 
 
+## M3.1: Wagen bremsen vor Figuren (GroundNav.walkers).
+func _enter_tree() -> void:
+	GroundNav.add_walker(self)
+
+
+func _exit_tree() -> void:
+	GroundNav.remove_walker(self)
+
+
 func _ready() -> void:
 	_snap_to_ground()
 

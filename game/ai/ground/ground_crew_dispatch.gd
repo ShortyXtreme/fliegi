@@ -38,12 +38,17 @@ const TOP_UP_MARGIN := 0.03
 
 
 ## Paket 14: Fahrspur westlich der Abstellplätze (Platz-Koordinaten x), null = ohne.
-const LANE_X := -61.0
+## M3.1: 12 m westlich der Abstellplätze (Wagen am Flugzeug halten bei x = -59,5 und
+## blockieren die Spur nicht), Hallen-Tore bei x = -73.
+const LANE_X := -64.0
+## Auf die Spur schräg vorwärts einfädeln bzw. vor dem Ziel schräg ausfädeln (m längs).
+const LANE_IN := 8.0
+const LANE_OUT := 10.0
 var layout: AirfieldLayout = null
 
 
-## Zwischenpunkte für eine Fahrt from -> to (Szenenkoordinaten): erst quer auf die Fahrspur,
-## dann längs, dann zum Ziel. Kurze Fahrten (< 15 m längs) direkt.
+## Zwischenpunkte für eine Fahrt from -> to (Szenenkoordinaten): schräg auf die Fahrspur,
+## längs, schräg zum Ziel. Kurze Fahrten (< 15 m längs) direkt.
 func drive_route(from: Vector3, to: Vector3) -> Array:
 	if layout == null:
 		return []
@@ -51,10 +56,13 @@ func drive_route(from: Vector3, to: Vector3) -> Array:
 	var b := layout.to_local(to)
 	if absf(a.z - b.z) < 15.0:
 		return []
+	var dir := signf(b.z - a.z)
 	var out := []
-	if absf(a.x - LANE_X) > 3.0:
-		out.append(layout.to_scene(Vector3(LANE_X, 0, a.z)))
-	out.append(layout.to_scene(Vector3(LANE_X, 0, b.z)))
+	var z_in := a.z + dir * LANE_IN
+	var z_out := b.z - dir * LANE_OUT
+	if absf(a.x - LANE_X) > 3.0 and (z_out - z_in) * dir > 0.0:
+		out.append(layout.to_scene(Vector3(LANE_X, 0, z_in)))
+	out.append(layout.to_scene(Vector3(LANE_X, 0, z_out if absf(b.x - LANE_X) > 3.0 else b.z)))
 	for i in out.size():
 		out[i].y = WorldGround.height_at(out[i].x, out[i].z)
 	return out
@@ -62,8 +70,8 @@ func drive_route(from: Vector3, to: Vector3) -> Array:
 
 ## Halteplatz eines Wagens neben der Maschine a: auf der Seite der Fahrspur, Tankwagen auf Höhe
 ## des Tankdeckels, Munitionswagen weiter hinten (Richtung Heck). null = ohne Layout.
-const SPOT_SIDE := 7.5
-const SPOT_CART_BACK := 7.0
+const SPOT_SIDE := 8.5
+const SPOT_CART_BACK := 9.5
 func vehicle_spot(a: Node3D, cart: bool):
 	if layout == null or a == null:
 		return null

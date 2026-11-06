@@ -77,9 +77,13 @@ func _put(model: Node3D, key: String, pos: Vector3, yaw: float) -> Node3D:
 
 
 func _buildings() -> void:
-	_put(load_model("fuel_depot"), "fuel_depot", layout.to_scene(layout.fuel_depot), FACE_EAST)
-	_put(load_model("ammo_bunker"), "ammo_bunker", layout.to_scene(layout.ammo_bunker), FACE_EAST)
+	var fd := _put(load_model("fuel_depot"), "fuel_depot", layout.to_scene(layout.fuel_depot), FACE_EAST)
+	var ab := _put(load_model("ammo_bunker"), "ammo_bunker", layout.to_scene(layout.ammo_bunker), FACE_EAST)
 	var h := _put(load_model("hangar"), "hangar", layout.to_scene(layout.hangar), FACE_EAST)
+	# M3.1: Gebäude als Hindernisse der Wegsuche (Personal und Wagen)
+	for m in [fd, ab, h]:
+		if m != null:
+			GroundNav.register_model(m)
 	if h != null:
 		# Kollision: Rück- und Seitenwände (Tor offen zum Rollweg)
 		var body := StaticBody3D.new()

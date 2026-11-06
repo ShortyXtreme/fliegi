@@ -129,6 +129,15 @@ func place(pos: Vector3, yaw: float) -> void:
 	_fit_to_ground()
 
 
+## M3.1: Hindernis für die Wegsuche am Boden (GroundNav).
+func _enter_tree() -> void:
+	GroundNav.add_mover(self)
+
+
+func _exit_tree() -> void:
+	GroundNav.remove_mover(self)
+
+
 func _ready() -> void:
 	_fit_to_ground()
 

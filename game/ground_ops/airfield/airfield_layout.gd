@@ -216,7 +216,7 @@ static func make_default(index: int, runway_length_m: float, runway_width_m: flo
 		l.parking_in_nodes.append(mid[k - 2] if mid.has(k - 2) else mid[k - 1])
 	l.fuel_depot = Vector3(-110.0, 0, sz - 20.0)
 	l.ammo_bunker = Vector3(-115.0, 0, sz - 260.0)
-	l.hangar = Vector3(-80.0, 0, sz - 120.0)
-	l.crew_spawn = Vector3(-60.0, 0, sz - 60.0)
+	l.hangar = Vector3(-88.0, 0, sz - 120.0)      # M3.1: Tor bei x = -73, Fahrspur x = -64 frei
+	l.crew_spawn = Vector3(-70.0, 0, sz - 60.0)   # M3.1: neben der Fahrspur
 	l.vehicle_spawns = PackedVector3Array([Vector3(-95.0, 0, sz - 30.0), Vector3(-95.0, 0, sz - 245.0)])
 	return l
