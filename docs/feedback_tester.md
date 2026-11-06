@@ -9,3 +9,7 @@
 ## Wünsche vom 01.11.2026 (zu HUD-Vorschau M2)
 - Anzeigen sollen zur Epoche des Flugzeugs passen: je moderner das Flugzeug, desto moderner das HUD/die Anzeigen (z. B. Tier I: analoge Rundinstrumente/Reflexvisier-Stil; Jets: Head-up-Display mit Leitlinien). → Konzept: HUD-Themes je Tier/Flugzeugklasse, eingeplant nach M2.
 - Echte Cockpit-Innenansicht beim Kamerawechsel: modelliertes Cockpit, alle Instrumente zeigen live die echten Werte (Fahrtmesser, Höhenmesser, Variometer, Drehzahl, Kompass, Ladedruck, Kraftstoff, Fahrwerksanzeige…), Steuerknüppel, Pedale und Gashebel bewegen sich mit. → eigener Arbeitsschritt (Blender-Cockpitmodell + Instrumenten-Animation), eingeplant nach M2.
+
+## M3.1 (06.11.2026)
+- UI und Hilfe überarbeiten: zu unübersichtlich, Tasten schwer zu merken, sieht nicht schön aus.
+- Hilfe für Neulinge: geführtes Tutorial (Starten, Kämpfen, Landen, Abfertigen).
