@@ -263,6 +263,10 @@ func _ground_phases() -> void:
 	await _hold("crew_interact", 0.3)
 	var got_crate: bool = ch.carried is CarryItem and ch.carried.kind == CarryItem.CRATE
 	var hatch := pl.service_point(ServiceMarkers.SVC_GUN_HATCH_L)
+	# M3.1: von außen an die Klappe treten (Wagen steht weiter hinten; von dort läge der Einstieg im Blick)
+	var lat := pl.global_transform.basis.x
+	lat = lat * signf(lat.dot(hatch - pl.global_position))
+	ch.global_position = hatch + Vector3(lat.x, 0.0, lat.z).normalized() * 3.0
 	_face(ch, hatch, 1.2)
 	await _frames(0.3)
 	Input.action_press("crew_interact")

@@ -118,6 +118,6 @@ func test_main_scene_debug_toggle() -> Array:
 	var no_log := not h.hit_debug.log_enabled
 	g.queue_free()
 	await _step(2)
-	return [not before and on and hb_off and forces and no_log and Hud.VERSION == "M3",
+	return [not before and on and hb_off and forces and no_log and Hud.VERSION == "M3.1",
 		"Start aus %s, F3 an %s, F4 Hitboxen aus %s, Shift+F3 Kräfte zusätzlich %s, kein Log in Tests %s" % [
 		not before, on, hb_off, forces, no_log]]

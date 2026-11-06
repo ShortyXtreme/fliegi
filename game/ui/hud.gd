@@ -4,8 +4,8 @@ extends CanvasLayer
 ## F3: Treffer-Debug (M2.1, ui/debug/), Shift+F3: Kräfte-Overlay (Text + 3D-Pfeile),
 ## F1: Steuerungshilfe.
 
-const VERSION := "M3"
-const HELP_TEXT := """[b]STEUERUNG[/b]  Flugkern M3 – Bodenbetrieb, Luftkampf 1 gegen 3  (F1 / Xbox-View-Taste schließt)
+const VERSION := "M3.1"
+const HELP_TEXT := """[b]STEUERUNG[/b]  Flugkern M3.1 – Bodenbetrieb, Luftkampf 1 gegen 3  (F1 / Xbox-View-Taste schließt)
 [b]Tastatur[/b]
   W / S  ........ Nase runter / hoch      A / D ..... rollen links / rechts
   Q / E  ........ Seitenruder             Shift / Strg .. Gas mehr / weniger

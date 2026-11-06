@@ -1,11 +1,17 @@
-# Flugkern M3 – Testversion „Bodenbetrieb“
+# Flugkern M3.1 – Testversion „Bodenbetrieb“ (Korrekturen)
 
 ## Installation
 1. Die vorhandene **Flugkern.exe** (Godot 4.7.2) bleibt unverändert.
 2. Diese **Flugkern.pck** in denselben Ordner kopieren und die alte überschreiben.
-3. Flugkern.exe starten. Der Fenstertitel muss „Flugkern M3“ zeigen.
+3. Flugkern.exe starten. Der Fenstertitel muss „Flugkern M3.1“ zeigen.
 
-## Was ist neu
+## Neu in M3.1
+- **KI-Mechaniker und Wagen weichen aus:** Wegsuche um Flugzeuge, Wagen, Hallen und laufende Propeller; Wagen bremsen vor Hindernissen und Personen im Fahrweg.
+- **Natürlichere Haltung:** In Ruhe hängen die Arme am Körper; Arbeiten und Einsteigen greifen nach vorn.
+- **Schnellere Abfertigung:** Tank- und Munitionswagen warten an den Abstellplätzen (mit 2 KI-Helfern ca. 1:30 min).
+- **Gebäude:** Alle Hallen sind jetzt Modelle (keine grauen Klötze mehr); Tanklager und Bunker haben Kollision.
+
+## Was ist neu (M3)
 - **Start am Boden:** Du sitzt im Jäger am Abstellplatz von Platz Blau (50 % Treibstoff, volle Munition). Nach einem Abschuss steht eine neue Maschine am Abstellplatz (15 % Treibstoff, keine Munition), ohne Treibstoff springt der Motor nicht an.
 - **Aussteigen und zu Fuß:** Im Stand **J** bzw. **Steuerkreuz ← 1 s halten**. Zu Fuß: WASD/linker Stick, Maus/rechter Stick, Shift/L3 Sprint, **E/A halten = arbeiten**, G/B ablegen, **F/Y einsteigen**, C/R3 Ego-Sicht, **Tab/LB halten = Befehlsrad**.
 - **Selbst abfertigen:** Schlauch am Tankwagen nehmen, am Tankdeckel ankoppeln (E halten), Pumpe läuft, danach abkoppeln. Kiste vom Munitionswagen nehmen, an der MG-Klappe E halten (Klappe, Gurt, Klappe). Reparatur light an den Servicepunkten.

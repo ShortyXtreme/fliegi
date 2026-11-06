@@ -1,5 +1,19 @@
 # Änderungsprotokoll Flugkern
 
+## M3.1 „Bodenbetrieb – Korrekturen“ (06.11.2026)
+
+### Behoben
+- **KI-Personal lief durch Wagen und Flugzeuge:** neue Wegsuche `GroundNav` (ai/ground/ground_nav.gd): deterministisches A* auf einem Raster um Start und Ziel, Hindernisse als waagerechte Rechtecke (Gebäude aus den Modellumrissen, Flugzeuge mit Rumpf-/Propeller-/Flügel-/Leitwerkbox, Wagen; für Personal zusätzlich die Zone drehender Propeller). Liegt ein Servicepunkt im Hindernis, endet der Weg an der nächsten freien Stelle. Personal plant bei Blockade neu, hält Abstand zu Hindernissen und zueinander und tritt aus dem Fahrweg gefahrener Wagen. Sim-LOD ohne Physik: Gehzeiten über die Weglänge.
+- **Wagen fuhren durch Flugzeuge/Gebäude:** Fahrspur x = -64 (12 m westlich der Abstellplätze) mit schrägem Ein- und Ausfädeln, Halteplatz 8,5 m neben der Maschine, Bremsen vor Hindernissen und Figuren im Fahrweg (`GroundCrewBrain._drive_blocked`). Hallen-Tore bei x = -73.
+- **Idle-Pose mit abgespreizten Armen:** `art/scripts/build_crew.py` senkt die Oberarme auf 84° (vorher 78°), Ellbogen leicht gebeugt; „Arbeiten“ hebt die Arme nach vorn statt seitlich, „Einsteigen“ greift nach vorn-oben. Modell neu exportiert.
+- **Abfertigung mit 2 Helfern 2:10 statt ≤ 1:45 min:** Tank- und Munitionswagen sowie Personal warten westlich der Fahrspur auf Höhe der Abstellplätze (vorher am Lager/Bunker, bis 245 m Anfahrt); die Wagen bleiben nach der Abfertigung dort und fahren nur zum Nachfüllen zum Lager. Gemessen (echte Wagen und Figuren, Standard): 86–96 s.
+- **Graue Platzhalter-Hallen:** `AirfieldOps` stellt 3 Hallen-Modelle je Platz auf (Wände und Dach mit Kollision), Tanklager und Bunker erhalten Kollisionsboxen; die Klötze in `TerrainWorld` (Hallen, Turm) entstehen nur noch ohne Modelle. Tankwagen hält 8,5 m vor dem Lager (`FuelTruck.FILL_RANGE` 12,5 m).
+
+### Tests
+- Neu `tests/suites/ai_ground/test_ground_nav.gd`: Abfertigung an Platz 0/2/5 mit 2 Mechanikern, Tankwagen und Munitionswagen ohne Durchdringen (Figur ≥ 0,25 m, Wagen ≥ 0,5 m zu Flugzeug, Wagen, Gebäuden) in ≤ 105 s; Weg um Hindernisse; Wagen bremst vor Flugzeug und Figur.
+- `test_prop_zone`: Mechaniker startet auf der Seite des Motor-Servicepunkts (sonst Weg um die Nase).
+
+
 ## M3 „Bodenbetrieb“ (02.11.2026)
 
 ### Neu (Pakete 1–15)
@@ -28,8 +42,8 @@
 
 ### Bekannt / notiert
 - Funkenbrand (Authentisch, Erden vergessen) bleibt eine Meldung ohne Brandwirkung (Feuerlöschen außerhalb von M3).
-- Keine echte Wegsuche für Personal und Wagen; KI-Personal kollidiert nicht mit Wagen und Flugzeugen.
-- Abfertigung im echten Spiel (Wagen fährt 150 m vom Lager an) ≈ 2:10 min mit 2 Helfern in Standard; die Richtzeiten aus dem Plan gelten für das Sim-LOD.
+- (behoben in M3.1) Keine echte Wegsuche für Personal und Wagen.
+- (behoben in M3.1) Abfertigung im echten Spiel ≈ 2:10 min mit 2 Helfern.
 - `test_duels_flat` (slow) bleibt rot wie seit 3bd2292.
 
 ## M2.2 „Trefferfix“ (01.11.2026)
