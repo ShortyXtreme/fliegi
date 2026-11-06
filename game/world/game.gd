@@ -176,17 +176,10 @@ func _ready() -> void:
 	player.help_toggle_requested.connect(hud.toggle_help)
 	player.reset_requested.connect(_on_reset)
 	player.gear_toggled.connect(hud.on_gear_toggled)
+	GameSettings.apply_runtime(self)   # M3.2: Menü-Einstellungen (Flugmodus, Radar, Maus)
 	if is_tutorial():
 		_alarm_next = -1.0
 		start_tutorial()
-	elif not Tutorial.was_offered() and DisplayServer.get_name() != "headless" \
-			and not Selbsttest.requested() and not "--script" in OS.get_cmdline_args():
-		var offer := TutorialOffer.new()
-		offer.answered.connect(func(start: bool):
-			if start:
-				Game.tutorial_mode = true
-				get_tree().reload_current_scene())
-		hud.add_child(offer)
 	_print_diagnostics()
 	_print_ground_diagnostics()
 	if Selbsttest.requested():
@@ -359,6 +352,34 @@ func trigger_alarm(seconds := Turnaround.ALARM_DEFAULT_S) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("alarm_debug"):
 		trigger_alarm()
+	elif event.is_action_pressed("release_mouse") and not get_tree().paused:
+		open_pause_menu()   # M3.2: Esc / Menu-Taste: Pausenmenü (gibt die Maus frei)
+
+
+## M3.2: Pausenmenü (Fortsetzen, Steuerung, Einstellungen, Zum Hauptmenü, Beenden).
+var pause_menu: GameMenu
+
+
+func open_pause_menu() -> void:
+	if pause_menu != null and is_instance_valid(pause_menu):
+		return
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	pause_menu = GameMenu.new()
+	pause_menu.mode = GameMenu.Mode.PAUSE
+	pause_menu.game = self
+	pause_menu.resume_requested.connect(close_pause_menu)
+	pause_menu.main_menu_requested.connect(func():
+		get_tree().paused = false
+		get_tree().change_scene_to_file(GameMenu.MENU_SCENE))
+	add_child(pause_menu)
+	get_tree().paused = true
+
+
+func close_pause_menu() -> void:
+	if pause_menu != null and is_instance_valid(pause_menu):
+		pause_menu.queue_free()
+	pause_menu = null
+	get_tree().paused = false
 
 
 func _physics_process(dt: float) -> void:

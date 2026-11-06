@@ -15,10 +15,32 @@ func _initialize() -> void:
 		out_dir = args[0]
 	if args.size() > 1:
 		prefix = args[1]
-	if args.size() > 2 and args[2] == "tutorial":
+	if args.size() > 2 and args[2] == "menu":
+		_run_menu.call_deferred()
+	elif args.size() > 2 and args[2] == "tutorial":
 		_run_tutorial.call_deferred()
 	else:
 		_run.call_deferred()
+
+
+## Hauptmenü (kreisende Kamera über Platz Blau) und Pausenmenü im Spiel.
+func _run_menu() -> void:
+	var m: Node = load("res://ui/menu/main_menu.tscn").instantiate()
+	root.add_child(m)
+	for i in 120:
+		await process_frame
+	await _shot("g_hauptmenue")
+	m.queue_free()
+	CombatHud.replace_legacy_text = true
+	game = load("res://world/main.tscn").instantiate()
+	root.add_child(game)
+	await _frames(60)
+	game.open_pause_menu()
+	game.pause_menu.list.nav("down")
+	for i in 10:
+		await process_frame
+	await _shot("g_pausenmenue")
+	quit(0)
 
 
 ## Tutorial: Schritt 3 „Zielen“ mit Übungsziel; dazu das Angebot beim ersten Start.
@@ -28,11 +50,6 @@ func _run_tutorial() -> void:
 	game = load("res://world/main.tscn").instantiate()
 	root.add_child(game)
 	await _frames(30)
-	var offer := TutorialOffer.new()
-	game.hud.add_child(offer)
-	await _frames(4)
-	await _shot("f_tutorial_angebot")
-	offer.queue_free()
 	var tu: Tutorial = game.tutorial
 	var pa := game.player_aircraft
 	var p0 := pa.global_position + Vector3(0, 650, 0)

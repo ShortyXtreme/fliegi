@@ -66,6 +66,7 @@ Neu: `ui/theme/*`, `ui/common/key_glyphs.gd`, `ui/common/key_bar.gd`, `ui/combat
 `interaction_hint.gd`, `command_wheel.gd`. Screenshots: `docs/screens_m3/ui_m3_2_*.png`
 (`…_vorher_*` = Stand M3.1).
 
-## 4. Phase 2 (offen)
+## 4. Phase 2 (umgesetzt)
 
-Geführtes Tutorial (Starten, Kämpfen, Landen, Abfertigen) auf Basis von Tasten-Leiste und Hilfe-Tafel.
+Geführtes Tutorial (`tutorial/`, 7 Schritte, Karte rechts, Tasten über die Tasten-Leiste) sowie
+Hauptmenü und Pausenmenü (`ui/menu/`) im selben Theme; Einstellungen in `user://flugkern.cfg`.

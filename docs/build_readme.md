@@ -6,7 +6,8 @@
 3. Flugkern.exe starten. Der Fenstertitel muss „Flugkern M3.1“ zeigen.
 
 ## Neu in M3.2
-- **Geführtes Tutorial:** wird beim allerersten Start angeboten (Enter/A starten, Rücktaste/B freies Spiel) und lässt sich jederzeit über **„Tutorial starten.bat“** (Option `--tutorial`) starten. 7 Schritte: Starten, Fliegen, Zielen auf ein Übungsziel (schießt nicht), Notausstieg, Landen, Abfertigen, Abschluss. **F8** Schritt überspringen, **F7** beenden.
+- **Hauptmenü** bei jedem Start: Tutorial (mit Fortschritt), Freies Spiel, Einstellungen (Realismus Flug, Bodenbetrieb, KI-Stufe, Radar, Maus-Empfindlichkeit), Steuerung, Beenden – Maus, Pfeile + Enter oder Stick + A/B. **Im Spiel: Esc bzw. Menu-Taste = Pausenmenü** (gibt die Maus frei). Neustart auf der Piste am Controller nur noch über das Menü (Tastatur R).
+- **Geführtes Tutorial:** über das Hauptmenü oder **„Tutorial starten.bat“** (Option `--tutorial`). 7 Schritte: Starten, Fliegen, Zielen auf ein Übungsziel (schießt nicht), Notausstieg, Landen, Abfertigen, Abschluss. **F8** Schritt überspringen, **F7** beenden.
 - **Neue Oberfläche:** feste Bildschirmzonen, Ruhezustand ohne Waffen-/Schadensanzeige (erscheint im Kampf oder bei Änderungen), Warnungen oben Mitte, Epochen-Gestaltung (Elfenbein/Messing/Oliv, Schrift Oswald).
 - **Tasten-Leiste** unten Mitte: die gerade sinnvollen Tasten als Symbole, automatisch Tastatur oder Xbox-Controller.
 - **F1** ist jetzt eine übersichtliche Tafel je Kontext (Tastatur und Controller nebeneinander) und öffnet nicht mehr automatisch.

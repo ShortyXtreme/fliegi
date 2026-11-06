@@ -28,7 +28,7 @@ func _init() -> void:
 
 ## Gruppen: [Titel, Spalte 0/1, [[Aktion, Tastatur, Pad], …]].
 static func groups(ctx: int) -> Array:
-	var general := ["Allgemein", 1, [["Hilfe ein / aus", "F1", "View"], ["Maus freigeben", "Esc", ""],
+	var general := ["Allgemein", 1, [["Hilfe ein / aus", "F1", "View"], ["Pausenmenü / Maus frei", "Esc", "Menu"],
 		["Tutorial: Schritt weiter / beenden", "F8 / F7", ""]]]
 	match ctx:
 		InputBindings.Context.CREW:
@@ -48,7 +48,7 @@ static func groups(ctx: int) -> Array:
 				general]
 		_:
 			general[2].append_array([["Arcade / Realistisch", "X", "X"], ["Maus-Zielsteuerung", "M", ""],
-				["Neustart Piste / Luft", "R / T", "Menu"], ["Treffer-Debug", "F3", "L3"]])
+				["Neustart Piste / Luft", "R / T", ""], ["Treffer-Debug", "F3", "L3"]])
 			return [
 				["Fliegen", 0, [["Höhenruder", "W S", "linker Stick"], ["Querruder", "A D", "linker Stick"],
 					["Seitenruder", "Q E", "LB RB"], ["Gas", "Shift / Strg", "Kreuz ↑ ↓"],

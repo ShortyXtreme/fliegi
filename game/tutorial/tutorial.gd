@@ -1,7 +1,7 @@
 class_name Tutorial
 extends Node
 ## Geführtes Tutorial (M3.2 Phase 2). Start: Option --tutorial bzw. Game.tutorial_mode (Angebot
-## beim allerersten Start, TutorialOffer). Ruhige Szene: gleiche Welt, keine roten Angreifer,
+## über das Hauptmenü, GameMenu). Ruhige Szene: gleiche Welt, keine roten Angreifer,
 ## kein Alarm, nur ein „Übungsziel“, das nicht zurückschießt.
 ## Jeder Schritt hat Aufgaben, deren Prüfung die echte Aktion beobachtet (Flugzustand, Eingabe,
 ## Treffer-Bus, Befehlsrad, Tragen, Munition, Sitz). F8 überspringt den Schritt, F7 beendet.

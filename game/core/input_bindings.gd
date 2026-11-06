@@ -25,7 +25,7 @@ extends RefCounted
 ##   DRIVE  W / RT Gas, S / LT Bremse+Rückwärts, A D / linker Stick Lenkung, Leertaste / B
 ##          Handbremse, J / Steuerkreuz ← 1 s halten = Aussteigen (im Stand),
 ##          E / A = Interagieren (z. B. Schlauchtrommel), Tab / LB = Befehlsrad, C / Y = Kamera.
-##   GLOBAL F1 / Back = Hilfe, Esc = Maus freigeben.
+##   GLOBAL F1 / Back = Hilfe, Esc / Menu = Pausenmenü + Maus freigeben (M3.2).
 
 const STICK_DEADZONE := 0.15
 const TRIGGER_DEADZONE := 0.08
@@ -140,7 +140,7 @@ static func setup() -> void:
 	_button("camera_next", JOY_BUTTON_Y)
 	_button("assist_toggle", JOY_BUTTON_X)
 	_button("help_toggle", JOY_BUTTON_BACK)
-	_button("reset_runway", JOY_BUTTON_START)
+	_button("release_mouse", JOY_BUTTON_START)           # M3.2: Menu-Taste = Pausenmenü (war Neustart Piste)
 	_button("zoom_hold", JOY_BUTTON_RIGHT_STICK)         # M2.1: R3 halten = Zoom (war Blick zurück)
 	_button("debug_toggle", JOY_BUTTON_LEFT_STICK)       # M2.1: L3 = Treffer-Debug
 	_button("debug_toggle", JOY_BUTTON_MISC1)            # M2.1: Share-Taste (Series X|S)

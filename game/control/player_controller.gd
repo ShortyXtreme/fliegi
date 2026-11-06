@@ -151,7 +151,7 @@ func zoom_mul() -> float:
 
 ## Maus-Empfindlichkeit (rad je Pixel) inkl. Zoom.
 func mouse_sens() -> float:
-	return MOUSE_SENS / zoom_mul()
+	return MOUSE_SENS * GameSettings.mouse_mul / zoom_mul()
 
 
 func zoom_held() -> bool:

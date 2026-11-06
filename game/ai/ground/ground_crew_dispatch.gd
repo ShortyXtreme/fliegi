@@ -176,7 +176,7 @@ func is_player_aircraft(a: Aircraft) -> bool:
 
 
 func _check(a: Aircraft) -> void:
-	if not a.seat_on_ground():
+	if not a.seat_on_ground() and a.seat_speed() > 20.0:
 		_airborne[a] = true      # M3.2: „gelandet“ nur nach echtem Flug melden
 	if not is_parked(a):
 		if _known.has(a):
