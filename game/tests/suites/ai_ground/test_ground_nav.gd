@@ -119,15 +119,16 @@ func _run(s: Dictionary) -> Dictionary:
 	return {t = t, done = done, crew_min = crew_min, crew_hit = crew_hit, veh_min = veh_min, veh_hit = veh_hit}
 
 
-## Abfertigung mit 2 Mechanikern, Tankwagen und Munitionswagen: kein Durchdringen.
+## Abfertigung mit 2 Mechanikern, Tankwagen und Munitionswagen: kein Durchdringen, ≤ 1:45 min
+## (Plan §1, Standard, 2 KI-Helfer; Wagen warten an den Abstellplätzen).
 func test_turnaround_no_penetration() -> Array:
 	var res := []
 	var ok := true
-	for spot in [0, 5]:
+	for spot in [0, 2, 5]:
 		var s: Dictionary = await _ops(spot)
 		var r: Dictionary = await _run(s)
 		await _free(s)
-		var good: bool = r.done and r.crew_min >= CREW_MIN and r.veh_min >= 0.5
+		var good: bool = r.done and r.t <= C_LIMIT and r.crew_min >= CREW_MIN and r.veh_min >= 0.5
 		ok = ok and good
 		res.append("Platz %d: %s %.0f s, Figur min %.2f m (%s), Wagen min %.2f m (%s)" % [spot,
 			"fertig" if r.done else "NICHT fertig", r.t, r.crew_min, r.crew_hit, r.veh_min, r.veh_hit])
