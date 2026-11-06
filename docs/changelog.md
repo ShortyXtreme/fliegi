@@ -12,6 +12,10 @@
 ### Tests
 - Neu `tests/suites/ai_ground/test_ground_nav.gd`: Abfertigung an Platz 0/2/5 mit 2 Mechanikern, Tankwagen und Munitionswagen ohne Durchdringen (Figur ≥ 0,25 m, Wagen ≥ 0,5 m zu Flugzeug, Wagen, Gebäuden) in ≤ 105 s; Weg um Hindernisse; Wagen bremst vor Flugzeug und Figur.
 - `test_prop_zone`: Mechaniker startet auf der Seite des Motor-Servicepunkts (sonst Weg um die Nase).
+- Ergebnisse: fast 192/192, slow 10/11 (`test_duels_flat` bekannt rot), Suite export (exportierte .pck) grün, Selbsttest OK (Abfertigung C 95 s), Hauptszene 3 min headless ohne Fehler.
+
+### Build
+- Import-Einstellungen der Platz-/Figur-Texturen (`assets/ground/*.png.import`) jetzt versioniert; ein frischer Checkout lieferte sonst 40,8 MB. Flugkern.pck 30.478.340 Byte (29,1 MiB), Flugkern.exe unverändert.
 
 
 ## M3 „Bodenbetrieb“ (02.11.2026)
