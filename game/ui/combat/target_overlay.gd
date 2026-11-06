@@ -42,7 +42,13 @@ func on_eject_denied() -> void:
 	eject_locked_t = LOCK_TIME
 
 
+## M3.2: „Notausstieg möglich“ nur kurz einblenden (s), danach steht er in der Tasten-Leiste.
+const EJECT_HINT_TIME := 5.0
+var eject_possible_t := 0.0
+
+
 func tick(dt: float) -> void:
+	eject_possible_t = eject_possible_t + dt if eject_possible else 0.0
 	hit_t = maxf(hit_t - dt, 0.0)
 	kill_t = maxf(kill_t - dt, 0.0)
 	eject_locked_t = maxf(eject_locked_t - dt, 0.0)
@@ -197,6 +203,13 @@ func _draw_eject(vs: Vector2) -> void:
 		var a := minf(eject_locked_t / 0.4, 1.0) * 0.9
 		HudStyle.text(self, Vector2(x, y), "Notausstieg gesperrt – nur bei schwerem Schaden",
 				15 * s, Color(HudStyle.CAUTION, a), true, 1)
-	elif eject_possible:
-		HudStyle.text(self, Vector2(x, y), "Notausstieg möglich  [J halten]", 15 * s,
-				Color(HudStyle.CAUTION, 0.8), true, 1)
+	elif eject_possible and eject_possible_t < EJECT_HINT_TIME:
+		var a := clampf((EJECT_HINT_TIME - eject_possible_t) / 0.6, 0.0, 1.0) * 0.9
+		var txt := "Notausstieg möglich – halten:"
+		var cap := KeyGlyphs.token(&"eject_hold", KeyGlyphs.pad)
+		var fs := 15.0 * s
+		var tw := HudStyle.text_width(txt, fs, true)
+		var cw := KeyGlyphs.spec_width(cap, 22 * s, KeyGlyphs.pad)
+		var x0 := x - (tw + 8 * s + cw) * 0.5
+		HudStyle.text(self, Vector2(x0, y), txt, fs, Color(HudStyle.CAUTION, a), true)
+		KeyGlyphs.draw_spec(self, Vector2(x0 + tw + 8 * s, y - 5 * s), cap, 22 * s, KeyGlyphs.pad, a)

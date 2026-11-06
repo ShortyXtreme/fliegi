@@ -11,6 +11,9 @@ extends Control
 ##   Mitte: Feindmarker, Randpfeile, Vorhaltepunkt, Trefferanzeige, Notausstieg-Hinweis
 
 const MARGIN := 24.0
+## M3.2: Waffen/Schaden im Ruhezustand ausblenden; Einblenden bei Kampf, Änderung (für s) oder Mangel.
+const COMBAT_RANGE := 2500.0
+const WEAPON_ATTN_TIME := 8.0
 
 ## true: blendet das alte Text-HUD aus hud.gd aus (_info, _warn, _warn2). Standard aus,
 ## bis Paket 14 umstellt (Hook, siehe docs/m2_hooks_DE.md).
@@ -23,6 +26,14 @@ var overlay: TargetOverlay
 var compass: CompassBand
 var radar: RadarLight
 var kill_feed: KillFeed
+## M3.2: Meldungszone oben Mitte (Flugwarnungen).
+var alerts: AlertStack
+## M3.2: Kampflage (erkannter Feind in COMBAT_RANGE oder eigenes Feuer) – blendet Waffen/Schaden ein.
+var in_combat := false
+## M3.2: Waffen/Schaden-Panel ausblenden (z. B. Statuspanel im Stand übernimmt die Ecke).
+var suppress_weapon_panel := false
+var _weapon_attn := 0.0
+var _weapon_sig := ""
 var ui_scale := 1.0
 ## Letzte Kontaktliste (für Tests/Sichtprüfung).
 var contacts: Array = []
@@ -53,6 +64,9 @@ func _ready() -> void:
 	add_child(radar)
 	kill_feed = KillFeed.new()
 	add_child(kill_feed)
+	alerts = AlertStack.new()
+	add_child(alerts)
+	theme = HudStyle.theme()
 
 
 func aircraft() -> Aircraft:
@@ -71,8 +85,11 @@ func _process(dt: float) -> void:
 	if replace_legacy_text:
 		_hide_legacy()
 	flight_panel.set_data(FlightPanel.gather(a, hud.player, hud.camera_rig, hud.debug_visible))
-	weapon_panel.set_data(WeaponPanel.gather(a), dt)
+	alerts.set_warnings(flight_panel.data.get("warnings", []), dt)
+	var wd := WeaponPanel.gather(a)
+	weapon_panel.set_data(wd, dt)
 	contacts = HudContacts.collect(a)
+	_update_weapon_visibility(a, wd, dt)
 	var xf := a.get_global_transform_interpolated()
 	# Kompass + Peilungen erkannter Feinde
 	compass.heading = HudContacts.heading_of(-xf.basis.z)
@@ -101,6 +118,31 @@ func _process(dt: float) -> void:
 		overlay.on_eject_denied()
 	overlay.tick(dt)
 	kill_feed.tick(dt)
+
+
+## Waffen/Schaden: im Ruhezustand aus, bei Kampf/Änderung/Mangel sanft ein (M3.2).
+func _update_weapon_visibility(a: Aircraft, wd: Dictionary, dt: float) -> void:
+	var xf := a.global_position
+	in_combat = false
+	for c in contacts:
+		if c.hostile and c.spotted and xf.distance_to(c.pos) < COMBAT_RANGE:
+			in_combat = true
+			break
+	var sig := ""
+	var short := false
+	for g in wd.get("groups", []):
+		sig += "%d|" % int(g.ammo)
+		short = short or g.jammed or float(g.ammo) < 0.2 * float(g.max)
+	for z in wd.get("zones", PackedFloat32Array()):
+		sig += "%.2f|" % z
+	if sig != _weapon_sig:
+		if _weapon_sig != "":
+			_weapon_attn = WEAPON_ATTN_TIME
+		_weapon_sig = sig
+	_weapon_attn = maxf(_weapon_attn - dt, 0.0)
+	var want := (in_combat or _weapon_attn > 0.0 or short) and not suppress_weapon_panel
+	weapon_panel.modulate.a = move_toward(weapon_panel.modulate.a, 1.0 if want else 0.0, dt * 3.0)
+	weapon_panel.visible = weapon_panel.modulate.a > 0.01
 
 
 ## Verbindet Bus- und Flugzeug-Signale neu, wenn sich Bus (reset) oder Flugzeug (Neustart) ändern.
@@ -153,6 +195,8 @@ func _layout() -> void:
 	compass.position = Vector2(vs.x * 0.5 - CompassBand.W * 0.5 * s, 14.0 * s)
 	radar.scale = Vector2(s, s)
 	radar.position = Vector2(MARGIN * s, MARGIN * s)
+	alerts.scale = Vector2(s, s)
+	alerts.position = Vector2(vs.x * 0.5, 96.0 * s)
 	kill_feed.scale = Vector2(s, s)
 	kill_feed.position = Vector2(vs.x - (MARGIN + KillFeed.W) * s, MARGIN * s)
 

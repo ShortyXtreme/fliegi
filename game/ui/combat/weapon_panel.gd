@@ -116,7 +116,7 @@ func _draw() -> void:
 	draw_set_transform(Vector2(PAD - 2, 26), 0.0, Vector2(1.1, 1.0))
 	_draw_sketch(Vector2.ZERO)
 	draw_set_transform(Vector2.ZERO)
-	var lw := HudStyle.text(self, Vector2(PAD, 18), "SCHADEN", 11, HudStyle.DIM)
+	var lw := HudStyle.heading(self, Vector2(PAD, 18), "SCHADEN", 10)
 	var hl: float = data.get("health", 1.0)
 	if hl < 0.999:
 		HudStyle.text(self, Vector2(PAD + lw + 8, 18), "%d %%" % int(round((1.0 - hl) * 100.0)), 11,
@@ -145,7 +145,7 @@ func _draw() -> void:
 		if g.heat_active:
 			var h: float = clampf(g.heat, 0.0, 1.0)
 			var hcol := HudStyle.ACCENT if h < 0.6 else (HudStyle.CAUTION if h < 0.9 else HudStyle.WARNING)
-			HudStyle.text(self, Vector2(x0, y + 4), "HITZE", 11, HudStyle.LABEL)
+			HudStyle.heading(self, Vector2(x0, y + 4), "HITZE", 10)
 			var hb := Rect2(x0 + 44, y - 4, W - PAD - x0 - 44, 6)
 			draw_rect(hb, Color(1, 1, 1, 0.08))
 			draw_rect(Rect2(hb.position, Vector2(hb.size.x * h, hb.size.y)), hcol)

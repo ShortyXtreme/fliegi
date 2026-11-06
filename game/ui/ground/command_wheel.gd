@@ -92,13 +92,14 @@ func _draw() -> void:
 	var n := count()
 	var seg := TAU / n
 	# Hintergrund-Ring
-	draw_circle(Vector2.ZERO, R_OUT + 6, Color(0.03, 0.04, 0.06, 0.80))
+	draw_circle(Vector2.ZERO, R_OUT + 6, Color(HudStyle.BG, 0.86))
+	draw_arc(Vector2.ZERO, R_OUT + 6, 0, TAU, 96, HudStyle.BG_EDGE, 1.5, true)
 	for i in n:
 		var a0 := -PI * 0.5 + (i - 0.5) * seg + 0.012
 		var a1 := a0 + seg - 0.024
 		var col := Color(1, 1, 1, 0.07)
 		if i == selected:
-			col = Color(HudStyle.ACCENT, 0.55)
+			col = Color(HudStyle.ACCENT, 0.9)
 		var pts := PackedVector2Array()
 		for k in 13:
 			var a := lerpf(a0, a1, k / 12.0)
@@ -116,7 +117,7 @@ func _draw() -> void:
 			lines = [" ".join(words.slice(0, cut)), " ".join(words.slice(cut))]
 		else:
 			lines = [labels()[i]]
-		var tc := HudStyle.VALUE if i == selected else Color(HudStyle.VALUE, 0.82)
+		var tc := HudStyle.KEY_TEXT if i == selected else Color(HudStyle.VALUE, 0.85)
 		var y0 := p.y + 6 - (lines.size() - 1) * 9.0
 		for li in lines.size():
 			HudStyle.text(self, Vector2(p.x, y0 + li * 19.0), lines[li], 16, tc, i == selected, 1)
@@ -125,14 +126,12 @@ func _draw() -> void:
 		var dir := _vec.normalized()
 		draw_line(dir * (R_IN - 10), dir * (R_IN + 2), HudStyle.ACCENT, 3.0, true)
 	# Mitte: Zielmaschine
-	draw_circle(Vector2.ZERO, R_IN, Color(0.05, 0.07, 0.09, 0.85))
-	draw_arc(Vector2.ZERO, R_IN, 0, TAU, 48, Color(1, 1, 1, 0.12), 1.5, true)
-	HudStyle.text(self, Vector2(0, -22), "ZIEL", 11, HudStyle.DIM, false, 1)
+	draw_circle(Vector2.ZERO, R_IN, Color(HudStyle.BG, 0.92))
+	draw_arc(Vector2.ZERO, R_IN, 0, TAU, 48, HudStyle.BG_EDGE, 1.5, true)
+	HudStyle.heading(self, Vector2(0, -22), "Ziel", 10, HudStyle.DIM, 1)
 	var t := target()
 	HudStyle.text(self, Vector2(0, 2), GroundHudData.aircraft_name(t) if t != null else "keins", 17,
 			HudStyle.VALUE if t != null else HudStyle.DIM, true, 1)
 	if targets.size() > 1:
 		HudStyle.text(self, Vector2(0, 24), "◀ %s ▶" % ("Kreuz" if pad else "Mausrad"), 12, HudStyle.LABEL, false, 1)
-	# Fußzeile
-	HudStyle.text(self, Vector2(0, R_OUT + 34), "%s loslassen: Befehl geben" % ("LB" if pad else "Tab"),
-			14, HudStyle.LABEL, false, 1)
+	# Fußzeile: Tasten stehen in der Tasten-Leiste (M3.2)

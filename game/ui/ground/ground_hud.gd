@@ -15,6 +15,11 @@ signal command_issued(cmd: int, target: Node)
 const MARGIN := 24.0
 const STATUS_FLIGHT_MAX_SPEED := 3.0   # m/s: Statuspanel im Cockpit nur fast im Stand
 const BEST_REFRESH := 1.0
+## M3.2: Lagerleiste nur nahe Lager (m) oder nahe einer Maschine (m).
+const STOCK_NEAR_STORE := 60.0
+const STOCK_NEAR_AIRCRAFT := 15.0
+## Einsteigen-Hinweis in der Tasten-Leiste bis zu diesem Abstand (m).
+const ENTER_NEAR := 8.0
 
 var hud: Node = null
 ## PlayerSession (optional): liefert context und seat.
@@ -49,6 +54,8 @@ var stock_bar: StockBar
 var timer: TurnaroundDisplay
 var guide: ParkingGuide
 var help: GroundHelp
+## M3.2: Tasten-Leiste unten Mitte (alle Kontexte, auch Flug).
+var key_bar: KeyBar
 ## Maschine im Statuspanel (für Tests).
 var status_aircraft: Node = null
 
@@ -88,6 +95,9 @@ func _ready() -> void:
 	add_child(wheel)
 	help = GroundHelp.new()
 	add_child(help)
+	key_bar = KeyBar.new()
+	add_child(key_bar)
+	theme = HudStyle.theme()
 	visible = true
 	_connect_bus()
 
@@ -170,10 +180,8 @@ func issue_command(cmd: int, target: Node) -> int:
 # --- Eingabe ---------------------------------------------------------------------------
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventJoypadButton or (event is InputEventJoypadMotion and absf(event.axis_value) > 0.3):
-		pad = true
-	elif event is InputEventKey or event is InputEventMouseButton:
-		pad = false
+	KeyGlyphs.note_input(event)
+	pad = KeyGlyphs.pad
 	if wheel == null or not wheel.is_open:
 		return
 	if event is InputEventMouseMotion:
@@ -245,10 +253,13 @@ func _process(dt: float) -> void:
 		if own != null and _on_ground(own) and _speed(own) < STATUS_FLIGHT_MAX_SPEED:
 			status_aircraft = own
 	status.visible = status_aircraft != null
+	var ch = hud.get("combat") if hud != null and is_instance_valid(hud) else null
+	if ch is CombatHud:
+		(ch as CombatHud).suppress_weapon_panel = status.visible and not ground
 	if status.visible:
 		status.set_data(GroundHudData.aircraft_status(status_aircraft, b, character), dt)
-	# Lager
-	stock_bar.visible = ground and (depot != null or bunker != null)
+	# Lager: nur nahe Lager oder Maschine (M3.2)
+	stock_bar.visible = ground and (depot != null or bunker != null) and _near_stock_or_aircraft()
 	if stock_bar.visible:
 		stock_bar.set_data(GroundHudData.stock(depot, bunker))
 	# Abfertigung + Alarm
@@ -267,7 +278,44 @@ func _process(dt: float) -> void:
 	if not ground:
 		help.visible = false
 	help.queue_redraw()
+	key_bar.set_entries(KeyBar.entries_for(key_state()), pad)
 	_layout()
+
+
+## Lage für die Tasten-Leiste (KeyBar.entries_for).
+func key_state() -> Dictionary:
+	var ctx := current_context()
+	var st := {"ctx": ctx, "wheel_open": wheel != null and wheel.is_open, "pad": pad,
+		"mouse_free": Input.mouse_mode != Input.MOUSE_MODE_CAPTURED}
+	var pos := viewer_position()
+	if ctx == InputBindings.Context.CREW:
+		st.carrying = character != null and is_instance_valid(character) and character.get("carried") != null
+		var na := GroundHudData.nearest_aircraft(pos, known_aircraft())
+		st.near_aircraft = na != null and (na as Node3D).global_position.distance_to(pos) < ENTER_NEAR
+	var a := own_aircraft()
+	if ctx == InputBindings.Context.FLIGHT and a is Aircraft:
+		var t := (a as Aircraft).telemetry()
+		var pl = hud.get("player") if hud != null else null
+		st.on_ground = t.on_ground
+		st.speed_kmh = t.airspeed * 3.6
+		st.parking_brake = FlightPanel.show_parking_brake(pl, t)
+		st.gear_down = t.gear_down_cmd
+		st.agl = t.height_agl
+		var dm = a.get("damage")
+		st.eject_possible = not t.on_ground and dm != null and dm.can_eject()
+		var ch = hud.get("combat") if hud != null else null
+		st.combat = ch != null and ch.get("in_combat") == true
+	return st
+
+
+func _near_stock_or_aircraft() -> bool:
+	var pos := viewer_position()
+	for s in [depot, bunker]:
+		if s is Node3D and (s as Node3D).is_inside_tree() \
+				and (s as Node3D).global_position.distance_to(pos) < STOCK_NEAR_STORE:
+			return true
+	var na := GroundHudData.nearest_aircraft(pos, known_aircraft())
+	return na != null and (na as Node3D).global_position.distance_to(pos) < STOCK_NEAR_AIRCRAFT
 
 
 func _update_turnaround(dt: float) -> void:
@@ -343,17 +391,19 @@ func _layout() -> void:
 	ui_scale = HudStyle.ui_scale(vs)
 	var s := ui_scale
 	var sv := Vector2(s, s)
-	for c in [hint, wheel, status, stock_bar, timer, timer.alarm_banner, help]:
+	for c in [hint, wheel, status, stock_bar, timer, timer.alarm_banner, key_bar]:
 		(c as Control).scale = sv
+	# Zonen (M3.2): Mitte frei (Hinweis, Rad) · unten Mitte Tasten-Leiste · links unten Zustand
+	# Flugzeug/Figur · rechts unten Waffen/Schaden · oben Mitte Meldungen/Alarm · oben links Lager
+	# · oben rechts Abfertigungszeit.
 	hint.position = Vector2(vs.x * 0.5, vs.y * 0.5 + 70.0 * s)
 	wheel.position = vs * 0.5
+	key_bar.position = Vector2(vs.x * 0.5, vs.y - (MARGIN + KeyBar.H * 0.5) * s)
 	var sy := vs.y - (MARGIN + status.panel_height()) * s
 	status.position = Vector2(MARGIN * s, sy)
 	if not on_ground_context():
-		# Im Cockpit rechts über dem Waffen-Panel (links stehen Flug-Panel und Alt-Hinweise)
-		status.position = Vector2(vs.x - (MARGIN + AircraftStatusPanel.W) * s,
-				vs.y - (MARGIN + WeaponPanel.H + 12.0 + status.panel_height()) * s)
-	stock_bar.position = Vector2(vs.x * 0.5 - StockBar.W * 0.5 * s, 14.0 * s)
+		# Im Cockpit (Stand): rechts unten an Stelle des Waffen-Panels (keine doppelte Skizze)
+		status.position = Vector2(vs.x - (MARGIN + AircraftStatusPanel.W) * s, sy)
+	stock_bar.position = Vector2(MARGIN * s, MARGIN * s)
 	timer.position = Vector2(vs.x - (MARGIN + TurnaroundDisplay.W) * s, MARGIN * s)
-	timer.alarm_banner.position = Vector2(vs.x * 0.5, (74.0 if on_ground_context() else 84.0) * s)
-	help.position = Vector2(vs.x - (MARGIN + GroundHelp.W) * s, (MARGIN + (100.0 if timer.visible else 0.0)) * s)
+	timer.alarm_banner.position = Vector2(vs.x * 0.5, (74.0 if on_ground_context() else 104.0) * s)

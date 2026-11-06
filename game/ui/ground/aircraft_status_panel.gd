@@ -58,7 +58,7 @@ func _draw() -> void:
 	var bw := W - PAD * 2 - 122
 	var ff: float = data.get("fuel_frac", 0.0)
 	var fcol := HudStyle.VALUE if ff >= 0.25 else (HudStyle.CAUTION if ff > 0.1 else HudStyle.WARNING)
-	HudStyle.text(self, Vector2(x, 48), "TREIBSTOFF", 11, HudStyle.DIM)
+	HudStyle.heading(self, Vector2(x, 48), "TREIBSTOFF", 10)
 	var lw := HudStyle.text(self, Vector2(x, 76), GroundHudData.liters(data.get("fuel_l", 0.0)), 24, fcol, true)
 	HudStyle.text(self, Vector2(x + lw + 8, 76), "%d %%" % int(round(ff * 100)), 15, HudStyle.LABEL, true)
 	var gm: float = data.get("grade_mix", 0.0)
@@ -66,7 +66,7 @@ func _draw() -> void:
 			HudStyle.CAUTION if gm > 0.02 else HudStyle.LABEL, false, 2)
 	_bar(Rect2(x, 84, bw, 5), ff, Color(fcol, 0.8))
 	# Munition L/R
-	HudStyle.text(self, Vector2(x, 112), "MG-MUNITION", 11, HudStyle.DIM)
+	HudStyle.heading(self, Vector2(x, 112), "MG-MUNITION", 10)
 	var guns: Array = data.get("guns", [])
 	var gw := bw / maxf(guns.size(), 1)
 	for i in guns.size():
@@ -85,7 +85,7 @@ func _draw() -> void:
 		return
 	var y := 168.0
 	draw_line(Vector2(PAD, y), Vector2(W - PAD, y), Color(1, 1, 1, 0.08), 1.0)
-	HudStyle.text(self, Vector2(PAD, y + 16), "ARBEITEN", 11, HudStyle.DIM)
+	HudStyle.heading(self, Vector2(PAD, y + 16), "ARBEITEN", 10)
 	y += 18.0
 	for j in jobs:
 		y += JOB_H

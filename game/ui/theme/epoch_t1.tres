@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="HudPalette" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://ui/theme/hud_palette.gd" id="1"]
+[ext_resource type="Theme" path="res://ui/theme/hud_theme_t1.tres" id="2"]
+
+[resource]
+script = ExtResource("1")
+epoch_name = "Tier I – späte 1930er"
+theme = ExtResource("2")

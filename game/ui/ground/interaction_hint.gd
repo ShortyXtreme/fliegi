@@ -31,15 +31,7 @@ func _ring(c: Vector2, f: float, col: Color) -> void:
 
 
 func _key_cap(pos: Vector2, k: String) -> float:
-	var w := maxf(HudStyle.text_width(k, 17, true) + 14.0, 28.0)
-	var r := Rect2(pos.x, pos.y - 21, w, 28)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.94, 0.96, 0.97, 0.92)
-	sb.set_corner_radius_all(5)
-	sb.anti_aliasing = true
-	draw_style_box(sb, r)
-	HudStyle.text(self, Vector2(r.get_center().x, pos.y - 1), k, 17, Color(0.06, 0.08, 0.1), true, 1)
-	return w
+	return KeyGlyphs.draw_token(self, Vector2(pos.x, pos.y - 7), k, 28, KeyGlyphs.pad)
 
 
 func _draw() -> void:
@@ -64,7 +56,7 @@ func _draw() -> void:
 		var prefix := "halten: " if hold else ""
 		var s := prefix + label
 		var tw := HudStyle.text_width(s, 19, true)
-		var kw := maxf(HudStyle.text_width(String(data.get("key", "")), 17, true) + 14.0, 28.0)
+		var kw := KeyGlyphs.token_width(String(data.get("key", "")), 28, KeyGlyphs.pad)
 		var total := kw + 10.0 + tw
 		var bg := Rect2(-total * 0.5 - 14, y - 30, total + 28, 40)
 		HudStyle.draw_panel(self, bg, 8)

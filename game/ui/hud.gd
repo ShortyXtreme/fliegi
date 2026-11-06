@@ -5,37 +5,7 @@ extends CanvasLayer
 ## F1: Steuerungshilfe.
 
 const VERSION := "M3.1"
-const HELP_TEXT := """[b]STEUERUNG[/b]  Flugkern M3.1 – Bodenbetrieb, Luftkampf 1 gegen 3  (F1 / Xbox-View-Taste schließt)
-[b]Tastatur[/b]
-  W / S  ........ Nase runter / hoch      A / D ..... rollen links / rechts
-  Q / E  ........ Seitenruder             Shift / Strg .. Gas mehr / weniger
-  F  ............ Klappen (0 / 50 / 100 %) B ........ Bremsen (halten / Parkbremse lösen)
-  G  ............ Fahrwerk ein / aus (ca. 6 s, nicht am Boden, max. 300 km/h ausgefahren)
-  Leertaste / Linksklick .. Feuer         V ......... Sekundärwaffe
-  J (1 s halten)  im Stand am Boden: Aussteigen, in der Luft: Notausstieg (schwerer Schaden)
-  C  ............ Kamera wechseln         X ......... Arcade / Realistisch
-  M  ............ Maus-Zielsteuerung an/aus  R / T ... Neustart Piste / Luft
-  F3 / Xbox L3 .. Treffer-Debug (darin F4 Hitboxen, F5 Bahnen, F6 andere)
-  Shift+F3 ...... Kräfte-Debug             Esc ...... Maus freigeben
-[b]Maus[/b] (erster Linksklick fängt die Maus, danach feuert Linksklick)
-  Arcade + Maus-Ziel: Maus zielt, Flugzeug folgt dem Kreis. Tastatur übersteuert.
-  Rechte Maustaste halten: umsehen.  Mittlere Taste: Sekundär.  Mausrad: Orbit-Zoom.
-[b]Xbox-Controller[/b]
-  Linker Stick .. Nicken / Rollen         RT / LT ... Feuer / Sekundärwaffe
-  LB / RB ....... Seitenruder links / rechts
-  Steuerkreuz hoch / runter: Gas mehr / weniger (halten)
-  Steuerkreuz rechts: Fahrwerk     Steuerkreuz links 1 s halten: Aussteigen / Notausstieg
-  A ............. Klappen                 B ......... Bremsen
-  Y ............. Kamera                  X ......... Arcade / Realistisch
-  Rechter Stick . umsehen (Klick: zurück) Start ..... Neustart Piste
-[b]Hinweise[/b]  Beim Start ist die Parkbremse an (löst bei Gas > 10 % oder B).
-  Schütteln + STALL-WARNUNG = ca. 1,5° vor dem Abriss, wird stärker: nachlassen.
-  Start am Abstellplatz (50 % Treibstoff, volle Munition). Rote Jäger starten am Platz Rot.
-  Nach Abschuss: neue Maschine am Abstellplatz (15 % Treibstoff, keine Munition).
-  Landen, zum Abstellplatz rollen, J halten = aussteigen, tanken/Munition/Reparatur (E halten)
-  oder Befehlsrad (Tab). F9 = Alarmstart (Debug). Zu Fuß zeigt F1 die Bodenbelegung.
-[b]Treffer-Log[/b]  %APPDATA%\\Godot\\app_userdata\\Flugkern M2\\logs\\kampf_*.csv
-  (bei Problemen bitte mitschicken)"""
+## Hilfe: ui/ground/ground_help.gd (Tafel je Kontext, M3.2)
 
 var aircraft: Aircraft
 var player: PlayerController
@@ -55,7 +25,7 @@ var ground_hud: GroundHud
 var _info: Label
 var _warn: Label
 var _debug: Label
-var _help: RichTextLabel
+var _help: GroundHelp
 var _aim_marker: Control
 var _nose_marker: Control
 var _debug_mesh: ImmediateMesh
@@ -90,27 +60,9 @@ func _ready() -> void:
 	_setup_audio()
 	_debug = _label(Vector2(380, 236), 15)
 	_debug.visible = false
-	_help = RichTextLabel.new()
-	_help.bbcode_enabled = true
-	_help.fit_content = true
-	var mono := SystemFont.new()
-	mono.font_names = PackedStringArray(["DejaVu Sans Mono", "Consolas", "monospace"])
-	_help.add_theme_font_override("normal_font", mono)
-	var mono_b := mono.duplicate()
-	mono_b.font_weight = 700
-	_help.add_theme_font_override("bold_font", mono_b)
-	_help.add_theme_font_size_override("normal_font_size", 16)
-	_help.add_theme_font_size_override("bold_font_size", 16)
-	_help.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_help.custom_minimum_size = Vector2(800, 0)
-	_help.offset_left = -820
-	_help.offset_right = -20
-	_help.offset_top = 20
-	var bg := StyleBoxFlat.new()
-	bg.bg_color = Color(0, 0, 0, 0.6)
-	bg.set_content_margin_all(12)
-	_help.add_theme_stylebox_override("normal", bg)
-	_help.text = HELP_TEXT
+	_debug.theme = HudStyle.theme()   # Debug unverändert, nur Epochen-Theme (Schrift/Farbe)
+	_help = GroundHelp.new()       # M3.2: gemeinsame Hilfe-Tafel, hier Kontext Flug
+	_help.context = InputBindings.Context.FLIGHT
 	_help.visible = true   # beim ersten Start sichtbar
 	add_child(_help)
 	CombatHud.replace_legacy_text = true   # Paket 14: neues Flug-Panel ersetzt Text-HUD
