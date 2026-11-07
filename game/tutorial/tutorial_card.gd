@@ -16,6 +16,13 @@ var body := ""
 var tasks: Array = []
 var done: Array = []
 var step_t := 0.0
+## M3.3: Fortschritt „View halten“ (0..1) und zuletzt gezeichnetes Gerät.
+var hold := 0.0:
+	set(v):
+		if v != hold:
+			hold = v
+			queue_redraw()
+var _pad := false
 
 
 func _init() -> void:
@@ -95,7 +102,19 @@ func _draw() -> void:
 		HudStyle.text(self, Vector2(PAD + 28, y), String(tasks[k]), 16, col, cur)
 	y += 30.0
 	var x := PAD
+	_pad = KeyGlyphs.pad
+	if _pad:
+		# M3.3: Controller – View halten = überspringen (mit Füllbalken), Menu → Pausenmenü
+		var w := KeyGlyphs.draw_spec(self, Vector2(x, y), "View", 22, true)
+		if hold > 0.0:
+			draw_rect(Rect2(x, y + 25, w * hold, 3), HudStyle.ACCENT)
+		x += w + 8
+		x += HudStyle.text(self, Vector2(x, y + 5), "halten: überspringen", 13, HudStyle.DIM) + 18
+		x += KeyGlyphs.draw_spec(self, Vector2(x, y), "Menu", 22, true) + 8
+		HudStyle.text(self, Vector2(x, y + 5), "Pause › Tutorial beenden", 13, HudStyle.DIM)
+		return
 	x += KeyGlyphs.draw_spec(self, Vector2(x, y), KeyGlyphs.token(&"tutorial_skip", false), 22, false) + 8
 	x += HudStyle.text(self, Vector2(x, y + 5), "Schritt überspringen", 13, HudStyle.DIM) + 18
 	x += KeyGlyphs.draw_spec(self, Vector2(x, y), KeyGlyphs.token(&"tutorial_quit", false), 22, false) + 8
 	HudStyle.text(self, Vector2(x, y + 5), "Tutorial beenden", 13, HudStyle.DIM)
+

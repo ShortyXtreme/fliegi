@@ -36,6 +36,10 @@ var _ammo_mark := -1
 var _bus: CombatEvents
 var _target_angle := 0.0
 var _target_center := Vector3.ZERO
+## M3.3: Controller – View halten (VIEW_HOLD_S) = Schritt überspringen; kurz drücken = Hilfe wie
+## bisher (wird beim Loslassen nachgereicht). Beenden per Pausenmenü (Menu-Taste).
+const VIEW_HOLD_S := 0.8
+var view_hold := -1.0
 
 
 # --- Fortschritt ---------------------------------------------------------------------------
@@ -125,6 +129,46 @@ func _finish(completed: bool) -> void:
 		card.queue_free()
 	_remove_target()
 	finished.emit(completed)
+
+
+func _input(event: InputEvent) -> void:
+	KeyGlyphs.note_input(event)
+	if not active or not (event is InputEventJoypadButton) \
+			or (event as InputEventJoypadButton).button_index != JOY_BUTTON_BACK:
+		return
+	get_viewport().set_input_as_handled()
+	if event.pressed:
+		if view_hold < 0.0:
+			view_hold = 0.0
+	else:
+		var was := view_hold
+		view_hold = -1.0
+		if card != null and is_instance_valid(card):
+			card.hold = 0.0
+		if was >= 0.0:
+			_send_help()
+
+
+## Kurzer View-Druck: Hilfe umschalten (als Aktion nachgereicht, damit Flug/Boden reagieren).
+func _send_help() -> void:
+	for pr in [true, false]:
+		var a := InputEventAction.new()
+		a.action = &"help_toggle"
+		a.pressed = pr
+		Input.parse_input_event(a)
+
+
+func _process(dt: float) -> void:
+	if view_hold < 0.0:
+		return
+	view_hold += dt
+	if card != null and is_instance_valid(card):
+		card.hold = clampf(view_hold / VIEW_HOLD_S, 0.0, 1.0)
+	if view_hold >= VIEW_HOLD_S:
+		view_hold = -2.0   # bis zum Loslassen gesperrt
+		if card != null and is_instance_valid(card):
+			card.hold = 0.0
+		skip_step()
 
 
 func _unhandled_input(event: InputEvent) -> void:

@@ -368,6 +368,10 @@ func open_pause_menu() -> void:
 	pause_menu.mode = GameMenu.Mode.PAUSE
 	pause_menu.game = self
 	pause_menu.resume_requested.connect(close_pause_menu)
+	pause_menu.tutorial_quit_requested.connect(func():
+		close_pause_menu()
+		if tutorial != null and is_instance_valid(tutorial):
+			tutorial.quit())
 	pause_menu.main_menu_requested.connect(func():
 		get_tree().paused = false
 		get_tree().change_scene_to_file(GameMenu.MENU_SCENE))

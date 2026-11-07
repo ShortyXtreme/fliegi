@@ -132,3 +132,41 @@ func test_tutorial_skip_and_diagnose() -> Array:
 	await _step(2)
 	return [d[0] and skipped and quit_ok and keys.has(&"gear_toggle"),
 		"%s, übersprungen %s, beendet %s, Leiste %s" % [d[1], skipped, quit_ok, str(keys)]]
+
+
+## M3.3: Controller – View kurz = Hilfe, View halten = überspringen; Pausenmenü „Tutorial beenden“.
+func test_tutorial_pad_skip_and_pause_quit() -> Array:
+	Game.tutorial_mode = true
+	var g: Game = (load("res://world/main.tscn") as PackedScene).instantiate()
+	get_tree().root.add_child(g)
+	Game.tutorial_mode = false
+	await _step(10)
+	var tu := g.tutorial
+	var pad := func(pressed: bool) -> void:
+		var e := InputEventJoypadButton.new()
+		e.button_index = JOY_BUTTON_BACK
+		e.pressed = pressed
+		Input.parse_input_event(e)
+	pad.call(true)
+	await _step(3)
+	pad.call(false)
+	await _step(3)
+	var short_ok := tu.index == 0
+	pad.call(true)
+	await _step(int(Tutorial.VIEW_HOLD_S * 60.0) + 10)
+	pad.call(false)
+	await _step(3)
+	var hold_ok := tu.index == 1 and KeyGlyphs.pad
+	g.open_pause_menu()
+	await _step(2)
+	var ids: Array = g.pause_menu.list.items.map(func(i): return i.id)
+	g.pause_menu.list.nav("down")
+	g.pause_menu.list.nav("accept")
+	await _step(3)
+	var quit_ok := not tu.active and not get_tree().paused
+	get_tree().paused = false
+	KeyGlyphs.pad = false
+	g.queue_free()
+	await _step(2)
+	return [short_ok and hold_ok and ids.has("tutorial_quit") and quit_ok,
+		"kurz %s, halten %s, Pause %s, beendet %s" % [short_ok, hold_ok, str(ids), quit_ok]]

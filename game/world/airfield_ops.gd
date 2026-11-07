@@ -27,6 +27,8 @@ var crews: Array[CrewCharacter] = []
 var brains: Array[GroundCrewBrain] = []
 ## Diagnose: Name -> Anzahl MeshInstance3D der geladenen Modelle.
 var model_meshes := {}
+## M3.3: nur Kulisse (Hauptmenü): Modelle ohne Wegsuche/Kollision/Personal/Logik.
+var decor_only := false
 
 
 static func load_model(n: String) -> Node3D:
@@ -64,6 +66,36 @@ func setup(l: AirfieldLayout, b: JobBoard, host: Node, player_aircraft: Array = 
 		_crew(host, k)
 
 
+## M3.3: Kulisse fürs Hauptmenü – dieselbe Aufstellung wie im Spiel (Gebäude, Hallen,
+## Bodenmarken über _buildings(); Tank- und Munitionswagen an ihren Startplätzen; Flugzeuge
+## auf den ersten Abstellplätzen), aber nur Modelle ohne Simulation.
+func setup_decor(l: AirfieldLayout, parked := 3) -> void:
+	layout = l
+	decor_only = true
+	name = "AirfieldDecor%d" % l.airfield_index
+	_buildings()
+	var vs := l.vehicle_spawns
+	var tp := l.to_scene(vs[0]) if vs.size() > 0 else l.to_scene(l.fuel_depot) + Vector3(10, 0, 0)
+	var cp := l.to_scene(vs[1]) if vs.size() > 1 else tp + Vector3(0, 0, -12)
+	_put(load_model("fuel_truck"), "fuel_truck", tp, 0.0)
+	_put(load_model("ammo_cart"), "ammo_cart", cp, 0.0)
+	for i in mini(parked, l.parking_count()):
+		var m := AircraftVisual._load_rig_model(AircraftVisual.RIG_MODEL)
+		if m == null:
+			break
+		if l.nation_id != Nations.BLUE:
+			AircraftVisual._apply_enemy_skin(m)
+		var holder := Node3D.new()
+		holder.name = "parked_%d" % i
+		add_child(holder)
+		m.rotation_degrees = Vector3(0, 180, 0)   # Rig: Nase +Z, Godot: Nase -Z
+		holder.add_child(m)
+		var xf := l.parking_transform(i)
+		var bb := GroundNav.model_aabb(m)
+		holder.global_transform = Transform3D(xf.basis, _ground(xf.origin) - Vector3(0, bb.position.y, 0))
+		model_meshes["parked"] = mesh_count(m)
+
+
 func _ground(p: Vector3) -> Vector3:
 	return Vector3(p.x, WorldGround.height_at(p.x, p.z), p.z)
 
@@ -84,14 +116,14 @@ func _buildings() -> void:
 	var ab := _put(load_model("ammo_bunker"), "ammo_bunker", layout.to_scene(layout.ammo_bunker), FACE_EAST)
 	# M3.1: Gebäude als Hindernisse der Wegsuche (Personal und Wagen) und mit Kollision
 	for m in [fd, ab]:
-		if m != null:
+		if m != null and not decor_only:
 			GroundNav.register_model(m)
 			_solid(m)
 	# M3.1: alle Hallen als Modell (vorher Halle 1/2 und Turm graue Platzhalter in TerrainWorld)
 	for k in HANGAR_COUNT:
 		var key := "hangar" if k == 0 else "hangar_%d" % k
 		var h := _put(load_model("hangar"), key, layout.to_scene(layout.hangar + Vector3(0, 0, -HANGAR_SPACING * k)), FACE_EAST)
-		if h == null:
+		if h == null or decor_only:
 			continue
 		GroundNav.register_model(h)
 		# Kollision: Rück- und Seitenwände, Dach (Tor offen zum Rollweg)

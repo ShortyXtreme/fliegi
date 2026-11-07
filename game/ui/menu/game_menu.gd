@@ -8,6 +8,8 @@ extends CanvasLayer
 signal resume_requested
 signal start_requested(tutorial: bool)
 signal main_menu_requested
+## M3.3: Pausenmenü-Eintrag „Tutorial beenden“ (nur bei laufendem Tutorial)
+signal tutorial_quit_requested
 
 enum Mode { MAIN, PAUSE }
 
@@ -63,7 +65,7 @@ func show_page(p: String) -> void:
 					{"id": "quit", "label": "Beenden"}])
 			else:
 				list.set_items("Pause", [
-					{"id": "resume", "label": "Fortsetzen"},
+					{"id": "resume", "label": "Fortsetzen"}] + _tutorial_items() + [
 					{"id": "controls", "label": "Steuerung"},
 					{"id": "settings", "label": "Einstellungen"},
 					{"id": "main_menu", "label": "Zum Hauptmenü"},
@@ -79,6 +81,13 @@ func _settings_items(f: int) -> void:
 	its.append({"id": "back", "label": "Zurück",
 		"note": "KI und Bodenbetrieb ab dem nächsten Start" if mode == Mode.PAUSE else "gilt beim Spielstart"})
 	list.set_items("Einstellungen", its, f)
+
+
+func _tutorial_items() -> Array:
+	var t = game.get("tutorial") if game != null else null
+	if t != null and is_instance_valid(t) and t.active:
+		return [{"id": "tutorial_quit", "label": "Tutorial beenden", "note": "Fortschritt bleibt gespeichert"}]
+	return []
 
 
 static func tutorial_note() -> String:
@@ -99,6 +108,7 @@ func _on_activated(id: String) -> void:
 		"controls": show_page("controls")
 		"back": show_page("start")
 		"main_menu": main_menu_requested.emit()
+		"tutorial_quit": tutorial_quit_requested.emit()
 		"quit": get_tree().quit()
 
 
