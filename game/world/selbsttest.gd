@@ -191,6 +191,7 @@ func _diag_lines() -> bool:
 	_log("Diagnose %s" % tut[1])
 	# M3.3: Audio (optional – ohne Audio-Paket stumm, kein Fehler)
 	_log("Diagnose " + GameAudio.diagnostics())
+	_log("Diagnose " + PackLoader.diagnostics())
 	ok = ok and tut[0]
 	var pa := Game._anim_count(game.crew)
 	_log("Diagnose Spielerfigur: Meshes %d, Animationen %d" % [AirfieldOps.mesh_count(game.crew.visual), pa])

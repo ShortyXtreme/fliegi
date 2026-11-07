@@ -38,7 +38,7 @@ Der Build ist nicht signiert. Wenn Windows SmartScreen warnt: „Weitere Informa
 
 **Selbsttest (M2.2/M3):** `Flugkern.exe --selbsttest` (Windows-Verknüpfung: bei „Ziel“ ` --selbsttest` anhängen; Kommandozeile: `godot --path game -- --selbsttest`). Prüft im echten Spiel Treffer Spieler → Gegner und Gegner → Spieler (je 3 s Feuer auf 250 m), dann den Bodenbetrieb: D1 Aussteigen über J, C KI-Mannschaft fertigt die leere Maschine ab (Lagerabgang = Tankzufluss), D2 Kiste nehmen und MG laden über E, D3 Einsteigen über F, E rote KI rollt und erreicht 300 m über Grund in ≤ 90 s. Dauer ca. 4 min, beendet sich selbst (Exit-Code 0 = OK). Ergebnis im Godot-Log und in `%APPDATA%\Godot\app_userdata\Flugkern M2\logs\selbsttest_JJJJMMTT_HHMMSS.txt` (Linux: `~/.local/share/godot/app_userdata/Flugkern M2/logs/`). Dort liegen auch `godot.log` (mit Diagnosezeilen „Hitbox-Zonen …, Waffen …“ je Flugzeug) und die Treffer-Logs `kampf_*.csv`.
 
-**Build (Windows-.pck):** `GODOT=/pfad/godot game/tools/build_windows.sh <zielordner>` exportiert `Flugkern.pck`, führt Pflicht-Suite „export“ aus (Selbsttest mit der exportierten .pck) und kopiert `docs/build_readme.md` als README.md.
+**Build (Windows-.pck):** `GODOT=/pfad/godot game/tools/build_windows.sh <zielordner>` exportiert eine Gesamt-.pck und teilt sie (M3.3, `tools/split_pck.py` + PCKPacker) in **Flugkern.pck** (Code, Szenen, UI, Schriften, Daten), **Flugkern_modelle.pck**, **Flugkern_karte.pck** und **Flugkern_audio.pck** (je ≤ 30.000.000 Byte, sonst Abbruch). Die Startszene `ui/boot.tscn` (`PackLoader`) lädt die Zusatzpakete neben der .exe bzw. neben `--main-pack`; fehlt Modelle/Karte, erscheint eine Fehlermeldung (headless Exit-Code 3), fehlt Audio, läuft das Spiel stumm. Diagnosezeile „Pakete: … (Name, Größe, Version)“. Danach führt Pflicht-Suite „export“ aus (Selbsttest mit der exportierten .pck) und kopiert `docs/build_readme.md` als README.md.
 
 **Aus dem Editor:** Godot 4.7.x öffnen → `game/project.godot` importieren → F5.
 
@@ -96,8 +96,8 @@ Im Spiel blendet **F1** (Xbox: View-Taste) die Hilfe ein und aus. Beim Start ist
 | Rechter Stick | Umsehen (kehrt beim Loslassen zurück) |
 | R3 (rechten Stick drücken, halten) | Ziel-Zoom (M2.1, vorher „Blick zurück“) |
 | L3 (linken Stick drücken) oder Share | Treffer-Debug an/aus (M2.1) |
-| Start | Neustart auf der Piste |
-| View | Hilfe |
+| Menu | Pausenmenü (M3.2; Neustart Piste nur noch über das Menü) |
+| View | Hilfe; im Tutorial 0,8 s halten = Schritt überspringen (M3.3) |
 
 Die Sticks haben eine Deadzone von 0,15 und eine weiche Expo-Kurve. Die Werte stehen in `core/input_bindings.gd`.
 **Geändert in M2 (Entscheidung 1):** Die Trigger sind jetzt Abzüge. Das Seitenruder liegt auf LB/RB, das Gas nur noch auf dem Steuerkreuz ↑/↓. Das Fahrwerk wandert von Steuerkreuz ↓ nach →. So liegt jede Funktion auf einem eigenen Knopf, ohne Doppelbelegung und ohne Kurz/Lang-Unterscheidung. Der Test `test_binding_conflicts` prüft das. 
@@ -195,6 +195,9 @@ Controller (control/controller.gd)
 - Gamepad-Belegung ist für das Xbox-Layout gedacht. Andere Pads funktionieren über SDL-Mapping, sind aber ungetestet. Eine Tastenbelegung im Spiel ist noch nicht änderbar.
 - Kein Netzwerk (kommt in M3). `Authority` und `Seat.possess()` sind aber schon serverseitig abgesichert.
 - Die Steuerhilfen-Parameter sind nur grob abgestimmt. Feintuning nach Spieltest-Feedback.
+
+## Sound (M3.3)
+Alle Klänge sind **selbst prozedural erzeugt** (`tools/gen_audio.py`, numpy/scipy → Ogg Vorbis, mono 22 050 Hz, zusammen ≈ 230 KB), **keine Fremdaufnahmen**, Lizenz CC0 (`assets/audio/LICENSES.md`). Abriss-Warnhorn/Rütteln (`Hud`) und Treffer-Ton (`HitSound`) bleiben Echtzeit-Generatoren. Technik: Busse Master/Motor/Waffen/Umgebung/UI (`audio/game_audio.gd`, Regler im Einstellungsmenü, `[audio]` in `user://flugkern.cfg`), `SoundDirector` hängt sich an Flugzeuge (`AircraftSound`: Motor nach Gas/Fahrt, Sternmotor Blau/Reihenmotor Rot, Fahrtwind, MG, Fahrwerk, Klappen, Aufsetzen, Bauchlandung, Brand), Wagen (Leerlauf), Figuren (Schritte), Tragegegenstände, Jobs (Pumpe, Werkzeug, Klappe, Gurt), Sitze, Alarm und Kampf-Ereignisse. 3D mit Doppler, Cockpit-Ansicht mit Tiefpass auf Motor/Waffen, Pools für Einmal-Klänge (12 × 3D, 6 × 2D), entfernte Dauerklänge angehalten. Headless: Master stumm. Hörproben: `docs/hoerproben_m3_3/`.
 
 ## Drittquellen
 Kein fremder Code kopiert. Rechenweg der Flächen-Aerodynamik angelehnt an *gasgiant/Aircraft-Physics* (MIT). Idee der Maus-Zielsteuerung angelehnt an *MouseFlight* von Brian Hernandez (MIT). Beides eigene Implementierungen.

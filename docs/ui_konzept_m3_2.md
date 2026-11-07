@@ -70,3 +70,13 @@ Neu: `ui/theme/*`, `ui/common/key_glyphs.gd`, `ui/common/key_bar.gd`, `ui/combat
 
 Geführtes Tutorial (`tutorial/`, 7 Schritte, Karte rechts, Tasten über die Tasten-Leiste) sowie
 Hauptmenü und Pausenmenü (`ui/menu/`) im selben Theme; Einstellungen in `user://flugkern.cfg`.
+
+## 5. M3.3 (umgesetzt)
+
+- **Hauptmenü-Kulisse:** Flugplatz mit Hallen, Lager, Bunker, Wagen und abgestellten Flugzeugen
+  (`AirfieldOps.setup_decor`), Kamera nah und nach rechts versetzt, damit das Menü-Panel links frei bleibt.
+- **Tutorial am Controller:** View halten (0,8 s, Füllbalken unter dem Symbol) = Schritt überspringen,
+  View kurz = Hilfe; Beenden über Pausenmenü „Tutorial beenden“. Die Karten-Fußzeile zeigt je Gerät
+  „F8 Schritt überspringen · F7 Tutorial beenden“ bzw. „View halten: überspringen · Menu › Tutorial beenden“.
+- **Einstellungen:** fünf Lautstärkeregler als Balken (▮▮▮▮▮▮▮▮▯▯ 80 %), links/rechts in 10-%-Schritten, ohne Umlauf.
+- **UI-Klänge:** Klick bei Navigation, Bestätigung bei Auswahl, Dreiklang bei erledigtem Tutorial-Schritt (Bus UI).
