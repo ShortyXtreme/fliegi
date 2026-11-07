@@ -16,6 +16,8 @@ static var use_terrain := true
 ## M3.2: Tutorial-Szene (ruhig: keine roten Angreifer, kein Alarm, Übungsziel). Auch per --tutorial.
 static var tutorial_mode := false
 var tutorial: Tutorial
+## M3.3: Geräusche
+var sound: SoundDirector
 
 var world: Node3D
 var player_aircraft: Aircraft
@@ -58,6 +60,7 @@ func _ready() -> void:
 		DisplayServer.window_set_title("Flugkern %s" % Hud.VERSION)
 	CombatEvents.reset()
 	GroundEvents.reset()
+	GameAudio.setup()
 	MatchRules.load_ground_config()
 	ProjectileSystem.reset_targets()
 	var terrain := use_terrain and not "--testwelt" in OS.get_cmdline_user_args() \
@@ -90,6 +93,10 @@ func _ready() -> void:
 	player_aircraft.nation_id = Nations.BLUE
 	player_aircraft.set_meta("display_name", "Blau 1")
 	add_child(player_aircraft)
+	# M3.3: Geräusche (hängt sich an alle Flugzeuge, Wagen, Figuren und Ereignisse)
+	sound = SoundDirector.new()
+	sound.player = player_aircraft
+	add_child(sound)
 
 	player = PlayerController.new()
 	player.name = "PlayerController"
@@ -218,6 +225,7 @@ func _print_diagnostics() -> void:
 		print("Diagnose %s: Hitbox-Zonen %d (Radius %.1f m), Waffen %d, Marker-Quelle %s, Ziel angemeldet %s" % [
 				a.name, h.zones.size() if h != null else 0, h.bounding_radius if h != null else 0.0,
 				a.weapons.gun_count(), src, str(registered)])
+	print("Diagnose " + GameAudio.diagnostics())
 
 
 ## M1-Verhalten (Testwelt): ein KI-Flugzeug kreist über dem Platz.

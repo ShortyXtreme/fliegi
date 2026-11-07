@@ -37,6 +37,7 @@ func _ready() -> void:
 		DisplayServer.window_set_title("Flugkern %s" % Hud.VERSION)
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_background()
+	add_child(SoundDirector.new())   # M3.3: Umgebung + Menü-Klänge
 	menu = GameMenu.new()
 	menu.mode = GameMenu.Mode.MAIN
 	menu.start_requested.connect(start_game)

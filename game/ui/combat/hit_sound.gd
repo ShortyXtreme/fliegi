@@ -28,6 +28,7 @@ func _ready() -> void:
 	_player = AudioStreamPlayer.new()
 	_player.stream = g
 	_player.volume_db = -6.0
+	_player.bus = &"Waffen"   # M3.3: Waffen-Bus
 	add_child(_player)
 	_player.play()
 	_gen = _player.get_stream_playback() as AudioStreamGeneratorPlayback
