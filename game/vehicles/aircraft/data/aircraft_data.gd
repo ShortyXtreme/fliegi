@@ -24,6 +24,11 @@ extends Resource
 @export var prop_blend_exponent: float = 4.0
 ## Leerlauf-Gasstellung (leichter Vorwärtsschub bei Gas 0).
 @export var idle_throttle: float = 0.04
+## Motorklang (GameAudio.ENGINE_RPM / assets/audio/engines/<typ>/): "v12" Reihenmotor, "radial" Sternmotor.
+@export var engine_sound: String = "v12"
+## Drehzahl Leerlauf / Vollgas (U/min) für den Motorklang.
+@export var engine_rpm_idle: float = 850.0
+@export var engine_rpm_max: float = 2800.0
 
 @export_group("Aerodynamik")
 @export var surfaces: Array[AeroSurfaceDef] = []

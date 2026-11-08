@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # M2.2: Windows-Build (nur .pck, Flugkern.exe = unverändertes Godot-4.7.2-Template) mit
-# Pflicht-Regressionstest: die exportierte .pck muss im Selbsttest Treffer in beide Richtungen
+# Pflicht-Regressionstest: die exportierten Pakete (M3.3: 4 .pck) müssen muss im Selbsttest Treffer in beide Richtungen
 # erzeugen. Aufruf (aus game/): GODOT=/pfad/godot tools/build_windows.sh <zielordner>
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -16,7 +16,13 @@ if [ "$n_png" -lt "$n_imp" ]; then
 	exit 1
 fi
 "$GODOT" --headless --path . --import >/dev/null 2>&1 || true
-"$GODOT" --headless --path . --export-pack "Windows Desktop" "$OUT/Flugkern.pck"
+# M3.3: Gesamt-.pck exportieren und in Ressourcen-Pakete (je <= 30 000 000 Byte) aufteilen:
+# Flugkern.pck (Code/Szenen/UI), Flugkern_modelle.pck, Flugkern_karte.pck, Flugkern_audio.pck.
+FULL="$(mktemp -d)/Flugkern_gesamt.pck"
+"$GODOT" --headless --path . --export-pack "Windows Desktop" "$FULL"
+VERSION=$(grep -oP 'const VERSION := "\K[^"]+' ui/hud.gd)
+python3 tools/split_pck.py "$FULL" "$OUT" "$VERSION" "$GODOT"
+rm -f "$FULL"
 FLUGKERN_PCK="$(realpath "$OUT/Flugkern.pck")" "$GODOT" --headless --path . \
 	--script res://tests/test_runner.gd -- --suite=export
 cp ../docs/build_readme.md "$OUT/README.md"

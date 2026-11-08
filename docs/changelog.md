@@ -1,5 +1,18 @@
 # Änderungsprotokoll Flugkern
 
+## M3.3 „Menü-Kulisse, Controller-Tutorial, Sound“ (07.11.2026)
+
+### Neu
+- **Hauptmenü-Hintergrund:** `AirfieldOps.setup_decor()` stellt Hallen, Tanklager, Bunker, Bodenmarken (gleicher Code wie im Spiel, `_buildings()`), Tank-/Munitionswagen an ihren Startplätzen und 3 abgestellte Flugzeuge auf – nur Modelle, ohne Wegsuche/Kollision/Personal. Kamera kreist nah (135 m, 36 m hoch) um die Abstellfläche, rechts neben dem Menü.
+- **Tutorial am Controller:** View kurz = Hilfe (wie bisher, beim Loslassen), View 0,8 s halten = Schritt überspringen (Füllbalken auf der Karte); Pausenmenü-Eintrag „Tutorial beenden“ (nur bei laufendem Tutorial). Tutorial-Karte zeigt Tastatur- bzw. Xbox-Symbole je zuletzt benutztem Gerät.
+- **Sound** (`audio/`): 27 prozedural erzeugte Klänge (`tools/gen_audio.py`, CC0, ≈ 230 KB Ogg Vorbis mono) – Flug, Kampf, Boden, UI, Umgebung (Liste `game/assets/audio/LICENSES.md`). Busse Master/Motor/Waffen/Umgebung/UI mit Reglern (`[audio]` in `user://flugkern.cfg`, Regler ohne Umlauf), `SoundDirector` + `AircraftSound` (3D, Doppler, Entfernungs-Abschaltung, Pools 12 × 3D / 6 × 2D), Cockpit-Tiefpass, Abriss-Warnung und Treffer-Ton in Motor- bzw. Waffen-Bus. Headless stumm.
+- **Ressourcen-Pakete** (Entscheidung PO): Build in `Flugkern.pck` (Code/Szenen/UI), `Flugkern_modelle.pck`, `Flugkern_karte.pck`, `Flugkern_audio.pck`, je ≤ 30.000.000 Byte (`tools/split_pck.py` liest die exportierte Gesamt-.pck und packt per PCKPacker neu). Neue Startszene `ui/boot.tscn` (`PackLoader`) lädt sie vor dem Menü; Pflichtpaket fehlt → Meldung (headless Exit-Code 3), Audio fehlt → stumm. Diagnose „Pakete: Name Größe Version“.
+- **Sound v2** (Freigabe PO, `tools/gen_audio_v2.py`): Motor aus 3 Drehzahl-Layern je Typ (`assets/audio/engines/<typ>/idle|mid|full.ogg`, gleichleistend überblendet, Pitch = Drehzahl/Bezugsdrehzahl, Lautstärke nach Drehzahl und Gas, exakt periodische Loops ohne Naht). Neues Feld `AircraftData.engine_sound` (`"v12"` Reihenmotor = fighter_t1, alle Flugzeuge; `"radial"` Sternmotor hinterlegt) plus `engine_rpm_idle/max`. Alarm: Rotorsirene (Standard) oder Alarmglocke, Einstellung „Alarmton“ (`[audio] alarmton`). Tankwagen-Motor (Vierzylinder mit Zündfolge/Auspuff) und Tankpumpe (Kolbenhübe, Gehäuseresonanz, Motorbrummen) neu synthetisiert. v1-Motoren und v1-Sirene entfernt. Struktur für spätere Aufnahmen: Layer-Dateien je Typ austauschbar.
+- Selbsttest-Diagnose: „Audio-Busse …, Streams geladen 26/26, Motor-Layer 6/6“ und „Pakete: …“.
+
+### Tests
+- Neu `tests/suites/ui/test_audio.gd` (Busse/Streams/Größe, Regler, Anbindung im Spiel: Motor-Layer, Gegner-Motortyp, MG, Treffer, Sirene, Pumpe, Stimmen-Pool, Layer-Überblendung, Alarmton), `test_tutorial_pad_skip_and_pause_quit`, `test_main_menu_airfield_decor`; Export-Suite prüft alle 4 Pakete (Größe, Version, Streams 26/26, Motor-Layer 6/6) und den Start ohne Audio- bzw. Modell-Paket.
+
 ## M3.2 „Oberfläche und Tutorial“ (06.11.2026)
 
 ### Neu

@@ -172,6 +172,7 @@ retractable = false
 
 [resource]
 script = ExtResource("1_xbbnb")
+engine_sound = "v12"
 display_name = "Jäger T1 \"Falke\""
 inertia = Vector3(8000, 13000, 6000)
 static_thrust_n = 11500.0

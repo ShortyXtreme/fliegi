@@ -1,9 +1,17 @@
-# Flugkern M3.2 – Testversion „Oberfläche und Tutorial“
+# Flugkern M3.3 – Testversion „Menü, Controller-Tutorial und Sound“
 
 ## Installation
 1. Die vorhandene **Flugkern.exe** (Godot 4.7.2) bleibt unverändert.
-2. Diese **Flugkern.pck** in denselben Ordner kopieren und die alte überschreiben.
-3. Flugkern.exe starten. Der Fenstertitel muss „Flugkern M3.1“ zeigen.
+2. **Alle vier .pck-Dateien** in denselben Ordner wie Flugkern.exe kopieren (alte Flugkern.pck überschreiben):
+   `Flugkern.pck`, `Flugkern_modelle.pck`, `Flugkern_karte.pck`, `Flugkern_audio.pck`.
+   Fehlt Modelle oder Karte, zeigt das Spiel eine Meldung; fehlt Audio, läuft es ohne Ton.
+3. Flugkern.exe starten. Der Fenstertitel muss „Flugkern M3.3“ zeigen.
+
+## Neu in M3.3
+- **Sound:** Motor (V12-Reihenmotor, Leerlauf/Mitte/Vollgas überblendet) nach Gas und Fahrt, Fahrtwind, Fahrwerk, Klappen, Aufsetzen, Bauchlandung, MG-Feuer (auch Gegner, räumlich, Doppler beim Vorbeiflug), Treffer, Explosion, Brand, Notausstieg, Schritte, Tankwagen, Pumpe, Kisten, MG-Klappe, Gurt, Werkzeug, Ein-/Aussteigen, Alarm (Rotorsirene oder Glocke, Einstellungen → „Alarmton“), Wind/Vögel, Menü-Klänge. Alle Klänge selbst erzeugt (lizenzfrei, CC0).
+- **Lautstärkeregler** im Einstellungsmenü: Gesamt, Motor, Waffen, Umgebung, Menü/UI (Pfeile links/rechts). Cockpit-Ansicht klingt gedämpft.
+- **Hauptmenü** zeigt den Flugplatz mit Hallen, Tanklager, Bunker, Wagen und abgestellten Flugzeugen.
+- **Tutorial am Controller:** View-Taste **halten** = Schritt überspringen, Menu-Taste → Pausenmenü → „Tutorial beenden“. Die Tutorial-Karte zeigt die Symbole des benutzten Geräts.
 
 ## Neu in M3.2
 - **Hauptmenü** bei jedem Start: Tutorial (mit Fortschritt), Freies Spiel, Einstellungen (Realismus Flug, Bodenbetrieb, KI-Stufe, Radar, Maus-Empfindlichkeit), Steuerung, Beenden – Maus, Pfeile + Enter oder Stick + A/B. **Im Spiel: Esc bzw. Menu-Taste = Pausenmenü** (gibt die Maus frei). Neustart auf der Piste am Controller nur noch über das Menü (Tastatur R).

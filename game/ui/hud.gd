@@ -4,7 +4,7 @@ extends CanvasLayer
 ## F3: Treffer-Debug (M2.1, ui/debug/), Shift+F3: Kräfte-Overlay (Text + 3D-Pfeile),
 ## F1: Steuerungshilfe.
 
-const VERSION := "M3.2"
+const VERSION := "M3.3"
 ## Hilfe: ui/ground/ground_help.gd (Tafel je Kontext, M3.2)
 
 var aircraft: Aircraft
@@ -166,6 +166,7 @@ func _setup_audio() -> void:
 	_beep = AudioStreamPlayer.new()
 	_beep.stream = gen
 	_beep.volume_db = -8.0
+	_beep.bus = &"Motor"   # M3.3: Abriss-Warnung/Rütteln im Motor-Bus (Cockpit-Filter, Regler)
 	add_child(_beep)
 	_beep.play()
 	_beep_gen = _beep.get_stream_playback() as AudioStreamGeneratorPlayback

@@ -107,3 +107,18 @@ func test_pause_menu_and_skip() -> Array:
 	await _step(2)
 	var ok: bool = skip and paused and resumed and ids == ["resume", "controls", "settings", "main_menu", "quit"]
 	return [ok, "überspringen %s, Pause %s %s, fortgesetzt %s" % [skip, paused, str(ids), resumed]]
+
+
+## M3.3: Hauptmenü-Kulisse – Hallen, Lager, Bunker, Wagen und abgestellte Flugzeuge wie im Spiel.
+func test_main_menu_airfield_decor() -> Array:
+	var m: MainMenu = (load(GameMenu.MENU_SCENE) as PackedScene).instantiate()
+	get_tree().root.add_child(m)
+	await _step(3)
+	var mm: Dictionary = m.decor.model_meshes if m.decor != null else {}
+	var ok := m.decor != null
+	for k in ["fuel_depot", "ammo_bunker", "hangar", "hangar_2", "fuel_truck", "ammo_cart", "parked"]:
+		ok = ok and int(mm.get(k, 0)) > 0
+	var d := m.cam.global_position.distance_to(m._center) if m.cam != null else INF
+	m.queue_free()
+	await _step(2)
+	return [ok and d < 200.0, "Modelle %s, Kamera %.0f m" % [str(mm), d]]

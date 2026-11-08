@@ -51,6 +51,8 @@ func nav(cmd: String) -> void:
 			else:
 				activated.emit(current_id())
 		"cancel": cancelled.emit()
+	# M3.3: Menü-Klänge
+	GameAudio.ui(self, "ui_confirm" if cmd == "accept" else "ui_click")
 	queue_redraw()
 
 
