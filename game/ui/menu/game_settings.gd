@@ -3,7 +3,7 @@ extends RefCounted
 ## Einstellungen (M3.2, Haupt-/Pausenmenü) in user://flugkern.cfg – dieselbe Datei, die
 ## CombatScenario ([m2] ki_stufe) und MatchRules ([m3] bodenbetrieb) beim Spielstart lesen.
 ## Neu: [m3_2] flug = "arcade" | "realistisch", radar = "immer" | "kampf", maus = 0,5 … 2,0.
-## M3.3: [audio] vol_master/vol_motor/vol_waffen/vol_umgebung/vol_ui = 0,0 … 1,0.
+## M3.3: [audio] vol_master/vol_motor/vol_waffen/vol_umgebung/vol_ui = 0,0 … 1,0, alarmton = "sirene" | "glocke".
 ## apply_runtime() setzt die sofort wirksamen Werte (Flugmodus, Radar, Maus) im laufenden Spiel.
 
 const PATH := "user://flugkern.cfg"
@@ -23,6 +23,7 @@ const OPTIONS := [
 	["vol_waffen", "audio", "Lautstärke Waffen", VOL, VOL_LABELS, 0.8],
 	["vol_umgebung", "audio", "Lautstärke Umgebung", VOL, VOL_LABELS, 0.7],
 	["vol_ui", "audio", "Lautstärke Menü/UI", VOL, VOL_LABELS, 0.7],
+	["alarmton", "audio", "Alarmton", ["sirene", "glocke"], ["Sirene", "Glocke"], "sirene"],
 ]
 const VOL := [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 const VOL_LABELS := ["▯▯▯▯▯▯▯▯▯▯  0 %", "▮▯▯▯▯▯▯▯▯▯  10 %", "▮▮▯▯▯▯▯▯▯▯  20 %", "▮▮▮▯▯▯▯▯▯▯  30 %", "▮▮▮▮▯▯▯▯▯▯  40 %", "▮▮▮▮▮▯▯▯▯▯  50 %", "▮▮▮▮▮▮▯▯▯▯  60 %", "▮▮▮▮▮▮▮▯▯▯  70 %", "▮▮▮▮▮▮▮▮▯▯  80 %", "▮▮▮▮▮▮▮▮▮▯  90 %", "▮▮▮▮▮▮▮▮▮▮  100 %"]

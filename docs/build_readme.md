@@ -8,7 +8,7 @@
 3. Flugkern.exe starten. Der Fenstertitel muss „Flugkern M3.3“ zeigen.
 
 ## Neu in M3.3
-- **Sound:** Motor (Sternmotor, Gegner mit Reihenmotor) nach Gas und Fahrt, Fahrtwind, Fahrwerk, Klappen, Aufsetzen, Bauchlandung, MG-Feuer (auch Gegner, räumlich, Doppler beim Vorbeiflug), Treffer, Explosion, Brand, Notausstieg, Schritte, Tankwagen, Pumpe, Kisten, MG-Klappe, Gurt, Werkzeug, Ein-/Aussteigen, Alarm-Sirene, Wind/Vögel, Menü-Klänge. Alle Klänge selbst erzeugt (lizenzfrei, CC0).
+- **Sound:** Motor (V12-Reihenmotor, Leerlauf/Mitte/Vollgas überblendet) nach Gas und Fahrt, Fahrtwind, Fahrwerk, Klappen, Aufsetzen, Bauchlandung, MG-Feuer (auch Gegner, räumlich, Doppler beim Vorbeiflug), Treffer, Explosion, Brand, Notausstieg, Schritte, Tankwagen, Pumpe, Kisten, MG-Klappe, Gurt, Werkzeug, Ein-/Aussteigen, Alarm (Rotorsirene oder Glocke, Einstellungen → „Alarmton“), Wind/Vögel, Menü-Klänge. Alle Klänge selbst erzeugt (lizenzfrei, CC0).
 - **Lautstärkeregler** im Einstellungsmenü: Gesamt, Motor, Waffen, Umgebung, Menü/UI (Pfeile links/rechts). Cockpit-Ansicht klingt gedämpft.
 - **Hauptmenü** zeigt den Flugplatz mit Hallen, Tanklager, Bunker, Wagen und abgestellten Flugzeugen.
 - **Tutorial am Controller:** View-Taste **halten** = Schritt überspringen, Menu-Taste → Pausenmenü → „Tutorial beenden“. Die Tutorial-Karte zeigt die Symbole des benutzten Geräts.

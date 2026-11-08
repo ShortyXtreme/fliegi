@@ -8,3 +8,5 @@ tools_bin/
 # Mess-Ausgaben
 game/tests/diag/out*/
 .claude/
+# Python-Cache
+game/tools/__pycache__/

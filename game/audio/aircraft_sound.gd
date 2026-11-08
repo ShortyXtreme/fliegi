@@ -1,14 +1,19 @@
 class_name AircraftSound
 extends Node3D
-## M3.3: Geräusche eines Flugzeugs (Kind des Aircraft, 3D mit Doppler): Motor-Loop (Pitch/
-## Lautstärke aus Gas und Fahrt; Blau Sternmotor, Gegner Reihenmotor), Fahrtwind, MG-Feuer
+## M3.3: Geräusche eines Flugzeugs (Kind des Aircraft, 3D mit Doppler): Motor aus Drehzahl-Layern
+## (Leerlauf/Mitte/Vollgas je Typ AircraftData.engine_sound, gleichleistend überblendet, Pitch =
+## Drehzahl/Bezugsdrehzahl, Lautstärke nach Drehzahl und Gas), Fahrtwind, MG-Feuer
 ## (solange Schüsse kommen), Fahrwerk, Klappen, Aufsetzen, Bauchlandung, Brand.
 ## Entfernte Flugzeuge (> SoundDirector.CULL_AIRCRAFT) werden angehalten.
 
 var aircraft: Aircraft
 var director: SoundDirector
 var last_shot := -100000
+## Motor-Layer (je ein Loop-Player, Bezugsdrehzahl in engine_ref); engine = erster Layer
+var engines: Array[AudioStreamPlayer3D] = []
+var engine_ref: Array[float] = []
 var engine: AudioStreamPlayer3D
+var engine_type := ""
 var wind: AudioStreamPlayer3D
 var mg: AudioStreamPlayer3D
 var fire: AudioStreamPlayer3D
@@ -18,14 +23,23 @@ var _flaps := -1.0
 var _wheels := -1
 var _belly := false
 var _air_t := 0.0
-## Aktueller Drehzahl-Anteil 0..1 (Tests)
+## Aktueller Drehzahl-Anteil 0..1 und Motordrehzahl U/min (Tests)
 var rpm := 0.0
+var engine_rpm := 0.0
 
 
 func _ready() -> void:
 	name = "Sound"
-	var enemy := aircraft.nation_id != Nations.BLUE
-	engine = _loop("engine_inline" if enemy else "engine_radial", "Motor", 30.0)
+	engine_type = aircraft.data.engine_sound if aircraft.data != null else "v12"
+	for l in GameAudio.engine_layers(engine_type):
+		var p := _loop("", "Motor", 30.0)
+		p.stream = l[0]
+		engines.append(p)
+		engine_ref.append(l[1])
+	if engines.is_empty():
+		engines.append(_loop("", "Motor", 30.0))   # Audio-Paket fehlt: stummer Platzhalter
+		engine_ref.append(1000.0)
+	engine = engines[0]
 	wind = _loop("wind", "Motor", 12.0)
 	mg = _loop("mg_loop", "Waffen", 30.0)
 	fire = _loop("fire", "Waffen", 10.0)
@@ -40,6 +54,17 @@ func _loop(n: String, bus: String, unit: float) -> AudioStreamPlayer3D:
 	p.doppler_tracking = AudioStreamPlayer3D.DOPPLER_TRACKING_PHYSICS_STEP
 	add_child(p)
 	return p
+
+
+## Gleichleistende Überblendung: Gewicht von Layer i bei Drehzahl r (Nachbarn = Stützstellen).
+static func layer_weight(refs: Array[float], i: int, r: float) -> float:
+	var r0 := refs[i]
+	var x := 1.0
+	if r <= r0 and i > 0:
+		x = clampf((r - refs[i - 1]) / (r0 - refs[i - 1]), 0.0, 1.0)
+	elif r > r0 and i + 1 < refs.size():
+		x = clampf((refs[i + 1] - r) / (refs[i + 1] - r0), 0.0, 1.0)
+	return sin(x * PI / 2.0)
 
 
 static func _run(p: AudioStreamPlayer3D, on: bool) -> void:
@@ -58,11 +83,18 @@ func _physics_process(dt: float) -> void:
 	var cam := director.cam if director != null else null
 	var far := cam != null and cam.global_position.distance_to(aircraft.global_position) > SoundDirector.CULL_AIRCRAFT
 	var dead := aircraft.damage != null and (aircraft.damage.is_destroyed or aircraft.damage.engine_dead)
-	# Motor: Leerlauf 0,55 … Vollgas 1,6 (Fahrtwind treibt den Propeller mit)
+	# Motor: Drehzahl aus Gas (Fahrtwind treibt den Propeller mit), Layer überblenden
 	rpm = clampf(0.25 + 0.6 * t.throttle_actual + 0.15 * clampf(t.airspeed / 120.0, 0.0, 1.0), 0.0, 1.0)
-	_run(engine, not far and not dead)
-	engine.pitch_scale = lerpf(0.55, 1.6, rpm)
-	engine.volume_db = lerpf(-10.0, 2.0, rpm)
+	var lo := aircraft.data.engine_rpm_idle if aircraft.data != null else 850.0
+	var hi := aircraft.data.engine_rpm_max if aircraft.data != null else 2800.0
+	engine_rpm = lerpf(lo, hi, (rpm - 0.25) / 0.75)
+	var base_db := lerpf(-8.0, 0.0, rpm) + lerpf(-3.0, 2.0, clampf(t.throttle_actual, 0.0, 1.0))
+	for i in engines.size():
+		var wgt := layer_weight(engine_ref, i, engine_rpm)
+		var p := engines[i]
+		_run(p, not far and not dead and wgt > 0.001)
+		p.pitch_scale = clampf(engine_rpm / engine_ref[i], 0.5, 2.0)
+		p.volume_db = base_db + linear_to_db(maxf(wgt, 0.001))
 	# Fahrtwind
 	var w := clampf((t.airspeed - 12.0) / 110.0, 0.0, 1.0)
 	_run(wind, not far and w > 0.02)

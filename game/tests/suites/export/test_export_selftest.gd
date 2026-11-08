@@ -49,7 +49,7 @@ func test_export_selftest_hits_both_ways() -> Array:
 			and not text.contains("Animationen 0") and not text.contains("SCRIPT ERROR")
 	# M3.3: alle Pakete geladen (Version), jede Datei <= 30 000 000 Byte, Audio-Busse/Streams
 	var ok_pk := not text.contains("FEHLT") and text.contains("Flugkern_audio.pck") \
-			and text.contains("Streams geladen %d/%d" % [GameAudio.SOUNDS.size(), GameAudio.SOUNDS.size()])
+			and text.contains("Streams geladen %d/%d" % [GameAudio.SOUNDS.size(), GameAudio.SOUNDS.size()]) and text.contains("Motor-Layer 6/6")
 	var sizes := []
 	for f in ["Flugkern.pck", "Flugkern_modelle.pck", "Flugkern_karte.pck", "Flugkern_audio.pck"]:
 		var fa := FileAccess.open(pck.get_base_dir().path_join(f), FileAccess.READ)

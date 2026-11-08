@@ -6,7 +6,8 @@ Ventil-/Mechanikrauschen im Nockenwellentakt, Propellerschlag (Blattfrequenz üb
 weiche Sättigung, Raumanteil (frühe Reflexionen). Drehzahl-Layer (Leerlauf/Mitte/Voll), je 4 s Loop
 mit Kreuzblende (keine Naht). Sirene: mechanische Rotor-Sirene (Doppelrotor, Anlauf/Auslauf,
 Tonhöhen-Schwankung, Obertöne, Luftrauschen, Hall) und Alarmglocke (Glockenpartiale, Klöppel).
-Aufruf (aus game/): python3 tools/gen_audio_v2.py <zielordner>"""
+Aufruf (aus game/): python3 tools/gen_audio_v2.py [assets/audio] [hoerproben-ordner]
+Alle v2-Loops sind exakt periodisch (ganze Zahl Zündungen/Umdrehungen, Filter über 3 Perioden)."""
 import os
 import sys
 
@@ -67,64 +68,187 @@ V12 = dict(cyl=12, order=list(range(12)), gear=0.477, blades=3, pipe=0.0028,
            formants=[(140, 2.5, 2.0), (520, 3.5, 1.4), (1350, 4.0, 0.7)], click=0.03, bark=0.75)
 
 
+def _tile3(x):
+    return np.tile(x, 3)
+
+
+def _mid(y, n):
+    return y[n:2 * n]
+
+
+def room_loop(x, amount):
+    """room() für periodische Signale (3x kacheln, Mitte) -> keine Naht."""
+    n = len(x)
+    return _mid(room(_tile3(x), amount), n)
+
+
 def engine_layer(e, rpm, sec=4.0, load=1.0):
-    """Ein Drehzahl-Layer (sec + 0,5 s für die Kreuzblende)."""
-    tot = sec + 0.5
-    n = int(tot * SR)
-    x = np.zeros(n)
+    """Ein Drehzahl-Layer als exakt periodischer Loop (ganze Zahl Zündungen/Blattschläge je Loop,
+    Rauschen und alle Filter über 3 Perioden gekachelt) -> nahtlos ohne Kreuzblende."""
+    n = int(sec * SR)
     f_fire = rpm / 60.0 * e["cyl"] / 2.0          # Zündungen je s (4-Takt)
-    per = 1.0 / f_fire
-    # Zündimpuls: steile Druckflanke + gedämpfte Gas-Schwingung + Rauschanteil (Verbrennung)
-    kl = int(min(per * 2.2, 0.06) * SR)
+    nf = max(1, int(round(f_fire * sec)))
+    per = n / nf                                   # Samples je Zündung (exakt periodisch)
+    x = np.zeros(n)
+    kl = int(min(per / SR * 2.2, 0.06) * SR)
     kt = np.arange(kl) / SR
-    cyl_gain = 1.0 + rng.normal(0, 0.08, e["cyl"])  # Zylinder streuen leicht
+    cyl_gain = 1.0 + rng.normal(0, 0.08, e["cyl"])
     cyl_tone = rng.uniform(0.85, 1.15, e["cyl"])
-    t = 0.0
-    k = 0
-    while t < tot:
-        c = e["order"][k % e["cyl"]]
-        jitter = rng.normal(0, 0.035) * per          # Taktschwankung
-        amp = cyl_gain[c] * (1.0 + rng.normal(0, 0.12)) * (0.55 + 0.45 * load)
-        s = int((t + jitter) * SR)
-        if 0 <= s < n - kl:
-            ring = np.sin(2 * np.pi * 70 * cyl_tone[c] * kt) * ga.env_exp(kl, 0.006)
-            burst = ga.lp(ga.noise(kl), 1500) * ga.env_exp(kl, 0.0025) * 0.8
-            edge = np.exp(-kt / 0.0008)
-            x[s:s + kl] += amp * (edge * 1.2 + ring * 0.6 + burst) * e["bark"]
-        t += per
-        k += 1
-    # Auspuff: Rohr-Kammfilter + Formanten (Krümmer/Sammler), dann Tiefpass
-    y = comb(x, e["pipe"], 0.55)
-    for f, q, g in e["formants"]:
-        y = peak(y, f, q, g)
-    y = ga.lp(ga.hp(y, 35), 2600)
-    # Mechanik: Ventiltrieb (Nockenwelle = halbe Kurbeldrehzahl) als getaktetes Klickern
+    ring_f = e.get("ring", 70)
+    nc = len(e["order"])
+    for k in range(nf):
+        c = e["order"][k % nc]
+        amp = cyl_gain[c % len(cyl_gain)] * (1.0 + rng.normal(0, 0.12)) * (0.55 + 0.45 * load)
+        s = int(k * per + rng.normal(0, 0.035) * per)
+        ring = np.sin(2 * np.pi * ring_f * cyl_tone[c % len(cyl_tone)] * kt) * ga.env_exp(kl, 0.006)
+        burst = ga.lp(ga.noise(kl), 1500) * ga.env_exp(kl, 0.0025) * 0.8
+        edge = np.exp(-kt / 0.0008)
+        x[(np.arange(kl) + s) % n] += amp * (edge * 1.2 + ring * 0.6 + burst) * e["bark"]
     tt = np.arange(n) / SR
-    cam = rpm / 120.0
-    tick = (0.5 + 0.5 * np.cos(2 * np.pi * cam * e["cyl"] * tt)) ** 8
-    mech = ga.bp(ga.noise(n), 1800, 6000) * (0.3 + tick) * e["click"]
-    # Propeller: Blattfrequenz, Druckschlag + Luftrauschen moduliert
-    f_blade = rpm / 60.0 * e["gear"] * e["blades"]
-    phase = 2 * np.pi * f_blade * tt + rng.normal(0, 0.02, n).cumsum() * 0.001
-    blade = np.clip(np.cos(phase), 0, 1) ** 6
-    air = ga.bp(ga.noise(n), 200, 1400) * (0.25 + 0.75 * blade) * (0.05 + 0.15 * (rpm / 2600) ** 2)
-    thump = ga.lp(blade - blade.mean(), 120) * 0.6
-    z = ga.norm(y) + mech + air + thump
+    # Mechanik im Zündtakt (Ventiltrieb)
+    tick = (0.5 + 0.5 * np.cos(2 * np.pi * nf / sec * tt)) ** 8
+    mech_n = ga.noise(n)
+    if e["blades"] > 0:
+        nb = max(1, int(round(rpm / 60.0 * e["gear"] * e["blades"] * sec)))
+        blade = np.clip(np.cos(2 * np.pi * nb / sec * tt), 0, 1) ** 6
+    else:
+        blade = np.zeros(n)
+    air_n = ga.noise(n)
+
+    def chain(xx, tk, bl, mn, an):
+        y = comb(xx, e["pipe"], 0.55)
+        for f, q, g in e["formants"]:
+            y = peak(y, f, q, g)
+        y = ga.lp(ga.hp(y, 35), e.get("cut", 2600))
+        mech = ga.bp(mn, 1800, 6000) * (0.3 + tk) * e["click"]
+        air = ga.bp(an, 200, 1400) * (0.25 + 0.75 * bl) * (0.05 + 0.15 * (rpm / 2600) ** 2) * e.get("air", 1.0)
+        thump = ga.lp(bl - bl.mean(), 120) * 0.6
+        return y, mech + air + thump
+
+    y, rest = chain(*[_tile3(a) for a in (x, tick, blade, mech_n, air_n)])
+    y, rest = _mid(y, n), _mid(rest, n)
+    z = ga.norm(y) + rest
     z = sat(ga.norm(z, 1.0), 1.8 + 1.2 * load)
-    z = room(z, 0.16)
-    return ga.norm(crossfade_loop(z, sec), 0.85)
+    z = room_loop(z, 0.16)
+    return ga.norm(z, 0.85)
 
 
-RADIAL_LAYERS = [("idle", 700, 0.25), ("mid", 1550, 0.6), ("high", 2450, 1.0)]
-V12_LAYERS = [("idle", 850, 0.25), ("mid", 1800, 0.6), ("high", 2750, 1.0)]
+# Drehzahlen je Layer müssen zu GameAudio.ENGINE_RPM passen (game/audio/game_audio.gd).
+RADIAL_LAYERS = [("idle", 700, 0.25), ("mid", 1550, 0.6), ("full", 2450, 1.0)]
+V12_LAYERS = [("idle", 850, 0.25), ("mid", 1800, 0.6), ("full", 2750, 1.0)]
+# Tankwagen: Vierzylinder-Diesel/Benziner, kein Propeller, langes Rohr, dumpfe Formanten
+TRUCK = dict(cyl=4, order=[0, 2, 3, 1], gear=0, blades=0, pipe=0.0065, ring=45, cut=1400, air=0,
+             formants=[(70, 2.0, 2.5), (180, 3.0, 1.5), (420, 4.0, 0.6)], click=0.06, bark=1.0)
 
 
 def engines():
     out = {}
-    for tag, e, layers in [("radial", RADIAL, RADIAL_LAYERS), ("inline", V12, V12_LAYERS)]:
+    for tag, e, layers in [("radial", RADIAL, RADIAL_LAYERS), ("v12", V12, V12_LAYERS)]:
         for name, rpm, load in layers:
             out["engine_%s_%s" % (tag, name)] = (engine_layer(e, rpm, 4.0, load), rpm)
     return out
+
+
+def pump_loop(sec=2.0):
+    """Tankpumpe: Kolben-/Flügelzellenpumpe (12 Hübe/s, Druckstöße mit Gehäuse-Resonanz),
+    Elektromotor-Brummen mit leicht schwankender Last, Treibstoffrauschen im Schlauch."""
+    n = int(sec * SR)
+    tt = np.arange(n) / SR
+    x = np.zeros(n)
+    strokes = int(12 * sec)
+    kl = int(0.05 * SR)
+    kt = np.arange(kl) / SR
+    for k in range(strokes):
+        s = int(k * n / strokes + rng.normal(0, 0.02) * n / strokes)
+        a = 1.0 + rng.normal(0, 0.1)
+        hit = (np.sin(2 * np.pi * 240 * kt) * 0.6 + ga.noise(kl) * 0.5) * ga.env_exp(kl, 0.008) * a
+        x[(np.arange(kl) + s) % n] += hit
+    hum = sum(a * np.sin(2 * np.pi * f * tt) for f, a in [(48, 0.12), (96, 0.08), (144, 0.03)])
+    load = 1.0 + 0.15 * np.cos(2 * np.pi * 12 * tt)  # Last im Hubtakt
+    flow_n = ga.noise(n)
+
+    def chain(xx, hm, ld, fn):
+        y = peak(ga.bp(xx, 80, 3000), 620, 4.0, 1.5)       # Pumpengehäuse
+        y = peak(y, 1450, 6.0, 0.8)
+        flow = ga.bp(fn, 700, 3200) * (0.5 + 0.5 * ld) * 0.25
+        return sat(y * 0.6 + hm * ld * 1.6 + flow, 1.5)
+    z = _mid(chain(*[_tile3(a) for a in (x, hum, load, flow_n)]), n)
+    return ga.norm(room_loop(z, 0.12), 0.8)
+
+
+def siren_loop(cycle=8.0, ports=(10, 12), rpm_max=3300.0):
+    """Mechanische Rotorsirene als Loop: auf- und abschwellender Heulton (Antrieb zyklisch ein/aus,
+    Rotor läuft träge hoch und aus). Rotorumdrehungen je Zyklus ganzzahlig -> exakt periodisch."""
+    n = int(cycle * SR)
+    tt = np.arange(n) / SR
+    on = cycle * 0.55
+    # Drehzahl-Kurve: Anlauf (exp.), Auslauf; periodisch zusammengesetzt (Start = Ende)
+    w_lo = 0.38
+    w = np.where(tt < on, 1 - (1 - w_lo) * np.exp(-tt / 1.4), 0.0)
+    w_on = 1 - (1 - w_lo) * np.exp(-on / 1.4)
+    tau_off = -(cycle - on) / np.log(w_lo / w_on)
+    w = np.where(tt >= on, w_on * np.exp(-(tt - on) / tau_off), w)
+    wob = 1 + 0.012 * np.sin(2 * np.pi * (6 / cycle) * tt)
+    rps = w * wob * rpm_max / 60.0
+    rev = np.cumsum(rps) / SR
+    rev *= round(rev[-1]) / rev[-1]
+    y = np.zeros(n)
+    for p, g in zip(ports, (1.0, 0.8)):
+        ph = 2 * np.pi * rev * p
+        y += g * (np.clip(np.sin(ph), 0, 1) ** 1.5 - 0.32)
+    air_n = ga.noise(n)
+
+    def chain(yy, ww, an):
+        y2 = peak(ga.lp(yy, 4500), 900, 2.0, 1.2)
+        air = ga.bp(an, 400, 2500) * (0.03 + 0.08 * ww)
+        z = sat(ga.norm(y2, 1.0) * np.clip(ww * 1.4, 0, 1) + air, 1.6)
+        out = z.copy()
+        for d, g in [(0.12, 0.35), (0.27, 0.22), (0.45, 0.14), (0.7, 0.08)]:
+            k = int(d * SR)
+            out[k:] += ga.lp(z[:-k], 2500) * g
+        return out
+    return ga.norm(_mid(chain(*[_tile3(a) for a in (y, w, air_n)]), n), 0.85)
+
+
+def bell_loop(sec=4.0, rate=7.0):
+    """Alarmglocke als Loop (Klöppelschläge mit Streuung, Ausklang über die Naht gewickelt)."""
+    n = int(sec * SR)
+    y = np.zeros(n)
+    f0 = 1180.0
+    partials = [(0.5, 0.35, 0.9), (1.0, 1.0, 0.7), (1.19, 0.5, 0.5), (1.5, 0.4, 0.45), (2.0, 0.45, 0.35),
+                (2.51, 0.25, 0.25), (2.98, 0.2, 0.2), (4.1, 0.1, 0.12)]
+    kl = int(1.2 * SR)
+    kt = np.arange(kl) / SR
+    strikes = int(rate * sec)
+    for k in range(strikes):
+        s = int((k + rng.normal(0, 0.06)) * n / strikes)
+        strike = np.zeros(kl)
+        for r, g, tau in partials:
+            strike += g * np.sin(2 * np.pi * f0 * r * (1 + rng.normal(0, 0.0005)) * kt + rng.uniform(0, 6.28)) \
+                * ga.env_exp(kl, tau * 0.4)
+        strike += ga.hp(ga.noise(kl), 3000) * ga.env_exp(kl, 0.002) * 0.6
+        y[(np.arange(kl) + s) % n] += strike * (0.8 + rng.uniform(-0.15, 0.15))
+    y = sat(ga.norm(y, 1.0), 1.4)
+    return ga.norm(room_loop(y, 0.25), 0.85)
+
+
+def game_files(audio_dir):
+    """Spiel-Klänge v2 nach assets/audio: engines/<typ>/{idle,mid,full}.ogg, alarm_siren, alarm_bell,
+    truck_idle, pump. Gibt {name: pfad} zurück."""
+    old = ga.OUT
+    files = {}
+    eng = engines()
+    for key, (x, _rpm) in eng.items():
+        _, typ, layer = key.split("_")
+        ga.OUT = os.path.join(audio_dir, "engines", typ)
+        files[key] = ga.write(layer, x, 2)
+    ga.OUT = audio_dir
+    files["alarm_siren"] = ga.write("alarm_siren", siren_loop(), 1)
+    files["alarm_bell"] = ga.write("alarm_bell", bell_loop(), 1)
+    files["truck_idle"] = ga.write("truck_idle", engine_layer(TRUCK, 750, 2.0, 0.3), 1)
+    files["pump"] = ga.write("pump", pump_loop(), 1)
+    ga.OUT = old
+    return files, eng
 
 
 # --- Alarm -------------------------------------------------------------------------------------
@@ -211,7 +335,7 @@ def previews(dst, eng):
     n = int(sec * SR)
     tt = np.arange(n) / SR
     rp = 700 + 1750 * np.clip((tt - 2.0) / 3.5, 0, 1) ** 1.3
-    rad = [eng["engine_radial_%s" % k] for k in ("idle", "mid", "high")]
+    rad = [eng["engine_radial_%s" % k] for k in ("idle", "mid", "full")]
     x = layered_sweep(rad, rp) * (0.55 + 0.45 * np.clip((tt - 2.0) / 3.5, 0, 1))
     ga.write("motor_v2_sternmotor_leerlauf_bis_vollgas", ga.fade(ga.norm(x, 0.9), 0.05, 0.3), 3)
     # Vorbeiflug Reihenmotor (Doppler, Entfernung, Luftdämpfung)
@@ -220,7 +344,7 @@ def previews(dst, eng):
     dist = np.sqrt(xpos ** 2 + d0 ** 2)
     radial_v = xpos / dist * v
     dop = 343.0 / (343.0 + radial_v)
-    inl = [eng["engine_inline_%s" % k] for k in ("idle", "mid", "high")]
+    inl = [eng["engine_v12_%s" % k] for k in ("idle", "mid", "full")]
     y = layered_sweep(inl, 2600 * dop)
     y *= 40.0 / dist
     lp_y = ga.lp(y, 900)
@@ -233,7 +357,10 @@ def previews(dst, eng):
 
 
 if __name__ == "__main__":
-    dst = sys.argv[1] if len(sys.argv) > 1 else "."
-    eng = engines()
-    previews(dst, eng)
-    print("Hörproben nach", dst)
+    # Aufruf (aus game/): python3 tools/gen_audio_v2.py assets/audio [hoerproben-ordner]
+    dst = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), "..", "assets", "audio")
+    fs, eng = game_files(dst)
+    if len(sys.argv) > 2:
+        previews(sys.argv[2], eng)
+    tot = sum(os.path.getsize(p) for p in fs.values())
+    print("%d Dateien, %.0f KB" % (len(fs), tot / 1024))

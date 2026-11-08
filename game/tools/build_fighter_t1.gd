@@ -48,6 +48,7 @@ static func make() -> AircraftData:
 	d.engine_position = Vector3(0, 0, -3.2)
 	d.engine_critical_altitude = 4000.0   # Volldruckhöhe Lader
 	d.idle_throttle = 0.04
+	d.engine_sound = "v12"               # Reihenmotor (Motorklang, M3.3)
 	d.prop_blend_exponent = 2.5
 	d.fuselage_drag_area = 0.17           # M1.1: CD0 realistischer (vorher 0,10)
 	d.fuselage_side_area = 4.0

@@ -60,7 +60,7 @@ func _ready() -> void:
 		add_child(p)
 		_pool2.append(p)
 	_ambient = _loop2d("ambient", "Umgebung", -14.0)
-	_siren = _loop2d("siren", "Umgebung", -6.0)
+	_siren = _loop2d(GameAudio.alarm_sound(), "Umgebung", -6.0)
 	get_tree().node_added.connect(_on_node_added)
 	for n in get_tree().root.find_children("*", "", true, false):
 		_on_node_added(n)
@@ -175,7 +175,11 @@ func _connect_buses() -> void:
 		gb.seat_changed.connect(_on_seat_changed)
 		gb.alarm_started.connect(func(sec):
 			_siren_t = maxf(sec, 8.0)
-			played["siren"] = int(played.get("siren", 0)) + 1
+			var snd := GameAudio.alarm_sound()   # Einstellung „Alarmton“ (Sirene/Glocke)
+			played[snd] = int(played.get(snd, 0)) + 1
+			if _siren.stream != GameAudio.stream(snd):
+				_siren.stop()
+				_siren.stream = GameAudio.stream(snd)
 			if _siren.stream != null and not _siren.playing:
 				_siren.play())
 		gb.alarm_ended.connect(func(_ok): _siren_t = minf(_siren_t, 1.5))
