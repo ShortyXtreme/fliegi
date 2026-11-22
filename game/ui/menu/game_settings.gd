@@ -10,6 +10,11 @@ const PATH := "user://flugkern.cfg"
 
 ## [Schlüssel, Abschnitt, Beschriftung, Werte, Anzeigenamen, Standard]
 const OPTIONS := [
+	# M3.4: Anzeige (beim Start und sofort angewendet)
+	["fenster", "anzeige", "Anzeigemodus", ["vollbild", "rahmenlos", "fenster"],
+		["Vollbild", "Rahmenloses Fenster", "Fenster"], "fenster"],
+	["aufloesung", "anzeige", "Fenstergröße", RES, RES, "1600x900"],
+	["vsync", "anzeige", "V-Sync", ["an", "aus"], ["An", "Aus"], "an"],
 	["flug", "m3_2", "Realismus Flug", ["arcade", "realistisch"], ["Arcade", "Realistisch"], "arcade"],
 	["bodenbetrieb", "m3", "Realismus Bodenbetrieb", ["einfach", "standard", "authentisch"],
 		["Einfach", "Standard", "Authentisch"], "standard"],
@@ -26,7 +31,8 @@ const OPTIONS := [
 	["alarmton", "audio", "Alarmton", ["sirene", "glocke"], ["Sirene", "Glocke"], "sirene"],
 ]
 const VOL := [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-const VOL_LABELS := ["▯▯▯▯▯▯▯▯▯▯  0 %", "▮▯▯▯▯▯▯▯▯▯  10 %", "▮▮▯▯▯▯▯▯▯▯  20 %", "▮▮▮▯▯▯▯▯▯▯  30 %", "▮▮▮▮▯▯▯▯▯▯  40 %", "▮▮▮▮▮▯▯▯▯▯  50 %", "▮▮▮▮▮▮▯▯▯▯  60 %", "▮▮▮▮▮▮▮▯▯▯  70 %", "▮▮▮▮▮▮▮▮▯▯  80 %", "▮▮▮▮▮▮▮▮▮▯  90 %", "▮▮▮▮▮▮▮▮▮▮  100 %"]
+const VOL_LABELS := ["0 %", "10 %", "20 %", "30 %", "40 %", "50 %", "60 %", "70 %", "80 %", "90 %", "100 %"]
+const RES := ["1280x720", "1600x900", "1920x1080", "2560x1440", "2560x1080", "3440x1440"]
 
 ## Faktor auf PlayerController.MOUSE_SENS.
 static var mouse_mul := 1.0
@@ -70,10 +76,47 @@ static func label_of(key: String) -> String:
 ## Wert um d Schritte weiterschalten (zyklisch) und speichern.
 static func cycle(key: String, d: int) -> void:
 	var vals: Array = option(key)[3]
-	if key.begins_with("vol_"):   # Regler: am Rand stehen bleiben
+	if is_slider(key) or key == "aufloesung":   # Regler: am Rand stehen bleiben
 		set_value(key, vals[clampi(index_of(key) + d, 0, vals.size() - 1)])
 		return
 	set_value(key, vals[posmod(index_of(key) + d, vals.size())])
+
+
+## Regler (Balken mit Prozentwert) statt Auswahl.
+static func is_slider(key: String) -> bool:
+	return key.begins_with("vol_")
+
+
+## Reglerstellung 0..1.
+static func slider_frac(key: String) -> float:
+	return float(index_of(key)) / float(maxi((option(key)[3] as Array).size() - 1, 1))
+
+
+## M3.4: Anzeigemodus, Fenstergröße und V-Sync anwenden (headless: nichts).
+static func apply_display() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if get_value("vsync") == "an"
+		else DisplayServer.VSYNC_DISABLED)
+	var scr := DisplayServer.window_get_current_screen()
+	match String(get_value("fenster")):
+		"vollbild":
+			DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, false)
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN)
+		"rahmenlos":
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+			DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, true)
+			DisplayServer.window_set_size(DisplayServer.screen_get_size(scr))
+			DisplayServer.window_set_position(DisplayServer.screen_get_position(scr))
+		_:
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+			DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, false)
+			var p := String(get_value("aufloesung")).split("x")
+			var sz := Vector2i(int(p[0]), int(p[1]))
+			var ss := DisplayServer.screen_get_size(scr)
+			sz = Vector2i(mini(sz.x, ss.x), mini(sz.y, ss.y))
+			DisplayServer.window_set_size(sz)
+			DisplayServer.window_set_position(DisplayServer.screen_get_position(scr) + (ss - sz) / 2)
 
 
 ## Sofort wirksame Werte ins laufende Spiel (Game) übernehmen; null = nur statische Werte.

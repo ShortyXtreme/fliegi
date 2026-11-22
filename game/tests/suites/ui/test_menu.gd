@@ -122,3 +122,38 @@ func test_main_menu_airfield_decor() -> Array:
 	m.queue_free()
 	await _step(2)
 	return [ok and d < 200.0, "Modelle %s, Kamera %.0f m" % [str(mm), d]]
+
+
+## M3.4: Einstellungen – Beschriftungen passen in ihre Spalte, Regler/Werte liegen rechts daneben,
+## die Liste passt bei 720 … 1440 Pixel Höhe ins Bild (sonst scrollt sie); Anzeige-Optionen vorhanden.
+func test_settings_layout() -> Array:
+	var m := GameMenu.new()
+	get_tree().root.add_child(m)
+	await _step(2)
+	m.show_page("settings")
+	await _step(2)
+	var l := m.list
+	var bad := []
+	for it in l.items:
+		if not it.get("option", false):
+			continue
+		var fs := MenuList.fit_size(String(it.label), 19.0, l.label_w)
+		if HudStyle.text_width(String(it.label), fs, true) > l.label_w + 0.5:
+			bad.append(it.label)
+		var vfs := MenuList.fit_size(String(it.value), 18.0, l.value_rect().size.x - 56.0)
+		if HudStyle.text_width(String(it.value), vfs, true) > l.value_rect().size.x - 40.0:
+			bad.append(it.value)
+	var col_ok := l.value_rect().position.x >= 28.0 + l.label_w
+	var fits := []
+	for h in [720.0, 1080.0, 1440.0]:
+		var s: float = HudStyle.ui_scale(Vector2(h * 16.0 / 9.0, h))
+		var top: float = h * 0.1
+		var rows: int = int(floor(((h - top) / s - 60.0 - MenuList.HEAD) / l.row))
+		l.set_max_rows(rows)
+		fits.append(top + l.size.y * s <= h and l.w * s <= h * 16.0 / 9.0)
+	var ids: Array = l.items.map(func(i): return i.id)
+	m.queue_free()
+	await _step(2)
+	var ok := bad.is_empty() and col_ok and not fits.has(false) \
+		and ids.has("fenster") and ids.has("aufloesung") and ids.has("vsync")
+	return [ok, "zu lang %s, Spalten %s, passt %s" % [str(bad), col_ok, str(fits)]]

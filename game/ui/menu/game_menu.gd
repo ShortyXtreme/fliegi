@@ -15,6 +15,7 @@ enum Mode { MAIN, PAUSE }
 
 const GAME_SCENE := "res://world/main.tscn"
 const MENU_SCENE := "res://ui/menu/main_menu.tscn"
+const SETTINGS_W := 720.0
 
 var mode := Mode.MAIN
 var page := "start"
@@ -77,10 +78,14 @@ func show_page(p: String) -> void:
 func _settings_items(f: int) -> void:
 	var its: Array = []
 	for o in GameSettings.OPTIONS:
-		its.append({"id": o[0], "label": o[2], "option": true, "value": GameSettings.label_of(o[0])})
+		var it := {"id": o[0], "label": o[2], "option": true, "value": GameSettings.label_of(o[0])}
+		if GameSettings.is_slider(o[0]):
+			it["slider"] = GameSettings.slider_frac(o[0])
+		its.append(it)
 	its.append({"id": "back", "label": "Zurück",
 		"note": "KI und Bodenbetrieb ab dem nächsten Start" if mode == Mode.PAUSE else "gilt beim Spielstart"})
-	list.set_items("Einstellungen", its, f)
+	# M3.4: breite Liste, Beschriftung links (feste Spalte), Regler/Werte rechts
+	list.set_items("Einstellungen", its, f, SETTINGS_W, 44.0, 300.0)
 
 
 func _tutorial_items() -> Array:
@@ -115,6 +120,8 @@ func _on_activated(id: String) -> void:
 func _on_option(id: String, d: int) -> void:
 	GameSettings.cycle(id, d)
 	GameSettings.apply_runtime(game)
+	if GameSettings.option(id)[1] == "anzeige":
+		GameSettings.apply_display()
 	_settings_items(list.focus)
 
 
@@ -154,7 +161,10 @@ func _process(_dt: float) -> void:
 	var vs := root.get_viewport_rect().size
 	var s := HudStyle.ui_scale(vs)
 	list.scale = Vector2(s, s)
-	list.position = Vector2(vs.x * 0.5 - MenuList.W * 0.5 * s, vs.y * 0.36)
+	var top := vs.y * (0.1 if page == "settings" else 0.36)
+	# M3.4: so viele Zeilen, wie in die Höhe passen (Rest scrollt)
+	list.set_max_rows(int(floor(((vs.y - top) / s - 60.0 - MenuList.HEAD) / list.row)) if page == "settings" else 0)
+	list.position = Vector2(vs.x * 0.5 - list.w * 0.5 * s, top)
 	if mode == Mode.MAIN:
 		list.position.x = 110.0 * s
 	list.queue_redraw()
@@ -181,7 +191,7 @@ class MenuTitle extends Control:
 			var c1 := Color(HudStyle.BG, 0.0)
 			draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(vs.x * 0.7, 0), Vector2(vs.x * 0.7, vs.y),
 				Vector2(0, vs.y)]), PackedColorArray([c0, c1, c1, c0]))
-		if menu.page == "controls":
+		if menu.page != "start":
 			return
 		var x := 110.0 * s if menu.mode == GameMenu.Mode.MAIN else vs.x * 0.5 - 230.0 * s
 		var y := vs.y * 0.36 - 40.0 * s

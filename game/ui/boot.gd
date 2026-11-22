@@ -7,6 +7,7 @@ const MENU := "res://ui/menu/main_menu.tscn"
 
 
 func _ready() -> void:
+	GameSettings.apply_display()   # M3.4: Vollbild/Rahmenlos/Fenster, V-Sync
 	var ok := PackLoader.load_all()
 	print("Diagnose " + PackLoader.diagnostics())
 	if ok:
