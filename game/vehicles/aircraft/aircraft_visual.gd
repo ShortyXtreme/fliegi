@@ -42,6 +42,18 @@ const RIG := {
 	"wheel_tail": [Vector3.RIGHT, 0.115],
 }
 const CANOPY_OPEN_Z := -0.55
+## M3.5: Service-Teile (rig.json parts ammo_hatch_L/R, fuel_cap_lid): Dienstname ->
+## [Knoten, lokale Drehachse (Modellsystem), Öffnungswinkel in Grad]. Schnittstelle für die
+## Bodenjobs: set_service_part_open(name, open). Namen = Marker ohne „svc_“.
+const SERVICE_PARTS := {
+	"gun_hatch_L": ["ammo_hatch_L", Vector3(0.997, 0.0769, 0.0), 105.0],
+	"gun_hatch_R": ["ammo_hatch_R", Vector3(0.997, -0.0769, 0.0), 105.0],
+	"fuel_cap": ["fuel_cap_lid", Vector3(-0.0453, 0.999, 0.0), 110.0],
+}
+## Öffnen/Schließen dauert so viele Sekunden.
+const SERVICE_PART_TIME := 0.8
+## Gesendet, wenn eine Klappe/ein Deckel ganz offen bzw. ganz zu ist.
+signal service_part_changed(part_name: String, open: bool)
 static var _rig_cache := {}
 
 ## true = Spielmodell mit Rig geladen.
@@ -53,6 +65,9 @@ var _built := false
 var _canopy_open := 0.0
 var _wheel_angle := 0.0
 var _aircraft: Node3D
+## Dienstname -> Zielzustand (1 offen, 0 zu) und aktueller Anteil 0..1
+var _svc_target := {}
+var _svc_amount := {}
 
 
 func build(d: AircraftData) -> void:
@@ -64,6 +79,7 @@ func build(d: AircraftData) -> void:
 
 
 func _ready() -> void:
+	set_process(false)
 	if data != null and not _built:
 		_build_now()
 
@@ -189,6 +205,63 @@ func _setup_rig() -> void:
 		if n != null:
 			rig_parts[part] = {"node": n, "rest": n.transform}
 	_prop = rig_parts.propeller.node if rig_parts.has("propeller") else null
+	for k in SERVICE_PARTS:
+		var n := model_root.find_child(SERVICE_PARTS[k][0], true, false) as Node3D
+		if n != null:
+			rig_parts[SERVICE_PARTS[k][0]] = {"node": n, "rest": n.transform}
+			_apply_service_part(k)
+
+
+# --- M3.5: Service-Teile (Munitionsklappen, Tankdeckel) --------------------------------
+## Klappe/Deckel öffnen oder schließen (animiert, SERVICE_PART_TIME). name: "gun_hatch_L",
+## "gun_hatch_R" oder "fuel_cap". Unbekannte Namen werden ignoriert (false).
+func set_service_part_open(part_name: String, open: bool, instant: bool = false) -> bool:
+	if not SERVICE_PARTS.has(part_name):
+		return false
+	_svc_target[part_name] = 1.0 if open else 0.0
+	if instant:
+		_svc_amount[part_name] = _svc_target[part_name]
+		_apply_service_part(part_name)
+	set_process(true)
+	return true
+
+
+## Zielzustand (true = offen bzw. öffnet gerade).
+func is_service_part_open(part_name: String) -> bool:
+	return float(_svc_target.get(part_name, 0.0)) > 0.5
+
+
+## Öffnungsgrad 0 (zu) .. 1 (ganz offen).
+func service_part_amount(part_name: String) -> float:
+	return float(_svc_amount.get(part_name, 0.0))
+
+
+func _process(dt: float) -> void:
+	var busy := false
+	for k in _svc_target:
+		var cur := float(_svc_amount.get(k, 0.0))
+		var tgt := float(_svc_target[k])
+		if is_equal_approx(cur, tgt):
+			continue
+		cur = move_toward(cur, tgt, dt / SERVICE_PART_TIME)
+		_svc_amount[k] = cur
+		_apply_service_part(k)
+		if is_equal_approx(cur, tgt):
+			service_part_changed.emit(k, tgt > 0.5)
+		else:
+			busy = true
+	if not busy:
+		set_process(false)
+
+
+func _apply_service_part(part_name: String) -> void:
+	var spec: Array = SERVICE_PARTS[part_name]
+	if not rig_parts.has(spec[0]):
+		return
+	var e: Dictionary = rig_parts[spec[0]]
+	var u := float(_svc_amount.get(part_name, 0.0))
+	var a := float(spec[2]) * u * u * (3.0 - 2.0 * u)
+	(e.node as Node3D).transform.basis = (e.rest as Transform3D).basis * Basis((spec[1] as Vector3).normalized(), deg_to_rad(a))
 
 
 ## Teil um seine lokale Rig-Achse drehen (Grad, auf Rig-Grenzen begrenzt).

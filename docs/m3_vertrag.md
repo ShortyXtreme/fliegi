@@ -34,7 +34,7 @@ Dieses Dokument legt fest, welche Schnittstellen nach Paket 0 feststehen und wel
 - `Authority.simulate_client`, `Authority.reset()`.
 
 ### 2.3 Spielsysteme (0b, eingefroren)
-- `Aircraft.place(xf, speed, throttle, gear_down, refill = true, service = null)`: Mit `refill = false` bleiben Schäden, Treibstoff und Munition erhalten. `service` (`ServiceState`) wird danach angewendet. `place_on_ground(pos, dir, refill, service)`, `service_point(marker)`, `seat_on_ground()`, `seat_speed()`. `pilot_seat.entry_offset` = `svc_entry`.
+- `Aircraft.place(xf, speed, throttle, gear_down, refill = true, service = null)`: Mit `refill = false` bleiben Schäden, Treibstoff und Munition erhalten. `service` (`ServiceState`) wird danach angewendet. `place_on_ground(pos, dir, refill, service)`, `service_point(marker)`, `set_service_part_open(name, open)` (M3.5: Klappe/Deckel `gun_hatch_L/R`, `fuel_cap` animieren, siehe `m3_hooks_grafik.md`), `seat_on_ground()`, `seat_speed()`. `pilot_seat.entry_offset` = `svc_entry`.
 - `ServiceState`: `fuel_fraction`, `ammo_fraction` (< 0 = behalten), `grade_mix`, `fresh_airframe`, `make()`, `full()`, `keep()`, `for_start(kind)`, `apply(aircraft)`.
 - `FuelSystem`: `GRADE_AVIATION`/`GRADE_ERSATZ`, `grade_mix`, `add(l, grade) -> angenommen`, `space()`, `power_mul()` (= 1 − 0,12 × Anteil), `set_fraction(f, mix)`. `to_array()` bleibt bei 2 Werten, die Sorte läuft separat.
 - `DamageModel`: `engine_power_mul ×= fuel.power_mul()`, `repair(zone, hp) -> repariert` (nur Server, nur für Zonen > 0 HP ohne Brand, nicht für abgeschossene Maschinen), `can_repair(zone)`.

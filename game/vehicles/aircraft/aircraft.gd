@@ -216,6 +216,15 @@ func service_point(marker: String) -> Vector3:
 	return global_transform * ServiceMarkers.aircraft_point(self, marker)
 
 
+## M3.5: Munitionsklappe/Tankdeckel öffnen oder schließen (nur Darstellung, animiert).
+## part_name: Marker ohne „svc_“ – "gun_hatch_L", "gun_hatch_R", "fuel_cap".
+## Akzeptiert auch den Markernamen ("svc_fuel_cap"). Ohne Visual: false.
+func set_service_part_open(part_name: String, open: bool) -> bool:
+	if visual == null:
+		return false
+	return visual.set_service_part_open(part_name.trim_prefix("svc_"), open)
+
+
 ## M3 SeatService: Bodenkontakt und Fahrt für Sitzwechsel.
 func seat_on_ground() -> bool:
 	return flight.telemetry.on_ground

@@ -314,6 +314,78 @@
       "parent": "fuselage",
       "type": "toggle",
       "note": "einfache Pilotenfigur, ausblendbar"
+    },
+    "ammo_hatch_L": {
+      "node": "ammo_hatch_L",
+      "parent": "wing_L",
+      "pivot": [
+        2.35,
+        0.0776,
+        0.12
+      ],
+      "type": "rotate",
+      "axis_local_vec": [
+        0.997,
+        0.0769,
+        0.0
+      ],
+      "axis_model": [
+        0.997,
+        0.0769,
+        0.0
+      ],
+      "closed_deg": 0.0,
+      "open_deg": 105.0,
+      "service_name": "gun_hatch_L",
+      "sign": "positiv = Klappe hebt sich (Scharnier an der Vorderkante); darunter ammo_box_L (fest)"
+    },
+    "ammo_hatch_R": {
+      "node": "ammo_hatch_R",
+      "parent": "wing_R",
+      "pivot": [
+        -2.35,
+        0.0776,
+        0.12
+      ],
+      "type": "rotate",
+      "axis_local_vec": [
+        0.997,
+        -0.0769,
+        0.0
+      ],
+      "axis_model": [
+        0.997,
+        -0.0769,
+        0.0
+      ],
+      "closed_deg": 0.0,
+      "open_deg": 105.0,
+      "service_name": "gun_hatch_R",
+      "sign": "positiv = Klappe hebt sich (Scharnier an der Vorderkante); darunter ammo_box_R (fest)"
+    },
+    "fuel_cap_lid": {
+      "node": "fuel_cap_lid",
+      "parent": "fuselage",
+      "pivot": [
+        0.5075,
+        0.0507,
+        1.385
+      ],
+      "type": "rotate",
+      "axis_local_vec": [
+        -0.0453,
+        0.999,
+        0.0
+      ],
+      "axis_model": [
+        -0.0453,
+        0.999,
+        0.0
+      ],
+      "closed_deg": 0.0,
+      "open_deg": 110.0,
+      "service_name": "fuel_cap",
+      "sign": "positiv = Deckel klappt nach hinten auf; Stutzen fuel_filler (fest) an der linken Rumpfseite vor der Windschutzscheibe"
     }
   },
   "markers": {
@@ -519,9 +591,9 @@
     },
     "fuel_port": {
       "pos": [
-        0.0,
-        0.5814,
-        0.2506
+        0.5355,
+        0.052,
+        1.4521
       ]
     },
     "contact_tail": {
@@ -547,23 +619,23 @@
     },
     "svc_fuel_cap": {
       "pos": [
-        0.0,
-        0.6014,
-        0.25
+        0.5355,
+        0.052,
+        1.4521
       ]
     },
     "svc_gun_hatch_L": {
       "pos": [
         2.35,
-        0.0705,
-        -0.1
+        0.0983,
+        -0.33
       ]
     },
     "svc_gun_hatch_R": {
       "pos": [
         -2.35,
-        0.0705,
-        -0.1
+        0.0983,
+        -0.33
       ]
     },
     "svc_entry": {
