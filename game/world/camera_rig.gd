@@ -22,6 +22,12 @@ const SHAKE_DEG := 0.9
 static var shake_mul := 0.0
 var _shake_t := 0.0
 var _shake_amp := 0.0
+## M3.5: Absturzkamera – eigenes Flugzeug abgeschossen: Außenansicht, folgt dem fallenden
+## Flugzeug (unabhängig von dessen Taumeln) und kreist nach dem Aufschlag über der Stelle,
+## bis der Neustart das Flugzeug zurücksetzt.
+var crash_view := false
+var _crash_dir := Vector3.FORWARD
+var _crash_orbit := 0.0
 
 
 func _ready() -> void:
@@ -58,6 +64,12 @@ func _process(dt: float) -> void:
 	if target == null or not is_instance_valid(target):
 		return
 	var xf := target.get_global_transform_interpolated()
+	var wreck := target.damage != null and target.damage.is_destroyed
+	if wreck != crash_view:
+		_set_crash_view(wreck, xf)
+	if crash_view:
+		_update_crash_cam(xf, dt)
+		return
 	var look := player.look_offset if player else Vector2.ZERO
 	# M2.1 Ziel-Zoom (Verfolger und Cockpit): Sichtfeld enger, Kamerafolge ruhiger
 	var zm := player.zoom_mul() if player else 1.0
@@ -93,3 +105,43 @@ func _process(dt: float) -> void:
 		var sy := sin(_shake_t * TAU * 9.1 + 1.3) * 0.6 + sin(_shake_t * TAU * 13.7) * 0.4
 		var b := global_transform.basis * Basis(Vector3.RIGHT, sx * a) * Basis(Vector3.UP, sy * a * 0.6)
 		global_transform = Transform3D(b.orthonormalized(), global_position + b.y * sx * a * 0.4)
+
+
+func _set_crash_view(on: bool, xf: Transform3D) -> void:
+	crash_view = on
+	if target.visual:
+		target.visual.set_cockpit_view(mode == Mode.COCKPIT and not on)
+	if on:
+		var v := target.linear_velocity
+		v.y = 0.0
+		_crash_dir = v.normalized() if v.length() > 2.0 else -xf.basis.z
+		_crash_dir.y = 0.0
+		_crash_dir = _crash_dir.normalized() if _crash_dir.length() > 0.1 else Vector3.FORWARD
+		_crash_orbit = atan2(-_crash_dir.x, -_crash_dir.z)
+		camera.fov = 65.0
+
+
+## Absturzkamera: hinter/über dem fallenden Flugzeug (nach Flugrichtung, nicht nach Lage),
+## nach dem Aufschlag langsame Runde in 40 m Abstand.
+func _update_crash_cam(xf: Transform3D, dt: float) -> void:
+	var p := xf.origin
+	var crashed := target.damage.outcome != DamageModel.Outcome.FLYING
+	var want: Vector3
+	if crashed:
+		_crash_orbit += dt * 0.18
+		want = p + Vector3(sin(_crash_orbit), 0.0, cos(_crash_orbit)) * 40.0 + Vector3.UP * 15.0
+	else:
+		var v := target.linear_velocity
+		var hv := Vector3(v.x, 0.0, v.z)
+		if hv.length() > 3.0:
+			_crash_dir = _crash_dir.slerp(hv.normalized(), 1.0 - exp(-1.5 * dt)).normalized()
+		want = p - _crash_dir * 30.0 + Vector3.UP * 9.0
+	var g := WorldGround.height_at(want.x, want.z) + 3.0
+	want.y = maxf(want.y, g)
+	var k := 1.0 - exp(-4.0 * dt)
+	var pos := global_position.lerp(want, k) if global_position.distance_to(want) < 200.0 else want
+	if pos.distance_to(p) < 1.0:
+		pos = want
+	global_transform = Transform3D(Basis.looking_at(p - pos, Vector3.UP), pos)
+	camera.near = 0.3
+	camera.fov = 65.0

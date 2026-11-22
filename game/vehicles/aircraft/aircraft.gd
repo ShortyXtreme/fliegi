@@ -34,6 +34,8 @@ var pilot: PilotRecord = null
 ## Kampfsysteme (Stubs aus Paket 0).
 var weapons: WeaponSystem
 var damage: DamageModel
+## M3.5: Teile abtrennen (Flügel, Leitwerk) -> Debris.
+var breakup: AircraftBreakup
 ## Vom Server erlaubte Hilfen-Modi (Lobby-Einstellung).
 var allowed_assist_modes: Array[int] = [FlightAssist.Mode.ARCADE, FlightAssist.Mode.REALISTIC]
 var assist_mode: int = FlightAssist.Mode.ARCADE
@@ -88,6 +90,9 @@ func _build(with_visual: bool) -> void:
 	damage = DamageModel.new(self, flight.modifiers)
 	weapons = WeaponSystem.new(self)
 	damage.grounded.connect(_on_grounded)
+	breakup = AircraftBreakup.new()
+	breakup.setup(self)
+	add_child(breakup)
 
 	pilot_seat = Seat.new()
 	pilot_seat.name = "PilotSeat"
@@ -162,6 +167,9 @@ func _update_fuel(_dt: float) -> void:
 func _on_grounded(outcome: int) -> void:
 	if outcome == DamageModel.Outcome.CRASHED:
 		set_deferred("freeze", true)
+		# M3.5: Aufschlag – Explosion, Krater, Rauchsäule (bleibt wie das Wrack)
+		if is_inside_tree():
+			CrashFx.impact(get_parent(), global_position, true, MatchRules.wreck_lifetime)
 
 
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
@@ -214,6 +222,15 @@ func place_on_ground(pos: Vector3, heading_dir: Vector3, refill: bool = true,
 ## M3: Lage eines Service-Markers in Weltkoordinaten (ServiceMarkers.SVC_*).
 func service_point(marker: String) -> Vector3:
 	return global_transform * ServiceMarkers.aircraft_point(self, marker)
+
+
+## M3.5: Munitionsklappe/Tankdeckel öffnen oder schließen (nur Darstellung, animiert).
+## part_name: Marker ohne „svc_“ – "gun_hatch_L", "gun_hatch_R", "fuel_cap".
+## Akzeptiert auch den Markernamen ("svc_fuel_cap"). Ohne Visual: false.
+func set_service_part_open(part_name: String, open: bool) -> bool:
+	if visual == null:
+		return false
+	return visual.set_service_part_open(part_name.trim_prefix("svc_"), open)
 
 
 ## M3 SeatService: Bodenkontakt und Fahrt für Sitzwechsel.

@@ -5,7 +5,7 @@ Stand: 01.11.2026. Diese Punkte brauchen Änderungen an gemeinsamen (eingefroren
 ## game.gd
 1. **KI-Flugzeug beim SpawnManager registrieren** (`spawn_manager.register(ai_aircraft, ai, respawn)`), sonst startet nach Abschuss nur der Spieler neu.
 2. **Respawn-Callable des Spielers** setzt nach dem Neustart auch `player.reset_state()` (geschieht schon über `_on_reset(false)`), die KI braucht ein Gegenstück.
-3. **Wracks** legt der SpawnManager im Elternknoten des Flugzeugs ab (bei game.gd = `Game`). Bei Floating Origin (Paket 13) müssen `Wreck` und `Parachute` mitverschoben werden.
+3. **Wracks** legt der SpawnManager im Elternknoten des Flugzeugs ab (bei game.gd = `Game`). Bei Floating Origin (Paket 13) müssen `Wreck` und `Parachute` mitverschoben werden. (M3.5: auch `Debris` und `CrashSite`/`CrashFx`, alle als Kinder des Elternknotens – der OriginShifter verschiebt sie mit.)
 4. **Kamera bei Ausstieg:** M2 ohne Third-Person; optional `cam.target = damage.parachute` bis zum Neustart.
 
 ## aircraft.gd

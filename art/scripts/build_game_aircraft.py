@@ -8,6 +8,8 @@ Aufruf (headless, Cycles CPU):
   blender -b -P build_game_aircraft.py -- --render-check [--glb pfad] [--tag name]
   blender -b -P build_game_aircraft.py -- --add-svc          # M3: nur svc_*-Marker in vorhandene GLBs
                                                              #     einfuegen (verlustfrei, ohne Neu-Bake)
+  blender -b -P build_game_aircraft.py -- --add-service-parts # M3.5: Munitionsklappen/Tankstutzen
+                                                             #     (nach --build automatisch)
 
 Ergebnisse:
   models/fighter_t1_game.glb, models/fighter_t1_game_enemy.glb, models/fighter_t1_rig.json
@@ -31,7 +33,7 @@ for d in (MODELS, TEX, PREV):
 
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 OPT = {"build": "--build" in argv, "quick": "--quick" in argv,
-       "render": "--render-check" in argv, "add_svc": "--add-svc" in argv, "closeups": "--closeups" in argv, "glb": None, "tag": "own"}
+       "render": "--render-check" in argv, "add_svc": "--add-svc" in argv, "svc_parts": "--add-service-parts" in argv, "closeups": "--closeups" in argv, "svc_shots": "--svc-shots" in argv, "glb": None, "tag": "own"}
 for k, a in enumerate(argv):
     if a == "--glb": OPT["glb"] = argv[k + 1]
     if a == "--tag": OPT["tag"] = argv[k + 1]
@@ -1771,9 +1773,9 @@ def main_build():
 # Strahl-Ursprung, Richtung, Versatz nach dem Treffer. Namen = ServiceMarkers.AIRCRAFT.
 # ============================================================================
 SVC_SPECS = {
-    "svc_fuel_cap": ((0.0, -0.25, 3.0), (0, 0, -1), (0, 0, 0.02)),        # Tankdeckel oben vor der Haube
-    "svc_gun_hatch_L": ((2.35, 0.10, 3.0), (0, 0, -1), (0, 0, 0.02)),     # MG-Klappe Fluegeloberseite links
-    "svc_gun_hatch_R": ((-2.35, 0.10, 3.0), (0, 0, -1), (0, 0, 0.02)),    # ... rechts
+    "svc_fuel_cap": ((2.0, -1.45, 0.05), (-1, 0, 0), (0.045, 0, 0)),       # M3.5: Tankstutzen linke Rumpfseite (genau: add_service_parts)
+    "svc_gun_hatch_L": ((2.35, 0.12, 3.0), (0, 0, -1), (0, 0, 0.06)),     # MG-Klappe Fluegeloberseite links
+    "svc_gun_hatch_R": ((-2.35, 0.12, 3.0), (0, 0, -1), (0, 0, 0.06)),    # ... rechts
     "svc_entry": ((1.05, 0.75, 3.0), (0, 0, -1), (0, 0, 0.02)),           # Trittflaeche Fluegelwurzel links
     "svc_engine": ((2.5, -2.0, 0.10), (-1, 0, 0), (0.05, 0, 0)),          # Motorhaube linke Seite
 }
@@ -1832,6 +1834,434 @@ def add_svc_markers():
         rig["markers"][nm] = dict(pos=pos)
     with open(rp, "w") as fh:
         json.dump(rig, fh, indent=2, ensure_ascii=False)
+
+
+# ============================================================================
+# M3.5: Service-Teile (Munitionsklappen mit Schacht, Tankstutzen an der Fluegelwurzel).
+# Werden als zusaetzliche Knoten/Netze in die fertigen GLBs geschrieben (verlustfrei, ohne
+# Neu-Bake). Klappen-Oberseite nutzt M_Wings mit UVs vom darunterliegenden Fluegel -> gleiche
+# Bemalung (auch Gegner-Skin). Koordinaten = Godot-Modellsystem (Y oben, Nase +Z, links +X).
+# Knotennamen NICHT mit gun_/dmg_/hardpoint_ beginnen (Marker-Praefixe!).
+# ============================================================================
+SVC_PARTS = {
+    # Klappe ueber dem Fluegel-MG (Munitionskasten darunter), Scharnier an der Vorderkante
+    "hatch": dict(x=(2.02, 2.68), z=(-0.36, 0.12), rim=0.028, lid=0.010, open_deg=105.0),
+    # Tankstutzen linke Rumpfseite vor der Windschutzscheibe, knapp ueber der Fluegelwurzel
+    # (Strahl von links auf den Rumpf bei Hoehe y, Station z), Deckel hinten angeschlagen
+    "cap": dict(y=0.05, z=1.45, r=0.062, open_deg=110.0),
+}
+
+
+def _glb_read(path):
+    import struct
+    b = open(path, "rb").read()
+    off, j, binb = 12, None, b""
+    while off < len(b):
+        ln, ty = struct.unpack_from("<II", b, off)
+        if ty == 0x4E4F534A:
+            j = json.loads(b[off + 8:off + 8 + ln].decode("utf-8"))
+        elif ty == 0x004E4942:
+            binb = b[off + 8:off + 8 + ln]
+        off += 8 + ln
+    return j, bytearray(binb)
+
+
+def _glb_write(path, j, binb):
+    import struct
+    while len(binb) % 4:
+        binb += b"\0"
+    j["buffers"][0]["byteLength"] = len(binb)
+    js = json.dumps(j, separators=(",", ":")).encode("utf-8")
+    js += b" " * ((4 - len(js) % 4) % 4)
+    out = struct.pack("<III", 0x46546C67, 2, 12 + 8 + len(js) + 8 + len(binb))
+    out += struct.pack("<II", len(js), 0x4E4F534A) + js + struct.pack("<II", len(binb), 0x004E4942) + bytes(binb)
+    open(path, "wb").write(out)
+
+
+def _glb_acc(j, binb, i):
+    T = {5126: np.float32, 5123: np.uint16, 5125: np.uint32, 5121: np.uint8}
+    N = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4}
+    a = j["accessors"][i]
+    bv = j["bufferViews"][a["bufferView"]]
+    o = bv.get("byteOffset", 0) + a.get("byteOffset", 0)
+    n = N[a["type"]]
+    arr = np.frombuffer(bytes(binb), T[a["componentType"]], a["count"] * n, o)
+    return arr.reshape(-1, n) if n > 1 else arr
+
+
+def _glb_add_acc(j, binb, arr, kind, target=None):
+    while len(binb) % 4:
+        binb += b"\0"
+    if kind == "SCALAR":
+        data = np.ascontiguousarray(arr, np.uint32).tobytes()
+        ct, cnt = 5125, len(arr)
+    else:
+        data = np.ascontiguousarray(arr, np.float32).tobytes()
+        ct, cnt = 5126, len(arr)
+    bv = {"buffer": 0, "byteOffset": len(binb), "byteLength": len(data)}
+    if target:
+        bv["target"] = target
+    binb += data
+    j["bufferViews"].append(bv)
+    acc = {"bufferView": len(j["bufferViews"]) - 1, "componentType": ct, "count": cnt, "type": kind}
+    if kind == "VEC3":
+        acc["min"] = [float(v) for v in np.min(arr, 0)]
+        acc["max"] = [float(v) for v in np.max(arr, 0)]
+    j["accessors"].append(acc)
+    return len(j["accessors"]) - 1
+
+
+class _Surf:
+    """Fluegel-Oberseite (M_Wings-Primitiv) zum Abtasten: Punkt, Normale, UV bei (x, z)."""
+    def __init__(self, j, binb, node_name):
+        n = next(n for n in j["nodes"] if n.get("name") == node_name)
+        assert not any(k in n for k in ("translation", "rotation", "scale", "matrix")), node_name
+        prim = next(p for p in j["meshes"][n["mesh"]]["primitives"] if j["materials"][p["material"]]["name"] == "M_Wings")
+        self.P = _glb_acc(j, binb, prim["attributes"]["POSITION"]).astype(np.float64)
+        self.UV = _glb_acc(j, binb, prim["attributes"]["TEXCOORD_0"]).astype(np.float64)
+        self.I = _glb_acc(j, binb, prim["indices"]).reshape(-1, 3).astype(np.int64)
+        a, b_, c = self.P[self.I[:, 0]], self.P[self.I[:, 1]], self.P[self.I[:, 2]]
+        nrm = np.cross(b_ - a, c - a)
+        self.N = nrm / np.maximum(np.linalg.norm(nrm, axis=1, keepdims=True), 1e-12)
+        self.up = self.N[:, 1] > 0.3
+
+    def at(self, x, z):
+        a, b_, c = (self.P[self.I[:, k]] for k in range(3))
+        # baryzentrisch in der xz-Ebene
+        v0, v1 = b_[:, [0, 2]] - a[:, [0, 2]], c[:, [0, 2]] - a[:, [0, 2]]
+        v2 = np.array([x, z]) - a[:, [0, 2]]
+        den = v0[:, 0] * v1[:, 1] - v1[:, 0] * v0[:, 1]
+        den = np.where(np.abs(den) < 1e-12, 1e-12, den)
+        u = (v2[:, 0] * v1[:, 1] - v1[:, 0] * v2[:, 1]) / den
+        v = (v0[:, 0] * v2[:, 1] - v2[:, 0] * v0[:, 1]) / den
+        w = 1 - u - v
+        ok = self.up & (u >= -1e-6) & (v >= -1e-6) & (w >= -1e-6)
+        if not ok.any():
+            raise RuntimeError("kein Fluegeltreffer bei %.3f %.3f" % (x, z))
+        y = w * a[:, 1] + u * b_[:, 1] + v * c[:, 1]
+        y = np.where(ok, y, -1e9)
+        k = int(np.argmax(y))
+        t = self.I[k]
+        uv = w[k] * self.UV[t[0]] + u[k] * self.UV[t[1]] + v[k] * self.UV[t[2]]
+        return np.array([x, y[k], z]), self.N[k], uv
+
+
+class _MB:
+    """Kleiner Netzbauer: flach schattierte Dreiecke je Material, Normalen nach aussen."""
+    def __init__(self):
+        self.parts = {}
+
+    def tri(self, mat, a, b, c, out=None, uv=None):
+        a, b, c = (np.asarray(v, float) for v in (a, b, c))
+        n = np.cross(b - a, c - a)
+        if out is not None and np.dot(n, out) < 0:
+            b, c = c, b
+            if uv is not None:
+                uv = (uv[0], uv[2], uv[1])
+            n = -n
+        ln = np.linalg.norm(n)
+        if ln < 1e-12:
+            return
+        n = n / ln
+        d = self.parts.setdefault(mat, {"P": [], "N": [], "UV": []})
+        d["P"] += [a, b, c]
+        d["N"] += [n, n, n]
+        d["UV"] += list(uv) if uv is not None else [np.zeros(2)] * 3
+
+    def quad(self, mat, a, b, c, d, out=None, uv=None):
+        self.tri(mat, a, b, c, out, None if uv is None else (uv[0], uv[1], uv[2]))
+        self.tri(mat, a, c, d, out, None if uv is None else (uv[0], uv[2], uv[3]))
+
+    def box(self, mat, center, ex, ey, ez, bottom=True):
+        """Quader aus Mittelpunkt und drei Halbachsen-Vektoren."""
+        c = np.asarray(center, float)
+        ex, ey, ez = (np.asarray(v, float) for v in (ex, ey, ez))
+        def P(i, k, l):
+            return c + i * ex + k * ey + l * ez
+        faces = [((1, -1, -1), (1, 1, -1), (1, 1, 1), (1, -1, 1), ex), ((-1, -1, -1), (-1, 1, -1), (-1, 1, 1), (-1, -1, 1), -ex),
+                 ((-1, 1, -1), (1, 1, -1), (1, 1, 1), (-1, 1, 1), ey), ((-1, -1, -1), (1, -1, -1), (1, -1, 1), (-1, -1, 1), -ey),
+                 ((-1, -1, 1), (1, -1, 1), (1, 1, 1), (-1, 1, 1), ez), ((-1, -1, -1), (1, -1, -1), (1, 1, -1), (-1, 1, -1), -ez)]
+        for f in faces:
+            if not bottom and f[4] is not None and np.allclose(f[4], -ey):
+                continue
+            self.quad(mat, P(*f[0]), P(*f[1]), P(*f[2]), P(*f[3]), f[4])
+
+    def cylinder(self, mat, c, axis, r, h0, h1, seg=16, top=True, mat_side=None):
+        c, axis = np.asarray(c, float), np.asarray(axis, float)
+        axis = axis / np.linalg.norm(axis)
+        t1 = np.cross(axis, [0, 0, 1.0] if abs(axis[2]) < 0.9 else [1.0, 0, 0])
+        t1 /= np.linalg.norm(t1)
+        t2 = np.cross(axis, t1)
+        ring = [np.cos(2 * math.pi * i / seg) * t1 + np.sin(2 * math.pi * i / seg) * t2 for i in range(seg)]
+        for i in range(seg):
+            a, b = ring[i], ring[(i + 1) % seg]
+            self.quad(mat_side or mat, c + a * r + axis * h0, c + b * r + axis * h0, c + b * r + axis * h1, c + a * r + axis * h1, a + b)
+            if top:
+                self.tri(mat, c + axis * h1, c + a * r + axis * h1, c + b * r + axis * h1, axis)
+
+    def annulus(self, mat, c, axis, r0, r1, h, seg=24):
+        c, axis = np.asarray(c, float), np.asarray(axis, float)
+        t1 = np.cross(axis, [0, 0, 1.0]); t1 /= np.linalg.norm(t1)
+        t2 = np.cross(axis, t1)
+        for i in range(seg):
+            a = np.cos(2 * math.pi * i / seg) * t1 + np.sin(2 * math.pi * i / seg) * t2
+            b = np.cos(2 * math.pi * (i + 1) / seg) * t1 + np.sin(2 * math.pi * (i + 1) / seg) * t2
+            self.quad(mat, c + a * r0 + axis * h, c + b * r0 + axis * h, c + b * r1 + axis * h, c + a * r1 + axis * h, axis)
+
+    def to_mesh(self, j, binb, name, mats, origin):
+        prims = []
+        for mat, d in self.parts.items():
+            P = np.array(d["P"]) - np.asarray(origin)
+            prim = {"attributes": {"POSITION": _glb_add_acc(j, binb, P, "VEC3", 34962),
+                                   "NORMAL": _glb_add_acc(j, binb, np.array(d["N"]), "VEC3", 34962),
+                                   "TEXCOORD_0": _glb_add_acc(j, binb, np.array(d["UV"]), "VEC2", 34962)},
+                    "indices": _glb_add_acc(j, binb, np.arange(len(P)), "SCALAR", 34963),
+                    "material": mats[mat]}
+            prims.append(prim)
+        j["meshes"].append({"name": name, "primitives": prims})
+        return len(j["meshes"]) - 1
+
+
+def _svc_materials(j):
+    names = [m["name"] for m in j["materials"]]
+    want = {"M_SvcDark": ([0.035, 0.036, 0.034, 1], 0.4, 0.7), "M_SvcBrass": ([0.62, 0.42, 0.14, 1], 1.0, 0.32),
+            "M_SvcCopper": ([0.55, 0.25, 0.12, 1], 1.0, 0.38), "M_SvcRed": ([0.50, 0.04, 0.03, 1], 0.0, 0.6),
+            "M_SvcMetal": ([0.45, 0.45, 0.43, 1], 1.0, 0.45)}
+    for nm, (col_, met, rou) in want.items():
+        if nm not in names:
+            j["materials"].append({"name": nm, "pbrMetallicRoughness": {"baseColorFactor": col_, "metallicFactor": met, "roughnessFactor": rou}})
+            names.append(nm)
+    return {nm: names.index(nm) for nm in names}
+
+
+def _add_node(j, parent_name, name, mesh, translation):
+    nodes = j["nodes"]
+    nodes.append({"name": name, "mesh": mesh, "translation": [float(v) for v in translation]})
+    pi = next(i for i, n in enumerate(nodes) if n.get("name") == parent_name)
+    nodes[pi].setdefault("children", []).append(len(nodes) - 1)
+
+
+def _set_marker(j, name, pos):
+    nodes = j["nodes"]
+    idx = next((i for i, n in enumerate(nodes) if n.get("name") == name), None)
+    if idx is None:
+        nodes.append({"name": name})
+        root = j["scenes"][j.get("scene", 0)]["nodes"][0]
+        nodes[root].setdefault("children", []).append(len(nodes) - 1)
+        idx = len(nodes) - 1
+    nodes[idx]["translation"] = [round(float(v), 4) for v in pos]
+
+
+def _build_hatch(j, binb, surf, sgn, mats, wing):
+    H = SVC_PARTS["hatch"]
+    x0, x1 = sorted((sgn * H["x"][0], sgn * H["x"][1]))
+    z0, z1 = H["z"]
+    rim, lid_t = H["rim"], H["lid"]
+    NX, NZ = 6, 5
+
+    def S(x, z, h):
+        p, n, uv = surf.at(x, z)
+        return p + np.array([0, 1.0, 0]) * h, uv
+
+    def grid_quads(mb, mat, xa, xb, za, zb, h, out, use_uv=True):
+        xs, zs = np.linspace(xa, xb, NX + 1), np.linspace(za, zb, NZ + 1)
+        G = [[S(x, z, h) for z in zs] for x in xs]
+        for i in range(NX):
+            for k in range(NZ):
+                q = (G[i][k], G[i + 1][k], G[i + 1][k + 1], G[i][k + 1])
+                mb.quad(mat, *(g[0] for g in q), out, tuple(g[1] for g in q) if use_uv else None)
+
+    def ring_walls(mb, mat_out, mat_in, xa, xb, za, zb, h0, h1, inset):
+        """Rahmen: aussen Fluegel-Bemalung, innen dunkel, oben Fluegel-Bemalung."""
+        xi0, xi1, zi0, zi1 = xa + inset, xb - inset, za + inset, zb - inset
+        def edge(pa, pb, outdir, n=6):
+            ts = np.linspace(0, 1, n + 1)
+            for t0, t1 in zip(ts[:-1], ts[1:]):
+                A, B = pa + (pb - pa) * t0, pa + (pb - pa) * t1
+                yield A, B, outdir
+        outer = [(np.array([xa, za]), np.array([xb, za]), np.array([0, 0, -1.0])), (np.array([xb, za]), np.array([xb, zb]), np.array([1.0, 0, 0])),
+                 (np.array([xb, zb]), np.array([xa, zb]), np.array([0, 0, 1.0])), (np.array([xa, zb]), np.array([xa, za]), np.array([-1.0, 0, 0]))]
+        inner = [(np.array([xi0, zi0]), np.array([xi1, zi0]), np.array([0, 0, 1.0])), (np.array([xi1, zi0]), np.array([xi1, zi1]), np.array([-1.0, 0, 0])),
+                 (np.array([xi1, zi1]), np.array([xi0, zi1]), np.array([0, 0, -1.0])), (np.array([xi0, zi1]), np.array([xi0, zi0]), np.array([1.0, 0, 0]))]
+        for lst, mat, uvq in ((outer, mat_out, True), (inner, mat_in, False)):
+            for pa, pb, od in lst:
+                for A, B, o in edge(pa, pb, od):
+                    a0, ua = S(A[0], A[1], h0); b0, ub = S(B[0], B[1], h0)
+                    a1, _ = S(A[0], A[1], h1); b1, _ = S(B[0], B[1], h1)
+                    mb.quad(mat, a0, b0, b1, a1, o, (ua, ub, ub, ua) if uvq else None)
+        # Oberkante des Rahmens (4 Streifen)
+        for (pa, pb, _o), (qa, qb, _q) in zip(outer, inner):
+            for t0, t1 in zip(np.linspace(0, 1, 7)[:-1], np.linspace(0, 1, 7)[1:]):
+                A, B = pa + (pb - pa) * t0, pa + (pb - pa) * t1
+                C, D = qa + (qb - qa) * t1, qa + (qb - qa) * t0
+                pts = [S(p[0], p[1], h1) for p in (A, B, C, D)]
+                mb.quad(mat_out, *(p[0] for p in pts), np.array([0, 1.0, 0]), tuple(p[1] for p in pts))
+
+    # --- Munitionsschacht (fest am Fluegel): Rahmen + dunkler Boden + Gurt ---------------
+    box = _MB()
+    ring_walls(box, "M_Wings", "M_SvcDark", x0, x1, z0, z1, -0.006, rim, 0.022)
+    xi0, xi1, zi0, zi1 = x0 + 0.022, x1 - 0.022, z0 + 0.022, z1 - 0.022
+    grid_quads(box, "M_SvcDark", xi0, xi1, zi0, zi1, 0.003, np.array([0, 1.0, 0]), use_uv=False)
+    # Gurt: drei Lagen Patronen (quer zur Spannweite, Spitze nach vorn), Gurtglieder dunkel
+    lanes = np.linspace(zi0 + 0.07, zi1 - 0.07, 3)
+    pitch = 0.0165
+    xs = np.arange(xi0 + 0.016, xi1 - 0.012, pitch)
+    for zl in lanes:
+        for xc in xs:
+            p, _n, _uv = surf.at(xc, zl)
+            base = p + np.array([0, 0.003 + 0.0062, 0])
+            box.box("M_SvcBrass", base, (0.0058, 0, 0), (0, 0.0060, 0), (0, 0, 0.030), bottom=False)
+            box.box("M_SvcCopper", base + np.array([0, 0, 0.041]), (0.0040, 0, 0), (0, 0.0042, 0), (0, 0, 0.011), bottom=False)
+        pa, _n, _u = surf.at(xs[0], zl)
+        pb, _n, _u = surf.at(xs[-1], zl)
+        mid = (pa + pb) / 2 + np.array([0, 0.003 + 0.0125, -0.008])
+        box.box("M_SvcDark", mid, ((pb - pa)[0] / 2 + 0.006, (pb - pa)[1] / 2, 0), (0, 0.0016, 0), (0, 0, 0.010), bottom=False)
+    cen, _n, _uv = surf.at((x0 + x1) / 2, (z0 + z1) / 2)
+    _add_node(j, wing, "ammo_box_" + ("L" if sgn > 0 else "R"), box.to_mesh(j, binb, "ammo_box_" + ("L" if sgn > 0 else "R"), mats, (0, 0, 0)), (0, 0, 0))
+    # --- Klappe: Oberseite in Fluegelbemalung, Unterseite dunkel, Scharnier vorn ---------
+    lid = _MB()
+    a, b_, c, d = x0 + 0.004, x1 - 0.004, z0 + 0.004, z1 - 0.004
+    h0, h1 = rim + 0.0005, rim + 0.0005 + lid_t
+    grid_quads(lid, "M_Wings", a, b_, c, d, h1, np.array([0, 1.0, 0]))
+    grid_quads(lid, "M_SvcDark", a, b_, c, d, h0, np.array([0, -1.0, 0]), use_uv=False)
+    # Seitenkanten
+    for (pa, pb, o) in (((a, c), (b_, c), (0, 0, -1.0)), ((b_, c), (b_, d), (1.0, 0, 0)), ((b_, d), (a, d), (0, 0, 1.0)), ((a, d), (a, c), (-1.0, 0, 0))):
+        for t0, t1 in zip(np.linspace(0, 1, 7)[:-1], np.linspace(0, 1, 7)[1:]):
+            A = np.array(pa) + (np.array(pb) - np.array(pa)) * t0
+            B = np.array(pa) + (np.array(pb) - np.array(pa)) * t1
+            p0, ua = S(A[0], A[1], h0); q0, ub = S(B[0], B[1], h0)
+            p1, _ = S(A[0], A[1], h1); q1, _ = S(B[0], B[1], h1)
+            lid.quad("M_Wings", p0, q0, q1, p1, np.array(o), (ua, ub, ub, ua))
+    # Schnellverschluesse hinten + Scharnier-Rolle vorn (gut sichtbar)
+    for fx in (0.25, 0.75):
+        p, _n, _u = surf.at(a + (b_ - a) * fx, c + 0.035)
+        lid.box("M_SvcMetal", p + np.array([0, h1 + 0.002, 0]), (0.020, 0, 0), (0, 0.002, 0), (0, 0, 0.011), bottom=False)
+    hp_a, _n, _u = surf.at(a, d)
+    hp_b, _n, _u = surf.at(b_, d)
+    hinge_a = hp_a + np.array([0, h0 + lid_t * 0.5, 0.004])
+    hinge_b = hp_b + np.array([0, h0 + lid_t * 0.5, 0.004])
+    ax = hinge_b - hinge_a
+    lid.cylinder("M_SvcMetal", hinge_a, ax, 0.0065, 0.0, float(np.linalg.norm(ax)), seg=8)
+    pivot = (hinge_a + hinge_b) / 2
+    side = "L" if sgn > 0 else "R"
+    _add_node(j, wing, "ammo_hatch_" + side, lid.to_mesh(j, binb, "ammo_hatch_" + side, mats, pivot), pivot)
+    axis = ax / np.linalg.norm(ax)
+    # positive Drehung um +axis soll die Hinterkante anheben (Hinterkante = -Z vom Scharnier)
+    test = np.array([0, 0, -1.0])
+    lifted = test * math.cos(0.3) + np.cross(axis, test) * math.sin(0.3)
+    if lifted[1] < 0:
+        axis = -axis
+    # Marker an der Hinterkante (Schnellverschluesse): dort steht der Mechaniker hinter dem Fluegel
+    rear, _n, _u = surf.at((x0 + x1) / 2, z0 + 0.03)
+    top_c = rear + np.array([0, h1 + 0.02, 0])
+    return dict(pivot=pivot, axis=axis, marker=top_c, side=side)
+
+
+def _ray_mesh(j, binb, node_name, mat_name, org, d):
+    """Strahl gegen ein Primitiv (Moeller-Trumbore): erster Treffer -> Punkt, Normale (zum Strahl hin)."""
+    n = next(n for n in j["nodes"] if n.get("name") == node_name)
+    prim = next(p for p in j["meshes"][n["mesh"]]["primitives"] if j["materials"][p["material"]]["name"] == mat_name)
+    P = _glb_acc(j, binb, prim["attributes"]["POSITION"]).astype(np.float64)
+    I = _glb_acc(j, binb, prim["indices"]).reshape(-1, 3).astype(np.int64)
+    a, b_, c = P[I[:, 0]], P[I[:, 1]], P[I[:, 2]]
+    org, d = np.asarray(org, float), np.asarray(d, float) / np.linalg.norm(d)
+    e1, e2 = b_ - a, c - a
+    pv = np.cross(d, e2)
+    det = np.einsum("ij,ij->i", e1, pv)
+    det = np.where(np.abs(det) < 1e-12, 1e-12, det)
+    tv = org - a
+    u = np.einsum("ij,ij->i", tv, pv) / det
+    qv = np.cross(tv, e1)
+    v = (qv @ d) / det
+    t = np.einsum("ij,ij->i", e2, qv) / det
+    ok = (u >= 0) & (v >= 0) & (u + v <= 1) & (t > 0)
+    if not ok.any():
+        raise RuntimeError("kein Treffer an %s" % node_name)
+    t = np.where(ok, t, 1e9)
+    k = int(np.argmin(t))
+    nrm = np.cross(e1[k], e2[k])
+    nrm /= np.linalg.norm(nrm)
+    if np.dot(nrm, d) > 0:
+        nrm = -nrm
+    return org + d * t[k], nrm
+
+
+def _build_fuel_cap(j, binb, mats, side_sign=1.0):
+    """Tankstutzen an der linken Rumpfseite vor der Windschutzscheibe, knapp ueber der
+    Fluegelwurzel (vom Boden/Fluegel aus erreichbar, ~2 m ueber Grund). Deckel hinten angeschlagen."""
+    Cp = SVC_PARTS["cap"]
+    p, n = _ray_mesh(j, binb, "fuselage", "M_Fuselage", (side_sign * 2.0, Cp["y"], Cp["z"]), (-side_sign, 0, 0))
+    r = Cp["r"]
+    back = np.array([0, 0, -1.0]) - n * n[2]
+    back /= np.linalg.norm(back)
+    side = np.cross(n, back)
+    fil = _MB()
+    fil.annulus("M_SvcRed", p, n, r + 0.004, r + 0.030, 0.0025)          # roter Markierungsring
+    fil.cylinder("M_SvcMetal", p, n, r, -0.010, 0.014, seg=20, top=False) # Stutzen
+    fil.annulus("M_SvcMetal", p, n, r - 0.018, r, 0.014)                   # Rand
+    fil.cylinder("M_SvcDark", p, n, r - 0.018, -0.004, 0.014, seg=20, top=False)
+    fil.annulus("M_SvcDark", p, n, 0.0001, r - 0.018, 0.004)               # Oeffnung (dunkel)
+    _add_node(j, "fuselage", "fuel_filler", fil.to_mesh(j, binb, "fuel_filler", mats, (0, 0, 0)), (0, 0, 0))
+    lid = _MB()
+    lc = p + n * 0.0145
+    lid.cylinder("M_SvcBrass", lc, n, r + 0.004, 0.0, 0.010, seg=20, top=True)
+    lid.annulus("M_SvcBrass", lc, -n, 0.0001, r + 0.004, 0.0)
+    lid.box("M_SvcMetal", lc + n * 0.013, -back * 0.032, n * 0.003, side * 0.008, bottom=False)   # Griffbuegel
+    hinge = lc + back * (r + 0.004) + n * 0.005
+    lid.cylinder("M_SvcMetal", hinge - side * 0.015, side, 0.005, 0.0, 0.03, seg=8)
+    _add_node(j, "fuselage", "fuel_cap_lid", lid.to_mesh(j, binb, "fuel_cap_lid", mats, hinge), hinge)
+    axis = side / np.linalg.norm(side)
+    test = -back   # Deckel liegt vor dem Scharnier
+    lifted = test * math.cos(0.3) + np.cross(axis, test) * math.sin(0.3)
+    if np.dot(lifted, n) < 0:
+        axis = -axis
+    return dict(pivot=hinge, axis=axis, marker=lc + n * 0.03)
+
+
+def add_service_parts():
+    """M3.5: Munitionsklappen L/R (mit Schacht + Gurt) und Tankstutzen in beide GLBs schreiben,
+    svc_fuel_cap / svc_gun_hatch_L/R / fuel_port neu setzen, Rig-Teile in rig.json eintragen."""
+    res = {}
+    for fn in ("fighter_t1_game.glb", "fighter_t1_game_enemy.glb"):
+        path = os.path.join(MODELS, fn)
+        j, binb = _glb_read(path)
+        if any(n.get("name") == "ammo_hatch_L" for n in j["nodes"]):
+            raise RuntimeError("Service-Teile schon vorhanden in " + fn)
+        mats = _svc_materials(j)
+        sL, sR = _Surf(j, binb, "wing_L"), _Surf(j, binb, "wing_R")
+        hl = _build_hatch(j, binb, sL, 1, mats, "wing_L")
+        hr = _build_hatch(j, binb, sR, -1, mats, "wing_R")
+        fc = _build_fuel_cap(j, binb, mats)
+        _set_marker(j, "svc_gun_hatch_L", hl["marker"])
+        _set_marker(j, "svc_gun_hatch_R", hr["marker"])
+        _set_marker(j, "svc_fuel_cap", fc["marker"])
+        _set_marker(j, "fuel_port", fc["marker"])
+        _glb_write(path, j, binb)
+        print("GLB mit Service-Teilen:", path, os.path.getsize(path) / 1e6, "MB")
+        res = dict(L=hl, R=hr, cap=fc)
+    rp = os.path.join(MODELS, "fighter_t1_rig.json")
+    with open(rp) as fh:
+        rig = json.load(fh)
+    r4 = lambda v: [round(float(x), 4) for x in v]
+    for side in ("L", "R"):
+        h = res[side]
+        rig["parts"]["ammo_hatch_" + side] = {
+            "node": "ammo_hatch_" + side, "parent": "wing_" + side, "pivot": r4(h["pivot"]), "type": "rotate",
+            "axis_local_vec": r4(h["axis"]), "axis_model": r4(h["axis"]), "closed_deg": 0.0, "open_deg": SVC_PARTS["hatch"]["open_deg"],
+            "service_name": "gun_hatch_" + side,
+            "sign": "positiv = Klappe hebt sich (Scharnier an der Vorderkante); darunter ammo_box_%s (fest)" % side}
+    rig["parts"]["fuel_cap_lid"] = {
+        "node": "fuel_cap_lid", "parent": "fuselage", "pivot": r4(res["cap"]["pivot"]), "type": "rotate",
+        "axis_local_vec": r4(res["cap"]["axis"]), "axis_model": r4(res["cap"]["axis"]), "closed_deg": 0.0,
+        "open_deg": SVC_PARTS["cap"]["open_deg"], "service_name": "fuel_cap",
+        "sign": "positiv = Deckel klappt nach hinten auf; Stutzen fuel_filler (fest) an der linken Rumpfseite vor der Windschutzscheibe"}
+    for nm, k in (("svc_gun_hatch_L", "L"), ("svc_gun_hatch_R", "R")):
+        rig["markers"][nm] = dict(pos=r4(res[k]["marker"]))
+    rig["markers"]["svc_fuel_cap"] = dict(pos=r4(res["cap"]["marker"]))
+    rig["markers"]["fuel_port"] = dict(pos=r4(res["cap"]["marker"]))
+    with open(rp, "w") as fh:
+        json.dump(rig, fh, indent=2, ensure_ascii=False)
+    print("Rig-JSON aktualisiert:", rp)
 
 
 # ============================================================================
@@ -1910,6 +2340,10 @@ def render_check(glb, tagname):
     def pose(name, value):
         o = objs.get(name)
         p = rigd['parts'][name]
+        if 'axis_local_vec' in p:   # M3.5: Achse als Vektor (Godot-Modellsystem -> Blender)
+            gv = p['axis_local_vec']
+            o.matrix_basis = rest[name] @ Matrix.Rotation(math.radians(value), 4, Vector((gv[0], -gv[2], gv[1])))
+            return
         if p['type'] == 'translate':
             o.matrix_basis = rest[name] @ Matrix.Translation(gaxis(p['axis_local']) * value)
         else:
@@ -1949,6 +2383,14 @@ def render_check(glb, tagname):
         reset_pose()
         pose('gear_main_L', rigd['parts']['gear_main_L']['retracted_deg'] * 0.5)
         shot("game_model_rig_gearhalf%s.png" % tg, (4.5, -1.6, -1.2), (1.2, 0.0, -0.6), 32, on_ground=False)
+    if OPT.get("svc_shots"):
+        # M3.5: Service-Teile zu und offen (Klappen links/rechts, Tankdeckel)
+        reset_pose()
+        shot("game_model_svc_closed%s.png" % tg, (4.6, 1.6, 3.4), (1.9, 0.0, 0.9), 30)
+        for nm in ('ammo_hatch_L', 'ammo_hatch_R', 'fuel_cap_lid'):
+            pose(nm, rigd['parts'][nm]['open_deg'])
+        shot("game_model_svc_open%s.png" % tg, (4.6, 1.6, 3.4), (1.9, 0.0, 0.9), 30)
+        shot("game_model_svc_open_R%s.png" % tg, (-4.4, 1.8, 3.4), (-2.3, 0.0, 0.9), 34)
     reset_pose()
 
 
@@ -1956,5 +2398,7 @@ if OPT["build"]:
     main_build()
 if OPT["add_svc"]:
     add_svc_markers()
+if OPT["svc_parts"] or (OPT["build"] and not OPT["add_svc"]):
+    add_service_parts()
 if OPT["render"]:
     render_check(OPT["glb"] or os.path.join(MODELS, "fighter_t1_game.glb"), OPT["tag"])

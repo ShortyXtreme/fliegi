@@ -7,12 +7,17 @@ cd "$(dirname "$0")/.."
 GODOT="${GODOT:-godot}"
 OUT="${1:?Zielordner fehlt}"
 mkdir -p "$OUT"
-# M3.2: Die Boden-Texturen (assets/ground/*.png, gitignoriert) entstehen nur beim Import im Editor
-# aus den .glb. Fehlen sie, bettet der Headless-Import sie unkomprimiert ein (pck > 40 MB).
+# M3.5: Die Boden-Texturen (assets/ground/*.png, gitignoriert) entstanden früher nur beim Import im
+# Editor. Jetzt extrahiert tools/extract_glb_images.py sie reproduzierbar aus den .glb; die versionierten
+# .png.import (VRAM-komprimiert, size_limit 512) greifen dann auch headless. Wurden Bilder neu
+# geschrieben, müssen die .glb neu importiert werden (sonst bleiben unkomprimiert eingebettete Texturen).
+n_new=$(python3 tools/extract_glb_images.py assets/ground/*.glb | grep -oP '^\d+')
+if [ "$n_new" -gt 0 ] && [ -d .godot/imported ]; then
+	for g in assets/ground/*.glb; do rm -f .godot/imported/"$(basename "$g")"-*; done
+fi
 n_png=$(ls assets/ground/*.png 2>/dev/null | wc -l); n_imp=$(ls assets/ground/*.png.import | wc -l)
 if [ "$n_png" -lt "$n_imp" ]; then
-	echo "FEHLER: assets/ground/*.png fehlen ($n_png von $n_imp) – Projekt einmal im Editor öffnen" \
-		"oder aus einem Checkout mit Editor-Import kopieren." >&2
+	echo "FEHLER: assets/ground/*.png fehlen ($n_png von $n_imp) – Extraktion fehlgeschlagen." >&2
 	exit 1
 fi
 "$GODOT" --headless --path . --import >/dev/null 2>&1 || true

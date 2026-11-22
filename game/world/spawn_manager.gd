@@ -23,6 +23,11 @@ signal respawn_scheduled(aircraft: Node3D, delay: float)
 var entries := {}
 ## Erzeugte Wracks (noch lebend).
 var wrecks: Array[Wreck] = []
+## M3.5: Spieler – Neustart-Zeit läuft nicht, solange das abgeschossene Flugzeug noch fällt
+## (Kamera folgt bis zum Aufschlag), höchstens IMPACT_WAIT_MAX s; nach dem Aufschlag noch
+## mindestens IMPACT_HOLD s (Explosion sehen).
+const IMPACT_WAIT_MAX := 45.0
+const IMPACT_HOLD := 4.0
 var _bus_connected := false
 
 
@@ -45,7 +50,8 @@ func register(aircraft: Node3D, controller: Controller, respawn: Callable,
 		delay: Callable = Callable()) -> void:
 	_connect_bus()
 	entries[aircraft] = {"controller": controller, "respawn": respawn, "timer": -1.0,
-		"down_since": -1.0, "down_xf": Transform3D.IDENTITY, "burning": false, "delay": delay}
+		"down_since": -1.0, "down_xf": Transform3D.IDENTITY, "burning": false, "delay": delay,
+		"wait_impact": false, "wait_t": 0.0}
 	if aircraft.get("pilot") == null:
 		_assign_pilot(aircraft, PilotRecord.new())
 	var d = aircraft.get("damage")
@@ -162,6 +168,19 @@ func unregister(aircraft: Node3D) -> void:
 	entries.erase(aircraft)
 
 
+## M3.5: Neustart erst nach dem Aufschlag (Spieler: Absturz bis zum Boden mit ansehen).
+func set_wait_for_impact(aircraft: Node3D, on: bool) -> void:
+	if entries.has(aircraft):
+		entries[aircraft]["wait_impact"] = on
+
+
+## true, solange ein abgeschossenes Flugzeug mit Pilot an Bord noch fällt.
+static func falling_wreck(aircraft: Node3D) -> bool:
+	var d = aircraft.get("damage") if is_instance_valid(aircraft) else null
+	return d is DamageModel and d.is_destroyed and d.outcome == DamageModel.Outcome.FLYING \
+		and d.pilot_state != DamageModel.PilotState.EJECTED
+
+
 ## Sekunden bis zum Neustart, -1 = keiner geplant.
 func time_to_respawn(aircraft: Node3D) -> float:
 	return entries[aircraft]["timer"] if entries.has(aircraft) else -1.0
@@ -180,6 +199,7 @@ func respawn_now(aircraft: Node3D) -> void:
 		cb.call()
 	e.timer = -1.0
 	e.down_since = -1.0
+	e.wait_t = 0.0
 	respawned.emit(aircraft)
 
 
@@ -194,6 +214,9 @@ func _physics_process(dt: float) -> void:
 		if e.down_since >= 0.0:
 			e.down_since += dt
 		if e.timer >= 0.0:
+			if e.get("wait_impact", false) and falling_wreck(a) and e.wait_t < IMPACT_WAIT_MAX:
+				e.wait_t += dt
+				continue
 			e.timer -= dt
 			if e.timer <= 0.0:
 				respawn_now(a)
@@ -213,6 +236,8 @@ func _on_grounded(outcome: int, aircraft: Node3D) -> void:
 	if outcome == DamageModel.Outcome.CRASHED and e.down_since < 0.0:
 		e.down_since = 0.0
 	_schedule(aircraft)
+	if e.get("wait_impact", false) and e.timer >= 0.0 and e.timer < IMPACT_HOLD:
+		e.timer = IMPACT_HOLD
 
 
 ## Debug-Neustart (R/T) über Aircraft.place(): geplanten Neustart verwerfen.
@@ -236,16 +261,18 @@ func _schedule(aircraft: Node) -> void:
 	respawn_scheduled.emit(aircraft, e.timer)
 
 
-## Absturzstelle mit Wrack markieren (nur nach Absturz/Abschuss am Boden).
+## M3.5: Abgeschossenes (oder abgestürztes) Flugzeug bleibt als Wrack in der Welt: in der Luft
+## stürzt es weiter (Wreck übernimmt Darstellung und Bewegung), am Boden bleibt es liegen.
 func _leave_wreck(aircraft: Node3D, e: Dictionary) -> void:
 	var d = aircraft.get("damage")
-	if not (d is DamageModel) or d.outcome != DamageModel.Outcome.CRASHED:
+	if not (d is DamageModel):
 		return
-	var parent := aircraft.get_parent()
-	if parent == null:
+	if d.outcome != DamageModel.Outcome.CRASHED and not d.is_destroyed:
+		return
+	if aircraft.get_parent() == null:
 		return
 	var life := maxf(MatchRules.wreck_lifetime - maxf(e.down_since, 0.0), 0.5)
-	wrecks.append(Wreck.spawn_at(parent, aircraft.global_transform, life, e.burning))
+	wrecks.append(Wreck.spawn_from_aircraft(aircraft, life, e.burning or d.is_burning()))
 
 
 ## Pilot für den nächsten Flug: Überlebende behalten ihren Datensatz.

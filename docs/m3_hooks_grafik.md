@@ -28,6 +28,42 @@ Stand: 02.11.2026 · Branch `m3-grafik`
   `tools/extract_markers.gd` neu laufen lassen → `vehicles/aircraft/data/markers/fighter_t1_markers.tres`
   (gemeinsame Dateien, darum nicht von Grafik geändert). Bis dahin greifen die Ersatzpositionen in `ServiceMarkers`.
 
+## M3.5: Munitionsklappen und Tankstutzen (Agent B)
+- Modell: `ammo_hatch_L/R` (Klappe über dem Flügel-MG, Scharnier vorn, öffnet 105°) über `ammo_box_L/R`
+  (fester Munitionsschacht mit Gurt); Tankstutzen `fuel_filler` (fest, roter Ring) mit Deckel `fuel_cap_lid`
+  (hinten angeschlagen, schwenkt 110° nach außen) an der **linken Rumpfseite vor der Windschutzscheibe** (Rumpftank-Bereich,
+  ~2 m über Grund, vom Boden/Flügelwurzel aus erreichbar), nicht mehr oben auf dem Rumpf.
+  (Flügelwurzel-Oberseite verworfen: KI-Tankwagen parkt dann seitlich, Schlauchrolle > 12 m vom Deckel.) Achsen/Winkel in `fighter_t1_rig.json` (`parts.*.axis_local_vec`, `open_deg`).
+  Erzeugt von `build_game_aircraft.py -- --add-service-parts` (verlustfrei, nach `--build` automatisch).
+- Marker neu gesetzt (Namen gleich): `svc_gun_hatch_L/R` über der Klappenmitte, `svc_fuel_cap` (= `fuel_port`)
+  über dem Deckel. Trefferzonen unverändert (7 Marker-Zonen + 2 Füllboxen = 9).
+- **Schnittstelle für Bodenjobs:** `aircraft.set_service_part_open(name, open) -> bool` bzw.
+  `aircraft.visual.set_service_part_open(name, open, instant = false)`; `name` = `"gun_hatch_L"`,
+  `"gun_hatch_R"`, `"fuel_cap"` (Präfix `svc_` wird akzeptiert). Abfrage `is_service_part_open(name)`,
+  `service_part_amount(name)` (0..1); Signal `AircraftVisual.service_part_changed(name, open)` am Ende der
+  Bewegung (0,8 s). Reine Darstellung, kein Netzwerkzustand.
+
+## M3.5: Absturz statt Verschwinden (Agent B)
+- **Teile abtrennen:** `Aircraft.breakup` (`AircraftBreakup`, `vehicles/aircraft/damage/breakup.gd`) liest nur
+  `damage.hp`: Flügel L/R 0 HP → Flügel ab, Leitwerk 0 HP → `stabilizer`/`elevator`/`rudder` ab. Teil wird im
+  Modell ausgeblendet und als `Debris` (RigidBody3D, Layer 0, Maske WORLD, quadratische Luftreibung, bleibt
+  liegen, 75 s, max. 16) in den Elternknoten des Flugzeugs gesetzt; Signal `part_detached(part, debris)`.
+  Flugphysik: `DamageModel._apply_modifiers` setzt Auftrieb/Widerstand der Flügelflächen bzw. `htail_*` auf 0
+  (→ Rollen/Trudeln). Pilot tot: Knüppel leicht vorn/seitlich (Spiralsturz).
+- **Wrack:** `Wreck` ist jetzt RigidBody3D (Layer WRECK). `SpawnManager._leave_wreck` erzeugt beim Neustart für
+  jedes abgeschossene/abgestürzte Flugzeug `Wreck.spawn_from_aircraft()` (Kopie der Darstellung samt fehlender
+  Teile, Geschwindigkeit, Brand): in der Luft fällt es weiter (Rauchspur), beim Aufschlag `CrashFx.impact`
+  (Feuerball, Erdbrocken, Lichtblitz, Krater-Decal, Rauchsäule, Töne „explosion“/„crash“, Brandton 30 s),
+  danach verkohlt liegen. `MatchRules.wreck_lifetime` = 75 s, dann 3 s Einsinken; max. 6 Wracks, 8 Absturzstellen.
+  Das Flugzeug selbst löst beim Bodenaufschlag (`grounded` CRASHED) ebenfalls `CrashFx.impact` aus.
+  Sicherung: zerstörtes Flugzeug/Wrack unter Geländehöhe zählt als Aufschlag.
+- **Spieler:** `SpawnManager.set_wait_for_impact(player_aircraft, true)` (game.gd): Neustart-Zeit läuft nicht,
+  solange das abgeschossene Flugzeug mit Pilot noch fällt (max. 45 s), nach dem Aufschlag noch ≥ 4 s.
+  `CameraRig.crash_view`: Außenkamera hinter/über dem fallenden Flugzeug (nach Flugrichtung), nach dem Aufschlag
+  Kreisflug um die Stelle; nach dem Neustart wieder normal.
+- Tests `tests/suites/damage/test_crash_breakup.gd`; Screenshots `docs/screens_m3/m3_5_absturz_*.png`,
+  Werkzeug `tools/screenshot_m3_5.gd -- <ordner> absturz`.
+
 ## Figur „Mechaniker“ (Paket 12)
 - `game/assets/ground/crew_mechanic.glb` (2.300 Dreiecke, 1024er Atlas). Blick **−Z**, Ursprung am Boden
   zwischen den Füßen, T-Pose, Knochennamen nach `SkeletonProfileHumanoid` (ohne Finger/Augen/Kiefer, mit `Root`).

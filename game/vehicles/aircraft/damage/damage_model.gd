@@ -70,6 +70,7 @@ var _wound_noise := Vector3.ZERO
 var _fire_acc: PackedFloat32Array = []
 var _surf_wing := {Zone.WING_L: [], Zone.WING_R: []}   # [index, ist_aussen, ist_querruder]
 var _surf_tail: Array[int] = []
+var _surf_htail: Array[int] = []
 var _resets := 0
 ## Schadenszustand geändert -> FlightModifiers neu berechnen. Ohne Änderung schreibt das
 ## Modell die Modifier nicht (intakt = unberührt, Vertragstest setzt sie direkt).
@@ -109,6 +110,8 @@ func _index_surfaces(d: Resource) -> void:
 			_surf_wing[z].append([i, outer, aileron])
 		elif nm.contains("tail"):
 			_surf_tail.append(i)
+			if nm.begins_with("htail"):
+				_surf_htail.append(i)
 
 
 func reset() -> void:
@@ -296,6 +299,12 @@ func tick(dt: float) -> void:
 	if _dirty:
 		_apply_modifiers()
 		_check_destroyed()
+	# M3.5: Sicherung für fallende Wracks – unter der Geländehöhe (Kachel ohne Kollision,
+	# Tunneln bei hoher Fahrt) zählt als Aufschlag.
+	if is_destroyed and outcome == Outcome.FLYING and aircraft is RigidBody3D and aircraft.is_inside_tree():
+		var gp: Vector3 = aircraft.global_position
+		if gp.y < WorldGround.height_at(gp.x, gp.z) + 0.3:
+			_evaluate_ground_contact((aircraft as RigidBody3D).linear_velocity)
 	# Bauchlandung ohne Kollisionsereignis (Kufenpunkte sind Strahlen, keine Körper)
 	if outcome == Outcome.FLYING and t != null and t.belly_contact and t.gear_extension < 0.5:
 		_evaluate_ground_contact((aircraft as RigidBody3D).linear_velocity if aircraft is RigidBody3D else Vector3.ZERO)
@@ -351,8 +360,9 @@ func _apply_modifiers() -> void:
 			if i >= n:
 				continue
 			if hp[z] <= 0.0:
-				modifiers.lift[i] = profile.broken_outer_lift if e[1] else profile.broken_root_lift
-				modifiers.drag[i] = profile.wing_drag_max * 2.0
+				# M3.5: Flügel abgerissen (AircraftBreakup) -> Fläche fehlt ganz
+				modifiers.lift[i] = 0.0
+				modifiers.drag[i] = 0.0
 			else:
 				modifiers.lift[i] = 1.0 - profile.wing_lift_loss * (1.0 - f)
 				modifiers.drag[i] = profile.wing_drag_max * (1.0 - f)
@@ -364,6 +374,10 @@ func _apply_modifiers() -> void:
 			if i < n:
 				# Leitwerk zerschossen (0 HP): Höhen-/Seitenruder ohne Wirkung.
 				modifiers.control[i] = lerpf(profile.tail_control_min, 1.0, ft) if ft > 0.0 else 0.0
+				# M3.5: Leitwerk abgerissen -> Höhenleitwerk ohne Auftrieb (Seitenflosse bleibt)
+				if ft <= 0.0 and i in _surf_htail:
+					modifiers.lift[i] = 0.0
+					modifiers.drag[i] = 0.0
 	# Motor
 	var fe := hp_fraction(Zone.ENGINE)
 	var pm := 1.0
@@ -459,8 +473,10 @@ func filter_intent(intent: PilotIntent, _dt: float) -> void:
 			var t = _telemetry()
 			if t != null:
 				thr = t.throttle_actual
-			intent.pitch = 0.0
-			intent.roll = 0.0
+			# M3.5: Pilot sackt zusammen -> Knüppel leicht nach vorn/seitlich (Spiralsturz),
+			# damit ein führerloses Flugzeug sicher abstürzt statt ewig weiterzufliegen.
+			intent.pitch = -0.12 if pilot_state == PilotState.DEAD else 0.0
+			intent.roll = 0.15 if pilot_state == PilotState.DEAD else 0.0
 			intent.yaw = 0.0
 			intent.throttle = thr
 			intent.fire_primary = false
