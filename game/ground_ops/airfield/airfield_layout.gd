@@ -7,14 +7,15 @@ extends Resource
 ## Gestartet und gelandet wird Richtung -Z (TerrainWorld.RUNWAY_DIR).
 ##
 ## Plan (Draufsicht, Norden = -Z oben):
-##   Piste x = 0 (±20 m), z = +450 … -450, Schwelle z = +430.
-##   Rollweg x = -27 von z = -300 bis zum Haltepunkt (-27, 455) im Süden, dann Halbkreis
-##   (r = 18 m, Mitte (-9, 465)) nach Osten herum auf den Pistenanfang (3, 440).
-##   Abstellplätze x = -52, z = 290 … 430 (Abstand 28 m), Nase nach Süden (+Z), d. h.
+##   M3.4: Piste x = 0 (±30 m), z = +650 … -650 (1.300 m), Schwelle z = +630.
+##   Rollweg x = -37 von z = -300 bis zum Haltepunkt (-37, 655) im Süden, dann Halbkreis
+##   (r = 20 m, Mitte (-17, 665)) nach Osten herum auf den Pistenanfang (3, 640).
+##   Abstellplätze x = -62, z = 490 … 630 (Abstand 28 m), Nase nach Süden (+Z), d. h.
 ##   rollen hinaus und herein fließt immer Richtung Haltepunkt, ohne Wenden.
 ##   Zufahrt (parking_nodes): Rollweg-Knoten 42 m südlich des Platzes (hinaus);
 ##   Einfahrt (parking_in_nodes): Knoten 42 m nördlich (herein).
-##   Pistenausfahrten (exit_nodes) bei z = 100, -100, -300 (Knoten auf der Pistenmitte).
+##   Pistenausfahrten (exit_nodes) 330/530/730/930 m nördlich der Schwelle (Pistenmitte).
+##   (M3.3: 900 × 40 m, Rollweg -27, Plätze -52 – alles 10 m nach Westen gerückt.)
 
 @export var airfield_index := 0
 @export var nation_id: int = Nations.NONE
@@ -165,22 +166,24 @@ static func make_default(index: int, runway_length_m: float, runway_width_m: flo
 	l.nation_id = nation
 	l.runway_width = runway_width_m
 	var half := runway_length_m * 0.5
-	var sz := half - 20.0                       # Schwelle (+430 bei 900 m)
+	var sz := half - 20.0                       # Schwelle (+630 bei 1.300 m)
 	l.runway_start = Vector3(0, 0, sz)
 	l.runway_end = Vector3(0, 0, -half + 20.0)
-	var tx := -27.0                             # Rollweg-Mitte
-	var px := -52.0                             # Abstellplätze (25 m neben dem Rollweg)
+	var tx := -runway_width_m * 0.5 - 7.0       # Rollweg-Mitte (-37 bei 60 m Piste)
+	var px := tx - 25.0                         # Abstellplätze (25 m neben dem Rollweg)
+	var wx := px + 52.0                         # Versatz der Westseite gegenüber M3.3 (-10 m)
 	var spacing := 28.0
 	var spots := 6
 	var z0 := sz - (spots - 1) * spacing          # südlichster Platz auf Höhe der Schwelle
 	# Knoten 0: Pistenanfang (leicht östlich der Mittellinie, der Startlauf korrigiert),
-	# 1–5: Einroll-Bogen (Halbkreis r = 18 m südlich der Schwelle, Spornrad-Wendekreis
+	# 1–5: Einroll-Bogen (Halbkreis südlich der Schwelle von tx bis x = 3, Spornrad-Wendekreis
 	# ~14 m), 6: Haltepunkt.
 	l.taxi_nodes.append(Vector3(3, 0, sz + 10.0))
 	var cz := sz + 35.0
+	var ar := (3.0 - tx) * 0.5
 	for deg in [180.0, 135.0, 90.0, 45.0, 0.0]:
 		var r := deg_to_rad(deg)
-		l.taxi_nodes.append(Vector3(-9.0 + 18.0 * cos(r), 0, cz + 18.0 * sin(r)))
+		l.taxi_nodes.append(Vector3(tx + ar + ar * cos(r), 0, cz + ar * sin(r)))
 	l.taxi_nodes.append(Vector3(tx, 0, sz + 25.0))
 	l.taxi_edges.append_array([0, 5, 5, 4, 4, 3, 3, 2, 2, 1, 1, 6])
 	l.runway_node = 0
@@ -198,7 +201,10 @@ static func make_default(index: int, runway_length_m: float, runway_width_m: flo
 		mid[k] = n
 		prev = n
 	# weiter nach Norden mit Pistenausfahrten
-	for z in [100.0, -100.0, -300.0]:
+	for dz in [330.0, 530.0, 730.0, 930.0]:
+		var z: float = sz - dz
+		if z < -half + 80.0:
+			break
 		l.taxi_nodes.append(Vector3(tx, 0, z))
 		var n := l.taxi_nodes.size() - 1
 		l.taxi_edges.append_array([prev, n])
@@ -214,11 +220,11 @@ static func make_default(index: int, runway_length_m: float, runway_width_m: flo
 		# zwei Knoten weiter (≈ 42 m): flacher Einfädelwinkel für den Spornrad-Wendekreis
 		l.parking_nodes.append(mid[k + 1] if mid.has(k + 1) else 6)
 		l.parking_in_nodes.append(mid[k - 2] if mid.has(k - 2) else mid[k - 1])
-	l.fuel_depot = Vector3(-110.0, 0, sz - 20.0)
-	l.ammo_bunker = Vector3(-115.0, 0, sz - 260.0)
-	l.hangar = Vector3(-88.0, 0, sz - 120.0)      # M3.1: Tor bei x = -73, Fahrspur x = -64 frei
+	l.fuel_depot = Vector3(-110.0 + wx, 0, sz - 20.0)
+	l.ammo_bunker = Vector3(-115.0 + wx, 0, sz - 260.0)
+	l.hangar = Vector3(-88.0 + wx, 0, sz - 120.0)  # M3.1: Tor bei x = -83, Fahrspur x = -74 frei
 	# M3.1: Personal und Wagen warten westlich der Fahrspur auf Höhe der Abstellplätze (vorher
 	# Wagen am Lager/Bunker, bis 245 m Anfahrt); zum Nachfüllen fahren sie zum Lager.
-	l.crew_spawn = Vector3(-70.0, 0, sz - 70.0)
-	l.vehicle_spawns = PackedVector3Array([Vector3(-70.0, 0, sz - 55.0), Vector3(-70.0, 0, sz - 85.0)])
+	l.crew_spawn = Vector3(-70.0 + wx, 0, sz - 70.0)
+	l.vehicle_spawns = PackedVector3Array([Vector3(-70.0 + wx, 0, sz - 55.0), Vector3(-70.0 + wx, 0, sz - 85.0)])
 	return l

@@ -17,8 +17,9 @@ extends Node3D
 
 const RUNWAY_DIR := Vector3(0, 0, -1)
 const DATA_PATH := "res://world/terrain/data/terrain_main.res"
-const RUNWAY_LENGTH := 900.0
-const RUNWAY_WIDTH := 40.0
+## M3.4: 1.300 × 60 m (M3.3: 900 × 40 m); die geglättete Platzfläche ist 1.560 × 340 m.
+const RUNWAY_LENGTH := 1300.0
+const RUNWAY_WIDTH := 60.0
 ## Sichtweite: Ende des fernsten LODs; Nebel ist darauf abgestimmt.
 const VIEW_DISTANCE := 19000.0
 const LOD_STEPS := [1, 4, 16]
@@ -411,67 +412,10 @@ func _build_airfields() -> void:
 			var mat_hangar := _mat(Color(0.55, 0.52, 0.45))
 			var mat_roof := _mat(Color(0.33, 0.29, 0.27))
 			for i in 3:
-				_static_box(node, start + Vector3(-80, 0, -120 - i * 48), Vector3(24, 8, 30), mat_hangar)
-				_static_box(node, start + Vector3(-80, 8, -120 - i * 48), Vector3(25, 1, 31), mat_roof)
-			_static_box(node, start + Vector3(-70, 0, 30), Vector3(6, 14, 6), mat_hangar)
-		if not build_visuals:
-			continue
-		var strip := MeshInstance3D.new()
-		strip.name = "Runway"
-		var pmesh := PlaneMesh.new()
-		pmesh.size = Vector2(RUNWAY_WIDTH, RUNWAY_LENGTH)
-		strip.mesh = pmesh
-		# Graspiste: gemähter, etwas abgefahrener Streifen (Rauschtextur gegen Einheitsfläche)
-		var smat := StandardMaterial3D.new()
-		var nt := NoiseTexture2D.new()
-		nt.seamless = true
-		nt.width = 256
-		nt.height = 256
-		var nn := FastNoiseLite.new()
-		nn.frequency = 0.03
-		nt.noise = nn
-		var grad := Gradient.new()
-		grad.set_color(0, Color(0.20, 0.27, 0.10))
-		grad.set_color(1, Color(0.33, 0.37, 0.19))
-		nt.color_ramp = grad
-		smat.albedo_texture = nt
-		smat.uv1_scale = Vector3(1.0, 20.0, 1.0)
-		smat.roughness = 1.0
-		strip.material_override = smat
-		strip.position = Vector3(0, 0.06, 0)
-		strip.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		node.add_child(strip)
-		var white := _mat(Color(0.95, 0.95, 0.92))
-		var red := _mat(Color(0.85, 0.2, 0.15))
-		var marker := BoxMesh.new()
-		marker.size = Vector3(1.6, 0.35, 0.6)
-		var cnt := int(RUNWAY_LENGTH / 50.0)
-		for i in cnt + 1:
-			for sx in [-1.0, 1.0]:
-				var m := MeshInstance3D.new()
-				m.mesh = marker
-				m.material_override = red if i == 0 or i == cnt else white
-				m.position = start + RUNWAY_DIR * (i * 50.0) + Vector3(sx * (RUNWAY_WIDTH * 0.5 + 1.0), 0.17, 0)
-				node.add_child(m)
-		var pole := MeshInstance3D.new()
-		var cm := CylinderMesh.new()
-		cm.top_radius = 0.08
-		cm.bottom_radius = 0.1
-		cm.height = 6.0
-		pole.mesh = cm
-		pole.material_override = white
-		pole.position = start + Vector3(-34, 3, -60)
-		node.add_child(pole)
-		var sock := MeshInstance3D.new()
-		var sm := CylinderMesh.new()
-		sm.top_radius = 0.15
-		sm.bottom_radius = 0.4
-		sm.height = 2.2
-		sock.mesh = sm
-		sock.material_override = _mat(Color(1.0, 0.5, 0.1))
-		sock.position = pole.position + Vector3(0.0, 2.6, 1.1)
-		sock.rotation_degrees = Vector3(90, 0, 0)
-		node.add_child(sock)
+				_static_box(node, start + Vector3(-90, 0, -120 - i * 48), Vector3(24, 8, 30), mat_hangar)
+				_static_box(node, start + Vector3(-90, 8, -120 - i * 48), Vector3(25, 1, 31), mat_roof)
+		# M3.4: Piste 1.300 × 60 m, Rollwege, Markierungen, Windsäcke, Platzrand, Gebäude
+		AirfieldDressing.build(node, airfield_layout(ai), build_visuals)
 
 
 ## Ziel-Marker als Marker3D (Gruppe "terrain_targets", Metadaten type/name/radius/nation).

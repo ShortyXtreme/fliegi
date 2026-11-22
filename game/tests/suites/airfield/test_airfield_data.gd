@@ -48,13 +48,13 @@ func test_parking_clearance() -> Array:
 	for p in l.parking_positions:
 		rw_clear = minf(rw_clear, absf(p.x) - l.runway_width * 0.5)
 		for h in 3:
-			var hc := Vector3(-80, 0, sz - 120 - h * 48)
+			var hc := l.hangar + Vector3(8, 0, -h * 48)
 			var dx := maxf(absf(p.x - hc.x) - 12.0, 0.0)
 			var dz := maxf(absf(p.z - hc.z) - 15.0, 0.0)
 			hangar_clear = minf(hangar_clear, Vector2(dx, dz).length())
 	var tw_clear := INF
 	for n in l.taxi_nodes:
-		if n.x < -1.0 and absf(n.z) < 450.0:
+		if n.x < -1.0 and absf(n.z) < l.runway_length() * 0.5 + 20.0:
 			tw_clear = minf(tw_clear, absf(n.x) - l.runway_width * 0.5)
 	var ok := min_d >= 26.0 and rw_clear >= 15.0 and hangar_clear >= 12.0 and tw_clear >= 5.0
 	return [ok, "Abstand %.0f m, Pistenrand %.0f m, Hangar %.0f m, Rollweg–Piste %.0f m" % [
@@ -84,3 +84,27 @@ func test_runway_exclusive() -> Array:
 	var ok := same and r1 and not r2 and r3 and still and r4 and not c_req and freed
 	return [ok, "A=%s B=%s A erneut=%s, fremde Freigabe hält=%s, B nach Freigabe=%s, Client=%s, entfernt frei=%s" % [
 		r1, r2, r3, still, r4, c_req, freed]]
+
+
+## M3.4: Piste 1.300 × 60 m, Gebäude (Flugleitung, Schuppen) mit Abstand zu Rollwegen,
+## Abstellplätzen, Fahrspur und Lagern; Windsack folgt dem Wind.
+func test_airfield_m3_4_dressing() -> Array:
+	var l := (world as TerrainWorld).airfield_layout(0)
+	var len_ok := l.runway_length() >= 1200.0 and l.runway_width >= 50.0
+	var min_d := INF
+	var pts: Array = []
+	for n in l.taxi_nodes:
+		pts.append(n)
+	for p in l.parking_positions:
+		pts.append(p)
+	pts.append_array([l.fuel_depot, l.ammo_bunker, l.crew_spawn, l.hangar])
+	for b in AirfieldDressing.building_positions(l):
+		for p in pts:
+			min_d = minf(min_d, Vector2(b.x - p.x, b.z - p.z).length())
+		min_d = minf(min_d, absf(b.x - GroundCrewDispatch.LANE_X) + 8.0)
+	var w0: Array = Windsock.wind_at(0.0)
+	var w1: Array = Windsock.wind_at(40.0)
+	var wind_ok: bool = (w0[0] as Vector3).z > 0.5 and float(w0[1]) > 0.0 and w0[0] != w1[0] \
+		and Windsock.droop_deg(0.0) > 60.0 and Windsock.droop_deg(8.0) < 1.0
+	var ok := len_ok and min_d >= 20.0 and wind_ok
+	return [ok, "Piste %.0f × %.0f m, Gebäude-Abstand %.0f m, Wind %s" % [l.runway_length(), l.runway_width, min_d, wind_ok]]

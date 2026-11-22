@@ -135,7 +135,7 @@ func test_three_ai_take_off_without_collision() -> Array:
 		for k in 3:
 			var a := planes[k]
 			var p := l.to_local(a.global_position)
-			if a.telemetry().on_ground and absf(p.x) < l.runway_width * 0.5 and absf(p.z) < 450.0 \
+			if a.telemetry().on_ground and absf(p.x) < l.runway_width * 0.5 and absf(p.z) < l.runway_length() * 0.5 + 20.0 \
 					and a.telemetry().airspeed > 12.0:
 				on_rw += 1
 			if a.telemetry().height_agl > 300.0:

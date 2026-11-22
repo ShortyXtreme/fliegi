@@ -41,9 +41,9 @@ const TOP_UP_MARGIN := 0.03
 
 
 ## Paket 14: Fahrspur westlich der Abstellplätze (Platz-Koordinaten x), null = ohne.
-## M3.1: 12 m westlich der Abstellplätze (Wagen am Flugzeug halten bei x = -59,5 und
-## blockieren die Spur nicht), Hallen-Tore bei x = -73.
-const LANE_X := -64.0
+## M3.1: 12 m westlich der Abstellplätze (Wagen am Flugzeug halten bei x = -69,5 und
+## blockieren die Spur nicht), Hallen-Tore bei x = -83 (M3.4: Piste 60 m, alles 10 m westlicher).
+const LANE_X := -74.0
 ## Auf die Spur schräg vorwärts einfädeln bzw. vor dem Ziel schräg ausfädeln (m längs).
 const LANE_IN := 8.0
 const LANE_OUT := 10.0

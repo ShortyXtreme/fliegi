@@ -10,4 +10,4 @@ func _initialize() -> void:
 		var p := "res://ground_ops/airfield/data/airfield_%d.tres" % i
 		var err := ResourceSaver.save(l, p)
 		print("%s: %d Plätze, %d Knoten, Fehler %d" % [p, l.parking_count(), l.taxi_nodes.size(), err])
-	quit()
+	quit.call_deferred()
