@@ -35,7 +35,9 @@ const FIRE_TRIGGER_THRESHOLD := 0.35
 const EJECT_HOLD_TIME := 1.0
 
 
-enum Context { FLIGHT, CREW, DRIVE }
+## M3.5: RADIO = Funkgerät offen, Kanalliste; RADIO_CMD = Befehle eines Kanals (zusätzlich zu CREW/DRIVE
+## aktiv; die Ziffern sind dort sonst frei, A/B nimmt das offene Funkgerät, RadioPanel.pad_capture).
+enum Context { FLIGHT, CREW, DRIVE, RADIO, RADIO_CMD }
 
 ## In allen Kontexten aktiv.
 const GLOBAL_ACTIONS: Array[StringName] = [&"help_toggle", &"release_mouse", &"alarm_debug",
@@ -49,7 +51,7 @@ const CONTEXT_ACTIONS := {
 		&"debug_toggle", &"reset_runway", &"reset_air", &"fire_primary", &"fire_secondary",
 		&"eject_hold", &"zoom_hold", &"mouse_look", &"joy_pitch_down", &"joy_pitch_up",
 		&"joy_roll_left", &"joy_roll_right", &"look_left", &"look_right", &"look_up",
-		&"look_down", &"zoom_in", &"zoom_out"],
+		&"look_down", &"zoom_in", &"zoom_out", &"engine_toggle"],
 	Context.CREW: [&"crew_move_forward", &"crew_move_back", &"crew_move_left",
 		&"crew_move_right", &"joy_crew_move_forward", &"joy_crew_move_back",
 		&"joy_crew_move_left", &"joy_crew_move_right", &"crew_sprint", &"crew_interact",
@@ -59,8 +61,19 @@ const CONTEXT_ACTIONS := {
 		&"drive_steer_right", &"joy_drive_steer_left", &"joy_drive_steer_right",
 		&"drive_handbrake", &"eject_hold", &"crew_interact", &"crew_wheel", &"camera_next",
 		&"look_left", &"look_right", &"look_up", &"look_down"],
+	Context.RADIO: [&"radio_channel_1", &"radio_channel_2", &"radio_channel_3", &"radio_channel_4",
+		&"radio_back", &"radio_prev", &"radio_next", &"radio_up", &"radio_down", &"radio_select"],
+	Context.RADIO_CMD: [&"radio_cmd_1", &"radio_cmd_2", &"radio_cmd_3", &"radio_cmd_4",
+		&"radio_back", &"radio_prev", &"radio_next", &"radio_up", &"radio_down", &"radio_select"]
 }
-const CONTEXT_NAMES := {Context.FLIGHT: "Flug", Context.CREW: "Zu Fuß", Context.DRIVE: "Fahren"}
+const CONTEXT_NAMES := {Context.FLIGHT: "Flug", Context.CREW: "Zu Fuß", Context.DRIVE: "Fahren",
+	Context.RADIO: "Funk – Kanäle", Context.RADIO_CMD: "Funk – Befehle"}
+## M3.5 Funkgerät: gemeinsame Aktionen beider Stufen.
+const RADIO_COMMON: Array[StringName] = [&"radio_back", &"radio_prev", &"radio_next", &"radio_up",
+	&"radio_down", &"radio_select"]
+const RADIO_CHANNEL_ACTIONS: Array[StringName] = [&"radio_channel_1", &"radio_channel_2", &"radio_channel_3",
+	&"radio_channel_4"]
+const RADIO_CMD_ACTIONS: Array[StringName] = [&"radio_cmd_1", &"radio_cmd_2", &"radio_cmd_3", &"radio_cmd_4"]
 ## Aussteigen im Stand (FLIGHT/DRIVE) nutzt dieselbe Haltezeit wie der Notausstieg.
 const EXIT_HOLD_TIME := EJECT_HOLD_TIME
 
@@ -162,7 +175,7 @@ static func setup() -> void:
 	_button("crew_drop", JOY_BUTTON_B)
 	_keys("crew_enter", [KEY_F])
 	_button("crew_enter", JOY_BUTTON_Y)
-	_keys("crew_wheel", [KEY_TAB])                       # halten = Befehlsrad
+	_keys("crew_wheel", [KEY_TAB])                       # M3.5: Funkgerät öffnen/schließen
 	_button("crew_wheel", JOY_BUTTON_LEFT_SHOULDER)
 	_keys("crew_view_toggle", [KEY_C])                   # Ego/Third
 	_button("crew_view_toggle", JOY_BUTTON_RIGHT_STICK)
@@ -178,6 +191,20 @@ static func setup() -> void:
 	_keys("drive_handbrake", [KEY_SPACE])
 	_button("drive_handbrake", JOY_BUTTON_B)
 	# eject_hold (J / Steuerkreuz ←), crew_interact, crew_wheel, camera_next: siehe oben
+	# --- M3.5: Funkgerät (Kontexte RADIO / RADIO_CMD, nur bei offenem Panel) ---
+	for k in 4:
+		_keys(StringName("radio_channel_%d" % (k + 1)), [KEY_1 + k])
+	for k in 4:
+		_keys(StringName("radio_cmd_%d" % (k + 1)), [KEY_1 + k])
+	_keys("radio_back", [KEY_BACKSPACE])
+	_button("radio_back", JOY_BUTTON_B)
+	_keys("radio_prev", [KEY_LEFT])
+	_button("radio_prev", JOY_BUTTON_LEFT_SHOULDER)
+	_keys("radio_next", [KEY_RIGHT])
+	_button("radio_next", JOY_BUTTON_RIGHT_SHOULDER)
+	_button("radio_up", JOY_BUTTON_DPAD_UP)
+	_button("radio_down", JOY_BUTTON_DPAD_DOWN)
+	_button("radio_select", JOY_BUTTON_A)
 
 	# --- Maus ---
 	# LMT ist bewusst KEINE Aktion: erster Klick fängt die Maus, erst danach feuert sie
@@ -187,6 +214,11 @@ static func setup() -> void:
 	_mouse("fire_secondary", MOUSE_BUTTON_MIDDLE)
 	_mouse("zoom_in", MOUSE_BUTTON_WHEEL_UP)
 	_mouse("zoom_out", MOUSE_BUTTON_WHEEL_DOWN)
+	# --- M3.5: Motor an/aus (Arcade: ganze Anlassfolge; Realistisch siehe Schalter) ---
+	_keys("engine_toggle", [KEY_I])
+	# --- M3.5: freie Tastenbelegung (Einstellungen › Tastenbelegung) ---
+	KeyRebind.remember_defaults()
+	KeyRebind.load_saved()
 
 
 static func _ensure(action: StringName, deadzone: float = 0.2) -> void:

@@ -57,8 +57,15 @@ func test_smoke_all_contexts() -> Array:
 		await _step(3)
 		seen.append([ctx, g.status.visible, g.stock_bar.visible])
 	ch.queue_free()
-	# Zu Fuß 4 m neben der Maschine: Statuspanel + Lager; im Flug (Stand am Boden): Statuspanel, kein Lager
-	var ok: bool = seen[0][1] and seen[0][2] and seen[2][1] and not seen[2][2] and not g.help.visible
+	g.character = null
+	# Zu Fuß 4 m neben der Maschine: Statuspanel; im Flug (Stand am Boden): Statuspanel.
+	# M3.5: Lager nie im normalen HUD (nur Rolle Nachschub/Werkstatt bzw. F3), StockView.
+	g.player_role = &"supply"
+	await _step(2)
+	var role_sees: bool = g.stock_bar.visible
+	g.player_role = &"pilot"
+	var ok: bool = seen[0][1] and not seen[0][2] and seen[2][1] and not seen[2][2] and not g.help.visible \
+		and StockView.visible_for(&"supply") and not StockView.visible_for(&"pilot")
 	return [ok, "Kontexte [ctx, status, lager]: %s" % str(seen)]
 
 
@@ -151,38 +158,6 @@ func test_blocked_and_pump() -> Array:
 	var ok: bool = dp.pump and absf(dp.liters - 120.0) < 0.1 and dp.liters_target > 120.0 and db.blocked == "Lager leer"
 	return [ok, "Pumpen %.0f/%.0f l, blockiert „%s“ (Punkt %s)" % [dp.liters, dp.liters_target, db.blocked,
 		j.point(&"attach", b.rules)]]
-
-
-func test_wheel_segments() -> Array:
-	var segs := [CommandWheel.segment_for(Vector2(0, -1)), CommandWheel.segment_for(Vector2(1, 0)),
-		CommandWheel.segment_for(Vector2(0, 1)), CommandWheel.segment_for(Vector2(-1, 0)),
-		CommandWheel.segment_for(Vector2(0.7, -0.7))]
-	var w := CommandWheel.new()
-	var n0 := w.count()
-	w.page = 1
-	var n1 := w.count()
-	var labs := w.labels()
-	w.free()
-	var ok: bool = segs == [0, 2, 4, 6, 1] and n0 == 4 and n1 == 8
-	return [ok, "Segmente %s, Ebenen %d/%d Befehle, %s" % [str(segs), n0, n1, str(labs)]]
-
-
-func test_wheel_issues_command() -> Array:
-	var a := _spawn(true)
-	var g := _make(a)
-	g.set_context(InputBindings.Context.CREW)
-	var got := []
-	g.command_receiver = func(cmd: int, t: Node): got.append([cmd, t])
-	g.wheel_override = 1
-	await _step(2)
-	var opened := g.wheel.is_open and g.wheel.target() == a
-	g.wheel.page = 0                            # Ebene Fahrzeuge (4 Befehle)
-	g.wheel.feed_mouse(Vector2(0, 80))          # nach unten = Segment 2 „Tankwagen zurück“
-	g.wheel_override = 0
-	await _step(2)
-	var ok: bool = opened and got.size() == 1 and got[0][0] == GroundCrewBrain.Command.TRUCK_HOME and got[0][1] == a \
-		and not g.wheel.is_open
-	return [ok, "Rad offen %s, Befehle %s" % [opened, str(got)]]
 
 
 func test_wheel_to_dispatch_crews() -> Array:

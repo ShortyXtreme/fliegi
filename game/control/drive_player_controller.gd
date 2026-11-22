@@ -31,7 +31,8 @@ func _unhandled_input(event: InputEvent) -> void:
 func compute_intent(dt: float) -> PilotIntent:
 	var i := _intent
 	i.throttle = Input.get_action_strength("drive_throttle")
-	handbrake = Input.is_action_pressed("drive_handbrake")
+	handbrake = Input.is_action_pressed("drive_handbrake") \
+		and not (RadioPanel.pad_capture and CrewPlayerController._pad_held(JOY_BUTTON_B))   # M3.5: B = Funk zurück
 	i.brakes = maxf(Input.get_action_strength("drive_brake"), 1.0 if handbrake else 0.0)
 	i.yaw = Input.get_axis("drive_steer_left", "drive_steer_right") \
 		+ Input.get_axis("joy_drive_steer_left", "joy_drive_steer_right")

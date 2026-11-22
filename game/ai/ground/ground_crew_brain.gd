@@ -15,14 +15,26 @@ extends Controller
 
 ## M3.5: Befehle 0–7 wie M3, dazu Fahrzeuge rufen/wegschicken und „Automatik“.
 enum Command { FULL_SERVICE, FUEL_ONLY, AMMO_ONLY, QUICK_SERVICE, TRUCK_TO_ME, FOLLOW, REPAIR, PAUSE,
-	CALL_TRUCK, CALL_CART, TRUCK_HOME, CART_HOME, AUTO }
+	CALL_TRUCK, CALL_CART, TRUCK_HOME, CART_HOME, AUTO, CALL_MECH, MECH_HOME, ALL_HOME, STANDBY, STATUS }
 const COMMAND_LABELS := ["Voll abfertigen", "Tanken", "Aufmunitionieren", "Schnellabfertigung",
 	"Tankwagen zu mir", "Folgen", "Reparieren", "Zurück / Pause",
-	"Tankwagen kommen", "Munitionswagen kommen", "Tankwagen zurück", "Munitionswagen zurück", "Automatik"]
+	"Tankwagen rufen", "Munitionswagen rufen", "Tankwagen wegschicken", "Munitionswagen wegschicken", "Automatik",
+	"Mechaniker rufen", "Mechaniker wegschicken", "Alle wegschicken", "Bereitschaft", "Status?"]
+## M3.5 Funk: Kanal je Befehl (Antwortzeilen und Aktivitätspunkt im Funkgerät).
+const CHANNEL_OF := {
+	Command.FUEL_ONLY: &"fuel", Command.CALL_TRUCK: &"fuel", Command.TRUCK_HOME: &"fuel", Command.TRUCK_TO_ME: &"fuel",
+	Command.AMMO_ONLY: &"ammo", Command.CALL_CART: &"ammo", Command.CART_HOME: &"ammo",
+	Command.REPAIR: &"repair", Command.CALL_MECH: &"repair", Command.MECH_HOME: &"repair",
+}
+## Einzelbefehle an genau ein Personal (Wagen/Mechaniker rufen bzw. wegschicken).
+const SINGLE_COMMANDS := [Command.TRUCK_TO_ME, Command.FOLLOW, Command.CALL_TRUCK, Command.CALL_CART,
+	Command.TRUCK_HOME, Command.CART_HOME, Command.CALL_MECH, Command.MECH_HOME]
 ## M3.5: Ebenen des Befehlsrads.
 const VEHICLE_COMMANDS := [Command.CALL_TRUCK, Command.CALL_CART, Command.TRUCK_HOME, Command.CART_HOME]
 const CREW_COMMANDS := [Command.FUEL_ONLY, Command.AMMO_ONLY, Command.REPAIR, Command.FULL_SERVICE,
 	Command.QUICK_SERVICE, Command.FOLLOW, Command.PAUSE, Command.AUTO]
+const JOB_COMMANDS := [Command.FULL_SERVICE, Command.FUEL_ONLY, Command.AMMO_ONLY, Command.REPAIR,
+	Command.QUICK_SERVICE]
 ## Wagen gilt ab diesem Abstand zum Stellplatz als „unterwegs“ (m).
 const HOME_R := 6.0
 enum Priority { REFILL_VEHICLE, AI_AIRCRAFT, PLAYER_AIRCRAFT, ALARM }
@@ -90,6 +102,8 @@ var ordered := false
 ## Befehl nach Abschluss der Befehls-Wege (_leg_for == "cmd") und Meldung dazu.
 var _then_kind := Command.FULL_SERVICE
 var _then_text := ""
+## M3.5: Funkkanal der aktuellen Aufgabe (&"fuel", &"ammo", &"repair", &"crew").
+var channel: StringName = &"crew"
 
 var _intent := CrewIntent.new()
 var _goal := Vector3.ZERO
@@ -167,7 +181,7 @@ func crew_name() -> String:
 ## Funk-/Meldungszeile über die Dispatch (Signal crew_report).
 func _report(text: String) -> void:
 	if dispatch != null and dispatch.has_method("report"):
-		dispatch.report("%s: %s" % [crew_name(), text], self)
+		dispatch.report(text, self, channel)
 
 
 func _vehicle_for(cmd: int) -> GroundVehicle:
@@ -188,6 +202,8 @@ func status() -> Dictionary:
 		return {text = "Pause", progress = -1.0}
 	if command_kind == Command.FOLLOW:
 		return {text = "folgt dir", progress = -1.0}
+	if command_kind == Command.STANDBY and _leg_for != "cmd":
+		return {text = "wartet an der Maschine", progress = -1.0}
 	if _leg_for == "cmd" and not _legs.is_empty():
 		var leg: Dictionary = _legs[0]
 		if leg.has("drive"):
@@ -195,7 +211,7 @@ func status() -> Dictionary:
 			return {text = "fährt %s %s" % [vehicle_label(leg.drive), "zurück" if back else "her"], progress = -1.0}
 		if leg.has("stow"):
 			return {text = "rollt Schlauch ein", progress = -1.0}
-		return {text = "geht zum Stellplatz", progress = -1.0}
+		return {text = "kommt zur Maschine" if _then_kind == Command.STANDBY else "geht zum Stellplatz", progress = -1.0}
 	var j := b.get_job(job_id) if b != null else null
 	if j == null and b != null:
 		for oj: GroundJob in b.open_jobs():
@@ -235,7 +251,7 @@ static func issue(cmd: int, target: Node, crew: Array = []) -> int:
 	list = list.filter(func(b): return is_instance_valid(b))
 	if list.is_empty():
 		return 0
-	if cmd == Command.TRUCK_TO_ME or cmd == Command.FOLLOW or cmd in VEHICLE_COMMANDS:
+	if cmd in SINGLE_COMMANDS:
 		var ref := Vector3.ZERO
 		var first: GroundCrewBrain = list[0]
 		var v: Node3D = first._vehicle_for(cmd) if cmd in VEHICLE_COMMANDS else null
@@ -245,7 +261,14 @@ static func issue(cmd: int, target: Node, crew: Array = []) -> int:
 			ref = v.global_position
 		elif target is Node3D:
 			ref = target.global_position
-		# M3.5: Fahrzeug-Befehle bevorzugt an freies Personal (kein Auftrag, kein Job), dann der Nächste.
+		# M3.5: Fahrzeug-Befehle bevorzugt an freies Personal (kein Auftrag, kein Job), dann der Nächste;
+		# „Mechaniker wegschicken“ an den, der an der Maschine wartet.
+		if cmd == Command.MECH_HOME:
+			list.sort_custom(func(a, b):
+				if (a.command_kind == Command.STANDBY) != (b.command_kind == Command.STANDBY):
+					return a.command_kind == Command.STANDBY
+				return a.position_now().distance_to(ref) < b.position_now().distance_to(ref))
+			return 1 if list[0].command(cmd, target) else 0
 		list.sort_custom(func(a, b):
 			var fa: bool = a.job_id == 0 and not a.ordered and a._leg_for != "cmd"
 			var fb: bool = b.job_id == 0 and not b.ordered and b._leg_for != "cmd"
@@ -272,8 +295,11 @@ func command(cmd: int, target: Node, exclusive := false) -> bool:
 		return false
 	if cmd == Command.TRUCK_TO_ME and (dispatch == null or dispatch.fuel_truck == null):
 		return false
+	channel = CHANNEL_OF.get(cmd, &"crew")
 	if cmd in VEHICLE_COMMANDS:
 		return _vehicle_command(cmd, target)
+	if cmd in [Command.CALL_MECH, Command.MECH_HOME, Command.ALL_HOME]:
+		return _walk_command(cmd, target)
 	_release_mine()
 	_drop_focus()
 	command_kind = cmd
@@ -289,7 +315,7 @@ func command(cmd: int, target: Node, exclusive := false) -> bool:
 				dispatch.set_self_service(target, false)
 			_report("Automatik – arbeitet selbstständig")
 		Command.PAUSE:
-			_report("Pause, geht zum Stellplatz")
+			_report("Pause, gehe zum Stellplatz")
 		Command.FOLLOW:
 			_report("folgt dir")
 		Command.FULL_SERVICE, Command.FUEL_ONLY, Command.AMMO_ONLY, Command.REPAIR, Command.QUICK_SERVICE:
@@ -310,7 +336,7 @@ func command(cmd: int, target: Node, exclusive := false) -> bool:
 							bd.release(j.id, j.worker)
 						if j.worker == null or not is_instance_valid(j.worker):
 							j.for_worker = self
-				_report("%s – verstanden" % COMMAND_LABELS[cmd])
+				_report("verstanden – %s" % COMMAND_LABELS[cmd])
 			elif cmd == Command.FULL_SERVICE:
 				_report("Automatik – arbeitet selbstständig")
 		Command.TRUCK_TO_ME:
@@ -362,7 +388,7 @@ func _vehicle_command(cmd: int, target: Node) -> bool:
 	_legs = _route_drives(legs)
 	_leg_for = "cmd"
 	_leg_left = -1.0
-	_report("%s %s" % [vehicle_label(v), "kommt" if call else "fährt zurück"])
+	_report("verstanden – %s %s" % [vehicle_label(v), "kommt" if call else "fährt zurück"])
 	return true
 
 
@@ -406,11 +432,12 @@ func _finish_order() -> void:
 	_then_text = "zurück am Stellplatz"
 	if _legs.is_empty():
 		_report("%s erledigt" % what)
+		channel = &"crew"
 		_then_text = ""
 		return
 	_leg_for = "cmd"
 	_leg_left = -1.0
-	_report("%s erledigt – räumt auf" % what)
+	_report("%s erledigt, räume auf und fahre zurück" % what)
 
 
 ## Hat der Auftrag noch offene Arbeit (Jobs an der Zielmaschine, die dieser Befehl erlaubt)?
@@ -422,6 +449,64 @@ func _order_open() -> bool:
 		if _job_allowed(j) and not j.reserved:
 			return true
 	return false
+
+
+## M3.5: Mechaniker rufen (geht zur Maschine und wartet dort), wegschicken (zurück zum Stellplatz,
+## danach Automatik) bzw. alle wegschicken (Wagen zurück, alle zum Stellplatz, Automatik für die
+## Maschine aus).
+func _walk_command(cmd: int, target: Node) -> bool:
+	if dispatch == null:
+		return false
+	var legs := []
+	_then_kind = Command.FULL_SERVICE
+	match cmd:
+		Command.CALL_MECH:
+			var a := target as Aircraft
+			if a == null:
+				return false
+			var p := a.global_transform * Vector3(1.6, 0.0, 1.2)
+			p.y = WorldGround.height_at(p.x, p.z)
+			legs.append({pos = p, wait = 0.0, teleport = false})
+			_then_kind = Command.STANDBY
+			_then_text = "an der Maschine, warte auf Auftrag"
+			if dispatch.has_method("set_self_service"):
+				dispatch.set_self_service(a, true)
+		Command.MECH_HOME:
+			legs.append({pos = dispatch.crew_spawn, wait = 0.0, teleport = false})
+			_then_text = "zurück am Stellplatz"
+		Command.ALL_HOME:
+			legs = tidy_legs([dispatch.fuel_truck, dispatch.ammo_cart], true)
+			_then_text = "alles zurück am Stellplatz"
+			if target is Aircraft and dispatch.has_method("set_self_service"):
+				dispatch.set_self_service(target, true)
+	_release_mine()
+	_drop_focus()
+	ordered = false
+	command_kind = Command.FULL_SERVICE
+	command_target = null
+	_legs = _route_drives(legs)
+	_leg_for = "cmd"
+	_leg_left = -1.0
+	_report({Command.CALL_MECH: "verstanden, komme", Command.MECH_HOME: "verstanden, gehe zurück",
+		Command.ALL_HOME: "verstanden, räume auf und gehe zurück"}[cmd])
+	return true
+
+
+## Kanal, auf dem dieses Personal gerade arbeitet (&"" = frei), für den Aktivitätspunkt.
+func active_channel() -> StringName:
+	if _leg_for == "cmd" and not _legs.is_empty():
+		return channel
+	var b := _board()
+	var j := b.get_job(job_id) if b != null else null
+	if j == null:
+		return channel if ordered or command_kind == Command.STANDBY else &""
+	if j is RefuelJob:
+		return &"fuel" if j.dest_source == null else &""
+	if j is RearmJob:
+		return &"ammo"
+	if j is RepairJob:
+		return &"repair"
+	return channel
 
 
 func compute_intent(_dt: float) -> PilotIntent:
@@ -531,6 +616,9 @@ func think(dt: float) -> void:
 			return
 		Command.FOLLOW:
 			_follow(dt)
+			return
+		Command.STANDBY:
+			state = State.IDLE
 			return
 	if _avoid_props(dt):
 		return
@@ -657,7 +745,7 @@ func _job_allowed(j: GroundJob) -> bool:
 		Command.FUEL_ONLY: return j is RefuelJob
 		Command.AMMO_ONLY: return j is RearmJob
 		Command.REPAIR: return j is RepairJob
-		Command.FOLLOW, Command.TRUCK_TO_ME: return false
+		Command.FOLLOW, Command.TRUCK_TO_ME, Command.STANDBY: return false
 	if command_target != null and is_instance_valid(command_target) and j.target != command_target:
 		return false
 	return true

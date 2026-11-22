@@ -111,8 +111,14 @@ func _begin_step(s: StringName, r: GroundRules) -> bool:
 
 func _finish_step(s: StringName, r: GroundRules) -> bool:
 	match s:
-		&"attach": _couple_hose()
-		&"detach": _uncouple_hose()
+		&"attach":
+			if dest_source == null:
+				set_part_open("fuel_cap", true)
+			_couple_hose()
+		&"detach":
+			_uncouple_hose()
+			if dest_source == null:
+				set_part_open("fuel_cap", false)
 		&"pump": return fill_reached() and not r.pump_watch
 	return true
 
@@ -140,6 +146,8 @@ func _uncouple_hose() -> void:
 
 func cleanup() -> void:
 	_uncouple_hose()
+	if dest_source == null:
+		set_part_open("fuel_cap", false)
 
 
 ## Pumpen um dt Sekunden (autonom, vom JobBoard). Rückgabe: true = Schritt fertig.

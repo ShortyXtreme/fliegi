@@ -67,8 +67,12 @@ func nav(cmd: String) -> void:
 	if items.is_empty():
 		return
 	match cmd:
-		"up": focus = posmod(focus - 1, items.size())
-		"down": focus = posmod(focus + 1, items.size())
+		"up", "down":
+			var d := -1 if cmd == "up" else 1
+			for _k in items.size():
+				focus = posmod(focus + d, items.size())
+				if not items[focus].get("header", false):
+					break
 		"left", "right":
 			if items[focus].get("option", false):
 				option_changed.emit(current_id(), -1 if cmd == "left" else 1)
@@ -100,7 +104,7 @@ func _gui_input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseMotion:
 		var i := _row_at(event.position)
-		if i >= 0 and i != focus:
+		if i >= 0 and i != focus and not items[i].get("header", false):
 			focus = i
 			queue_redraw()
 	elif event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
@@ -110,7 +114,7 @@ func _gui_input(event: InputEvent) -> void:
 		queue_redraw()
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var i := _row_at(event.position)
-		if i >= 0:
+		if i >= 0 and not items[i].get("header", false):
 			focus = i
 			if items[i].get("option", false):
 				option_changed.emit(current_id(), -1 if event.position.x < _value_mid() else 1)
@@ -158,16 +162,30 @@ func _draw() -> void:
 		var y := HEAD + k * row
 		var on := i == focus
 		var mid := y + row * 0.5
+		if it.get("header", false):
+			# M3.5: Gruppenüberschrift (Tastenbelegung)
+			HudStyle.heading(self, Vector2(28, mid + 8), String(it.label), 12, HudStyle.ACCENT)
+			HudStyle.rule(self, Vector2(28 + HudStyle.text_width(String(it.label).to_upper(), 12, true) \
+				+ HudStyle.HEADING_SPACING * String(it.label).length() + 14, mid + 4), Vector2(w - 24, mid + 4))
+			continue
 		if on:
 			draw_rect(Rect2(8, y + 3, w - 16, row - 6), Color(HudStyle.ACCENT, 0.18))
 			draw_rect(Rect2(8, y + 3, 4, row - 6), HudStyle.ACCENT)
 		var col := HudStyle.VALUE if on else HudStyle.LABEL
 		var is_opt: bool = it.get("option", false)
-		var lw := label_w if (label_w > 0.0 and is_opt) else w - 52.0
+		var is_key: bool = it.get("keybind", false)
+		var lw := label_w if (label_w > 0.0 and (is_opt or is_key)) else w - 52.0
 		var fs := fit_size(String(it.label), lsize, lw)
 		HudStyle.text(self, Vector2(28, mid + fs * 0.36), String(it.label), fs, col, true)
 		if is_opt:
 			_draw_value(it, value_rect(y), on)
+		elif is_key:
+			# M3.5: Tastenbelegung – Taste in der Wertspalte (rechtsbündig, passt sich der Breite an)
+			var r := value_rect(y)
+			var v := String(it.get("value", ""))
+			var vcol := HudStyle.CAUTION if it.get("waiting", false) else (HudStyle.VALUE if on else HudStyle.LABEL)
+			var vfs := fit_size(v, 17.0, r.size.x - 8.0)
+			HudStyle.text(self, Vector2(r.end.x, mid + vfs * 0.36), v, vfs, vcol, true, 2)
 		elif String(it.get("note", "")) != "":
 			HudStyle.text(self, Vector2(w - 24, mid + 5), String(it.note), 14, HudStyle.DIM, false, 2)
 	# Scroll-Hinweis

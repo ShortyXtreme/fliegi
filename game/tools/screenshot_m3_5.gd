@@ -69,14 +69,17 @@ func _run() -> void:
 			await _start()
 			await _exit_near("svc_fuel_cap")
 			var gh: GroundHud = game.hud.ground_hud
-			gh.dispatch.call("command", GroundCrewBrain.Command.FUEL_ONLY, game.player_aircraft, gh.crew_list()[0])
+			gh.toggle_radio()
+			gh.radio.choose(3)                     # „Tanken“
+			await _frames(30)
+			gh.toggle_radio()
+			gh.radio.choose(1)                     # „Tankwagen rufen“ (anderer Mechaniker)
 			await _frames(240)
-			gh.wheel_override = 1
+			gh.radio.open()
+			gh.radio.choose(6)                     # Unterebene „Weitere …“ zeigen? erst oberste Ebene
+			gh.radio.back()
 			await _frames(3)
-			gh.wheel.cycle_page(1)
-			gh.wheel.feed_mouse(Vector2(70, -30))
-			await _frames(3)
-			await _shot("m3_5_befehlsrad")
+			await _shot("m3_5_funkgeraet")
 		"markierung":
 			await _start(true)
 			await _exit_near("svc_fuel_cap", 5.5)

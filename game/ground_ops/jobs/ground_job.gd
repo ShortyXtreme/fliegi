@@ -133,6 +133,14 @@ func work_seconds(rules: GroundRules) -> float:
 	return t
 
 
+## M3.5: Klappe/Deckel am Modell öffnen bzw. schließen (Agent B: Aircraft.set_service_part_open,
+## part = "gun_hatch_L" | "gun_hatch_R" | "fuel_cap"); ohne die Funktion passiert nichts.
+func set_part_open(part: String, open: bool) -> void:
+	var a := aircraft()
+	if a != null and is_instance_valid(a) and a.has_method("set_service_part_open"):
+		a.call("set_service_part_open", part, open)
+
+
 func aircraft() -> Aircraft:
 	return target as Aircraft
 

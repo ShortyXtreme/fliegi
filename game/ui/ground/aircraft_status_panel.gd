@@ -8,6 +8,8 @@ const PAD := 14.0
 const JOB_H := 22.0
 
 var data := {}
+## M3.5: Instrumente (Treibstoff/Munition) nur im Cockpit; zu Fuß sieht man sie nicht.
+var instruments := true
 var _sketch: ZoneSketch
 
 
@@ -53,9 +55,15 @@ func _draw() -> void:
 	if hl < 0.999:
 		HudStyle.text(self, Vector2(W - PAD, 22), "Schaden %d %%" % int(round((1.0 - hl) * 100)), 12,
 				WeaponPanel.zone_color(hl), true, 2)
-	# Treibstoff
 	var x := PAD
 	var bw := W - PAD * 2 - 122
+	if not instruments:
+		HudStyle.heading(self, Vector2(x, 48), "VON AUSSEN", 10)
+		HudStyle.text(self, Vector2(x, 76), "Tankstand: Anzeige im Cockpit", 13, HudStyle.DIM)
+		HudStyle.text(self, Vector2(x, 100), "Munition: Klappen prüfen", 13, HudStyle.DIM)
+		_draw_jobs()
+		return
+	# Treibstoff
 	var ff: float = data.get("fuel_frac", 0.0)
 	var fcol := HudStyle.VALUE if ff >= 0.25 else (HudStyle.CAUTION if ff > 0.1 else HudStyle.WARNING)
 	HudStyle.heading(self, Vector2(x, 48), "TREIBSTOFF", 10)
@@ -79,7 +87,10 @@ func _draw() -> void:
 		_bar(Rect2(gx, 146, gw - 12, 4), frac, Color(col, 0.8))
 	if guns.is_empty():
 		HudStyle.text(self, Vector2(x, 138), "keine MG", 14, HudStyle.DIM)
-	# Jobs
+	_draw_jobs()
+
+
+func _draw_jobs() -> void:
 	var jobs: Array = data.get("jobs", [])
 	if jobs.is_empty():
 		return
@@ -95,5 +106,4 @@ func _draw() -> void:
 		HudStyle.text(self, Vector2(PAD + tw + 6, y), "· " + (blocked if blocked != "" else String(j.step)), 13,
 				HudStyle.WARNING if blocked != "" else HudStyle.LABEL)
 		var wcol := HudStyle.ACCENT if j.get("mine", false) else (HudStyle.DIM if j.worker == "frei" else HudStyle.FRIEND)
-		HudStyle.text(self, Vector2(W - PAD, y), String(j.worker), 13, wcol, true, 2)
-		_bar(Rect2(PAD, y + 4, W - PAD * 2, 2), float(j.progress), Color(HudStyle.ACCENT, 0.6))
+		HudStyle.text(self, Vector2(W - PAD, y), String(j.worker), 13, wcol, true, 2)   # M3.5: ohne Balken

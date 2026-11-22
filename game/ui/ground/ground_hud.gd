@@ -42,13 +42,13 @@ var has_parking_target := false
 var command_receiver := Callable()
 ## Kampf-HUD/Alt-Text im Boden-Kontext ausblenden (Ersatz, bis Paket 14 das in hud.gd regelt).
 var manage_flight_hud := true
-## Test/Vorschau: -1 = Eingabe (crew_wheel), 0 = losgelassen, 1 = gehalten.
-var wheel_override := -1
 var pad := false
 var ui_scale := 1.0
 
 var hint: InteractionHint
-var wheel: CommandWheel
+## M3.5: Funkgerät (ersetzt das Befehlsrad), Kanal Bodenpersonal.
+var radio: RadioPanel
+var channels: Array = []
 var status: AircraftStatusPanel
 var stock_bar: StockBar
 var timer: TurnaroundDisplay
@@ -63,6 +63,8 @@ var status_aircraft: Node = null
 ## M3.5: Empfänger des letzten Befehls (null = alle) und Mannschafts-Panel.
 var last_crew: Node = null
 var crew_panel: CrewPanel
+## M3.5: Rolle des Spielers (Pilot; später &"supply"/&"workshop" sehen Lagerbestände).
+var player_role: StringName = &"pilot"
 
 var _bus: GroundEvents
 var _alarm_fallback := -1.0
@@ -97,9 +99,18 @@ func _ready() -> void:
 	add_child(hint)
 	crew_panel = CrewPanel.new()
 	add_child(crew_panel)
-	wheel = CommandWheel.new()
-	wheel.command_chosen.connect(issue_command)
-	add_child(wheel)
+	channels = RadioChannel.default_channels()
+	for ch in channels:
+		ch.receiver = func(cmd: int, t: Node, cid: StringName) -> int:
+			if cmd == GroundCrewBrain.Command.STATUS:
+				return radio_status(cid, t)
+			return issue_command(cmd, t)
+	radio = RadioPanel.new()
+	radio.channels = channels
+	for ch in channels:
+		ch.answered.connect(func(_t): radio.beep())
+	radio.command_chosen.connect(func(ch: RadioChannel, c: RadioCommand): ch.send(c, radio_target()))
+	add_child(radio)
 	help = GroundHelp.new()
 	add_child(help)
 	key_bar = KeyBar.new()
@@ -163,7 +174,7 @@ func viewer_position() -> Vector3:
 
 ## Gibt den Befehl weiter: Signal command_issued, dann command_receiver, sonst dispatch.command(cmd, target),
 ## sonst jedes crews[i].command(cmd, target) (GroundCrewBrain). Rückgabe: Anzahl Empfänger.
-## M3.5: crew = einzelner Mechaniker (Ebene im Rad) oder null = alle.
+## M3.5: crew = einzelner Mechaniker oder null = Zuteilung durch die Dispatch (freier Mechaniker).
 func issue_command(cmd: int, target: Node, crew: Node = null) -> int:
 	last_crew = crew
 	command_issued.emit(cmd, target)
@@ -195,29 +206,85 @@ func crew_list() -> Array:
 
 # --- Eingabe ---------------------------------------------------------------------------
 
+## Funkmeldung der Mannschaft als Antwortzeile im passenden Kanal („Tankwart: …“).
+func _on_crew_report(text: String, _brain: Node, ch_id: StringName = &"crew") -> void:
+	var ch := channel_by_id(ch_id)
+	if ch == null:
+		ch = channel_by_id(&"crew")
+	if ch != null:
+		ch.answer("%s: %s" % [ch.speaker, text])
+
+
+func channel_by_id(id: StringName) -> RadioChannel:
+	for c in channels:
+		if c.id == id:
+			return c
+	return null
+
+
+## Zielmaschine des Funkspruchs: die nächste eigene Maschine (sonst die eigene).
+func radio_target() -> Node:
+	var na := GroundHudData.nearest_aircraft(viewer_position(), known_aircraft(), 200.0)
+	if na == null:
+		na = own_aircraft()
+	if na == null and not known_aircraft().is_empty():
+		na = known_aircraft()[0]
+	return na
+
+
+func toggle_radio() -> void:
+	if on_ground_context():
+		radio.toggle()
+
+
+## Eingabe-Kontext des offenen Funkgeräts (-1 = zu).
+func radio_context() -> int:
+	if radio == null or not radio.is_open:
+		return -1
+	return InputBindings.Context.RADIO if radio.stage == RadioPanel.Stage.CHANNELS else InputBindings.Context.RADIO_CMD
+
+
+## Funkgerät bedienen (Belegung aus InputMap, frei einstellbar). Rückgabe: Ereignis verbraucht.
+func radio_input(event: InputEvent) -> bool:
+	if not on_ground_context() or event.is_echo() or not event.is_pressed():
+		return false
+	var rc := radio_context()
+	if rc < 0:
+		if event.is_action_pressed(&"crew_wheel"):
+			toggle_radio()
+			return true
+		return false
+	if event.is_action_pressed(&"release_mouse"):
+		radio.close()
+		return true
+	if rc == InputBindings.Context.RADIO:
+		for k in InputBindings.RADIO_CHANNEL_ACTIONS.size():
+			if event.is_action_pressed(InputBindings.RADIO_CHANNEL_ACTIONS[k]):
+				radio.choose(k + 1)
+				return true
+	else:
+		for k in InputBindings.RADIO_CMD_ACTIONS.size():
+			if event.is_action_pressed(InputBindings.RADIO_CMD_ACTIONS[k]):
+				radio.choose(k + 1)
+				return true
+	var acts := {&"radio_back": radio.back, &"radio_prev": radio.cycle_channel.bind(-1),
+		&"radio_next": radio.cycle_channel.bind(1), &"radio_up": radio.move.bind(-1),
+		&"radio_down": radio.move.bind(1), &"radio_select": radio.confirm}
+	for a in acts:
+		if InputMap.has_action(a) and event.is_action_pressed(a):
+			acts[a].call()
+			return true
+	if event.is_action_pressed(&"crew_wheel"):
+		radio.close()
+		return true
+	return false
+
+
 func _input(event: InputEvent) -> void:
 	KeyGlyphs.note_input(event)
 	pad = KeyGlyphs.pad
-	if wheel == null or not wheel.is_open:
-		return
-	if event is InputEventMouseMotion:
-		wheel.feed_mouse(event.relative / maxf(ui_scale, 0.1))
-		get_viewport().set_input_as_handled()     # Blick friert ein, solange das Rad offen ist
-	elif event is InputEventMouseButton and event.pressed:
-		# M3.5: Mausrad = Ebene (Fahrzeuge / Mechaniker), Rechtsklick = Maschine
-		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			wheel.cycle_page(-1)
-		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			wheel.cycle_page(1)
-		elif event.button_index == MOUSE_BUTTON_RIGHT:
-			wheel.cycle_target(1)
+	if radio_input(event):
 		get_viewport().set_input_as_handled()
-	elif event is InputEventJoypadButton and event.pressed:
-		match event.button_index:
-			JOY_BUTTON_DPAD_LEFT: wheel.cycle_target(-1)
-			JOY_BUTTON_DPAD_RIGHT: wheel.cycle_target(1)
-			JOY_BUTTON_DPAD_UP: wheel.cycle_page(-1)
-			JOY_BUTTON_DPAD_DOWN, JOY_BUTTON_RIGHT_SHOULDER: wheel.cycle_page(1)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -229,31 +296,46 @@ func toggle_help() -> void:
 	help.visible = not help.visible
 
 
-func _wheel_held() -> bool:
-	if wheel_override >= 0:
-		return wheel_override == 1
-	return InputMap.has_action(&"crew_wheel") and Input.is_action_pressed(&"crew_wheel")
+## „Status?“: grobe Antwort der KI im Kanal (keine Prozente, M3.5 Realismus).
+func radio_status(cid: StringName, t: Node) -> int:
+	var ch := channel_by_id(cid)
+	if ch == null:
+		return 0
+	var txt := "Keine Verbindung."
+	if dispatch != null and is_instance_valid(dispatch) and dispatch.has_method("status_text"):
+		txt = dispatch.status_text(cid, t)
+	ch.answer("%s: %s" % [ch.speaker, txt])
+	return 1
 
 
-func _update_wheel() -> void:
-	var held := on_ground_context() and _wheel_held()
-	if held and not wheel.is_open:
-		var list := known_aircraft()
-		var pos := viewer_position()
-		list.sort_custom(func(a, b): return a.global_position.distance_to(pos) < b.global_position.distance_to(pos))
-		wheel.open_wheel(list, list[0] if not list.is_empty() else null, CommandWheel.default_pages(crew_list()))
-	elif not held and wheel.is_open:
-		wheel.close_wheel(on_ground_context())
-	if wheel.is_open:
-		wheel.pad = pad
-		var v := Vector2(Input.get_joy_axis(0, JOY_AXIS_RIGHT_X), Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y))
-		wheel.feed_stick(v)
+## Aktivität je Kanal: Statuszeile des Personals, das dort arbeitet („Tankwart: tankt – 73 %“).
+func radio_activity() -> Dictionary:
+	var out := {}
+	for b in crew_list():
+		var cid: StringName = b.active_channel()
+		if cid == &"" or out.has(cid):
+			continue
+		var ch := channel_by_id(cid)
+		var st: Dictionary = b.status()
+		out[cid] = "%s: %s" % [ch.speaker if ch != null else b.crew_name(), st.text]
+		if not out.has(&"crew"):
+			out[&"crew"] = "%s: %s" % [b.crew_name(), st.text]
+	return out
+
+
+## Pad-Tasten A/B gehören bei offenem Funkgerät dem Funk (CrewPlayerController fragt das ab).
+func radio_captures_pad() -> bool:
+	return radio != null and radio.is_open and on_ground_context()
 
 
 # --- Bild -------------------------------------------------------------------------------
 
 func _process(dt: float) -> void:
 	_connect_bus()
+	# M3.5: Funkmeldungen der Mannschaft als Antwortzeilen im Funkgerät
+	if dispatch != null and is_instance_valid(dispatch) and dispatch.has_signal("crew_report") \
+			and not dispatch.is_connected("crew_report", _on_crew_report):
+		dispatch.connect("crew_report", _on_crew_report)
 	var ground := on_ground_context()
 	var b := board if board != null else JobBoard.current
 	if b != null and not is_instance_valid(b):
@@ -263,8 +345,14 @@ func _process(dt: float) -> void:
 	_layout()
 	# Interaktion (nur zu Fuß)
 	var crew := current_context() == InputBindings.Context.CREW
-	_update_wheel()
-	hint.set_data(GroundHudData.interaction(character, b, pad) if crew and not wheel.is_open else {"visible": false})
+	if radio.is_open and not ground:
+		radio.close()
+	radio.pad = pad
+	RadioPanel.pad_capture = radio_captures_pad()
+	var rt := radio_target() if radio.is_open else null
+	radio.target_name = GroundHudData.aircraft_name(rt) if rt != null else ""
+	radio.activity = radio_activity()
+	hint.set_data(GroundHudData.interaction(character, b, pad) if crew else {"visible": false})
 	# Statuspanel
 	status_aircraft = null
 	if ground:
@@ -279,10 +367,14 @@ func _process(dt: float) -> void:
 		(ch as CombatHud).suppress_weapon_panel = status.visible and not ground
 		if ground and (ch as CombatHud).kill_feed != null:
 			(ch as CombatHud).kill_feed.tick(dt)   # Meldungen laufen auch am Boden ab (M3.2)
+	status.instruments = not ground
 	if status.visible:
 		status.set_data(GroundHudData.aircraft_status(status_aircraft, b, character), dt)
 	# Lager: nur nahe Lager oder Maschine (M3.2)
-	stock_bar.visible = ground and (depot != null or bunker != null) and _near_stock_or_aircraft()
+	# M3.5: Lagerbestände nicht im normalen HUD – nur für die zuständige Rolle (StockView) oder im
+	# Debug-Overlay (F3).
+	var dbg: bool = hud != null and is_instance_valid(hud) and hud.get("hit_debug_visible") == true
+	stock_bar.visible = (depot != null or bunker != null) and (dbg or StockView.visible_for(player_role))
 	if stock_bar.visible:
 		stock_bar.set_data(GroundHudData.stock(depot, bunker))
 	# Abfertigung + Alarm
@@ -308,7 +400,7 @@ func _process(dt: float) -> void:
 	help.queue_redraw()
 	var ks := key_state()
 	var entries := KeyBar.entries_for(ks)
-	if not key_override.is_empty() and not ks.wheel_open:
+	if not key_override.is_empty() and not ks.radio_open:
 		# M3.5: nur Tasten des aktuellen Kontexts (nach Ein-/Aussteigen keine Flugtasten zu Fuß
 		# bzw. Bodentasten im Cockpit); passt keine, gilt die automatische Leiste.
 		var ctx := current_context()
@@ -324,7 +416,7 @@ func _process(dt: float) -> void:
 ## Lage für die Tasten-Leiste (KeyBar.entries_for).
 func key_state() -> Dictionary:
 	var ctx := current_context()
-	var st := {"ctx": ctx, "wheel_open": wheel != null and wheel.is_open, "pad": pad,
+	var st := {"ctx": ctx, "radio_open": radio != null and radio.is_open, "pad": pad,
 		"mouse_free": Input.mouse_mode != Input.MOUSE_MODE_CAPTURED}
 	var pos := viewer_position()
 	if ctx == InputBindings.Context.CREW:
@@ -436,13 +528,14 @@ func _layout() -> void:
 	ui_scale = HudStyle.ui_scale(vs)
 	var s := ui_scale
 	var sv := Vector2(s, s)
-	for c in [hint, wheel, status, stock_bar, timer, timer.alarm_banner, key_bar, crew_panel]:
+	for c in [hint, radio, status, stock_bar, timer, timer.alarm_banner, key_bar, crew_panel]:
 		(c as Control).scale = sv
 	# Zonen (M3.2): Mitte frei (Hinweis, Rad) · unten Mitte Tasten-Leiste · links unten Zustand
 	# Flugzeug/Figur · rechts unten Waffen/Schaden · oben Mitte Meldungen/Alarm · oben links Lager
 	# · oben rechts Abfertigungszeit.
 	hint.position = Vector2(vs.x * 0.5, vs.y * 0.5 + 70.0 * s)
-	wheel.position = vs * 0.5
+	# Funkgerät unten rechts (über der Tasten-Leisten-Höhe)
+	radio.position = Vector2(vs.x - (MARGIN + RadioPanel.W) * s, vs.y - (MARGIN + radio.panel_height()) * s)
 	key_bar.position = Vector2(vs.x * 0.5, vs.y - (MARGIN + KeyBar.H * 0.5) * s)
 	var sy := vs.y - (MARGIN + status.panel_height()) * s
 	status.position = Vector2(MARGIN * s, sy)

@@ -26,7 +26,7 @@ func test_key_bar_entries_per_context() -> Array:
 		return KeyBar.entries_for(st).map(func(e): return e[0])
 	var near: Array = acts.call({"ctx": C.CREW, "near_aircraft": true})
 	var away: Array = acts.call({"ctx": C.CREW, "near_aircraft": false})
-	var wheel: Array = acts.call({"ctx": C.CREW, "wheel_open": true})
+	var wheel: Array = acts.call({"ctx": C.CREW, "radio_open": true})
 	var park: Array = acts.call({"ctx": C.FLIGHT, "on_ground": true, "parking_brake": true, "speed_kmh": 0.0})
 	var fight: Array = acts.call({"ctx": C.FLIGHT, "combat": true, "agl": 800.0, "eject_possible": true})
 	var ok: bool = near.has(&"crew_enter") and not away.has(&"crew_enter") and away.has(&"crew_sprint") \

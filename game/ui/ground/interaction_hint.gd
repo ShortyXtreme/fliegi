@@ -22,6 +22,10 @@ func set_data(d: Dictionary) -> void:
 
 
 ## Ring 0..1 im Uhrzeigersinn ab 12 Uhr.
+## M3.5: Arcade-Modus – dezente Textzeile statt Fortschritt (GameSettings.apply_runtime).
+static var arcade := true
+
+
 func _ring(c: Vector2, f: float, col: Color) -> void:
 	draw_arc(c, RING_R, 0, TAU, 48, Color(0, 0, 0, 0.45), RING_W + 3, true)
 	draw_arc(c, RING_R, 0, TAU, 48, Color(HudStyle.VALUE, 0.14), RING_W, true)
@@ -45,11 +49,9 @@ func _draw() -> void:
 	var blocked: String = data.get("blocked", "")
 	var pump: bool = data.get("pump", false)
 	var warn := missing != "" or blocked != ""
-	# Ring (Halten oder Pumpen)
-	if (hold and prog > 0.0) or pump:
-		_ring(c, prog, HudStyle.ACCENT if not warn else HudStyle.CAUTION)
-		if pump:
-			HudStyle.text(self, c + Vector2(0, 6), "%d %%" % int(round(prog * 100)), 13, HudStyle.VALUE, true, 1)
+	# M3.5 Realismus: kein Fortschrittsring, keine Prozente/Liter – Rückmeldung über Geräusch,
+	# Flugzeug und Tankanzeige im Cockpit; Arcade: dezente Zeile „… läuft“.
+	var working := (hold and prog > 0.0) or pump
 	# Zeile: [Taste] halten: Aktion
 	var y := RING_R + 44.0
 	if label != "":
@@ -64,14 +66,9 @@ func _draw() -> void:
 		_key_cap(Vector2(x, y), String(data.get("key", "")))
 		HudStyle.text(self, Vector2(x + kw + 10, y - 1), s, 19, HudStyle.DIM if missing != "" else HudStyle.VALUE, true)
 		y += 34.0
-	# Literanzeige beim Pumpen
-	if pump:
-		var lt := "%s / %s" % [GroundHudData.liters(data.get("liters", 0.0)),
-				GroundHudData.liters(data.get("liters_target", 0.0))]
-		var w := HudStyle.text_width(lt, 22, true) + 32
-		HudStyle.draw_panel(self, Rect2(-w * 0.5, y - 26, w, 34), 8)
-		HudStyle.text(self, Vector2(0, y - 2), lt, 22, HudStyle.VALUE, true, 1)
-		y += 34.0
+	if working and arcade:
+		HudStyle.text(self, Vector2(0, y - 4), "Tanken läuft …" if pump else "Arbeit läuft …", 15, HudStyle.LABEL, false, 1)
+		y += 26.0
 	# Warnung
 	if warn:
 		var wt := blocked if blocked != "" else missing

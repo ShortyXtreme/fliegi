@@ -8,7 +8,7 @@ extends Node
 
 signal announced(text: String, aircraft: Node)
 ## M3.5: Funkmeldung des Personals („Mechaniker A: Tanken erledigt – räumt auf“).
-signal crew_report(text: String, brain: Node)
+signal crew_report(text: String, brain: Node, channel: StringName)
 
 var board: JobBoard = null
 var depot: FuelSource = null
@@ -129,6 +129,7 @@ func tick(_dt: float) -> void:
 	for a in _watched():
 		_check(a)
 	_check_refill()
+	_radio_milestones()
 
 
 ## Paket 14: „Wagen nachfüllen“ – fast leerer Tankwagen wird am Lager wieder befüllt
@@ -191,6 +192,7 @@ func is_player_aircraft(a: Aircraft) -> bool:
 func _check(a: Aircraft) -> void:
 	if not a.seat_on_ground() and a.seat_speed() > 20.0:
 		_airborne[a] = true      # M3.2: „gelandet“ nur nach echtem Flug melden
+		auto_exclude.erase(a)    # M3.5: Handbetrieb gilt bis zum nächsten Start
 	if not is_parked(a):
 		if _known.has(a):
 			_known.erase(a)
@@ -242,18 +244,143 @@ func command(cmd: int, target: Node, crew: Node = null) -> int:
 		t = player_aircraft[0]
 	if cmd == C.AUTO and t is Aircraft:
 		set_self_service(t, false)
-	var n := GroundCrewBrain.issue(cmd, t, [crew] if crew != null and crews.has(crew) else crews)
-	if n == 0:
-		report("Funk: Befehl „%s“ nicht möglich" % GroundCrewBrain.COMMAND_LABELS[cmd], null)
+	var list: Array = crews
+	if crew != null and crews.has(crew):
+		list = [crew]
+	elif cmd in GroundCrewBrain.JOB_COMMANDS and t is Aircraft:
+		# M3.5 (Funk): automatisch an einen freien Mechaniker; „Kompletter Ablauf“ an alle freien
+		var free := free_crews(t.global_position)
+		list = free if cmd == C.FULL_SERVICE and free.size() > 1 else free.slice(0, 1)
+	var n := GroundCrewBrain.issue(cmd, t, list)
 	return n
 
 
+## Personal nach Eignung: frei (kein Auftrag, kein Job, nicht in Pause/Folgen) zuerst, dann der Nächste.
+## Ist keiner frei, nur der Nächste (er übernimmt den neuen Auftrag).
+func free_crews(ref: Vector3) -> Array:
+	var C := GroundCrewBrain.Command
+	var list: Array = crews.filter(func(b): return is_instance_valid(b))
+	var is_free := func(b) -> bool:
+		return b.job_id == 0 and not b.ordered and b._leg_for != "cmd" and b.command_kind not in [C.PAUSE, C.FOLLOW]
+	list.sort_custom(func(a, b):
+		var fa: bool = is_free.call(a)
+		var fb: bool = is_free.call(b)
+		if fa != fb:
+			return fa
+		return a.position_now().distance_to(ref) < b.position_now().distance_to(ref))
+	var out := list.filter(func(b): return is_free.call(b))
+	return out if not out.is_empty() else list.slice(0, 1)
+
+
 ## Meldung des Personals (Funk), Signal crew_report.
-func report(text: String, brain: Node) -> void:
-	reports.append(text)
+func report(text: String, brain: Node, channel: StringName = &"crew") -> void:
+	var who: String = brain.crew_name() if brain != null and brain.has_method("crew_name") else "Funk"
+	reports.append("%s: %s" % [who, text])
 	if reports.size() > 20:
 		reports.pop_front()
-	crew_report.emit(text, brain)
+	crew_report.emit(text, brain, channel)
+
+
+# --- M3.5: Funkmeldungen in grober Sprache (keine Balken/Prozente) ------------------------
+
+## Grobe Füllstands-Worte.
+static func rough(f: float) -> String:
+	if f <= 0.03:
+		return "leer"
+	if f < 0.2:
+		return "fast leer"
+	if f < 0.4:
+		return "etwa ein Viertel"
+	if f < 0.62:
+		return "etwa halb"
+	if f < 0.85:
+		return "etwa drei Viertel"
+	if f < 0.985:
+		return "fast voll"
+	return "voll"
+
+
+static func _channel_of(j: GroundJob) -> StringName:
+	if j is RefuelJob:
+		return &"fuel"
+	if j is RearmJob:
+		return &"ammo"
+	if j is RepairJob:
+		return &"repair"
+	return &"crew"
+
+
+## Meldepunkte je Job, an dem KI-Personal arbeitet: Start, etwa halb, fertig, Problem.
+var _milestones := {}
+func _radio_milestones() -> void:
+	if board == null:
+		return
+	for j: GroundJob in board.jobs.values():
+		var a := j.aircraft()
+		if a == null or not is_instance_valid(a) or a.nation_id != nation_id:
+			continue
+		var ai: bool = j.worker != null and is_instance_valid(j.worker) and board.is_ai_worker(j.worker)
+		var m: Dictionary = _milestones.get(j.id, {})
+		if ai:
+			m.ai = true
+		if not m.get("ai", false):
+			continue
+		var ch := _channel_of(j)
+		var say := func(key: String, text: String):
+			if not m.has(key):
+				m[key] = true
+				report(text, null, ch)
+		if j.blocked_reason != &"" and j.is_open():
+			say.call("block_%s" % j.blocked_reason, "Problem: %s." % GroundJob.block_text(j.blocked_reason))
+		if j is RefuelJob and j.dest_source == null:
+			var f: float = a.damage.fuel.fraction() / maxf(j.target_fraction, 0.01)
+			if j.current_step() == &"pump" or j.step_index > j.steps.find(&"pump"):
+				say.call("start", "Fange an zu tanken.")
+			if f >= 0.5 and j.step_index >= j.steps.find(&"pump"):
+				say.call("half", "Halb voll.")
+			if j.is_done():
+				say.call("done", "Tank voll, räume ab.")
+		elif j is RearmJob:
+			if j.step_index >= 1:
+				say.call("start", "Lade %s Seite." % ("linke" if j.gun_index % 2 == 0 else "rechte"))
+			if j.is_done():
+				say.call("done", "%s Seite fertig." % ("Linke" if j.gun_index % 2 == 0 else "Rechte"))
+		elif j is RepairJob:
+			if j.progress > 0.0 or j.is_done():
+				say.call("start", "Fange mit der Reparatur an, dauert ein paar Minuten.")
+			if j.progress >= 0.5:
+				say.call("half", "Halb fertig.")
+			if j.is_done():
+				say.call("done", "Reparatur fertig.")
+		_milestones[j.id] = m
+
+
+## „Status?“ eines Kanals für Maschine t: grobe Lage in Worten.
+func status_text(cid: StringName, t: Node) -> String:
+	var a := t as Aircraft
+	if a == null or not is_instance_valid(a):
+		return "Keine Maschine in Sicht."
+	var open: Array = board.open_jobs(a) if board != null else []
+	match cid:
+		&"fuel":
+			var busy := open.any(func(j): return j is RefuelJob and j.dest_source == null)
+			var f := a.damage.fuel.fraction()
+			return ("Tanke noch, %s." if busy else "Tank %s.") % rough(f)
+		&"ammo":
+			var r := float(a.weapons.ammo()) / maxf(float(a.weapons.ammo_max()), 1.0)
+			var busy := open.any(func(j): return j is RearmJob)
+			return ("Lade noch, Munition %s." if busy else "Munition %s.") % rough(r)
+		&"repair":
+			var rep := open.filter(func(j): return j is RepairJob)
+			if rep.is_empty():
+				var dmg := false
+				for z in DamageModel.Zone.COUNT:
+					dmg = dmg or a.damage.can_repair(z)
+				return "Kleine Schäden, sollten wir machen." if dmg else "Maschine in Ordnung."
+			return "Dauert noch ein paar Minuten." if rep.size() > 1 else "Bald fertig."
+	if open.is_empty():
+		return "Maschine fertig, nichts zu tun."
+	return "Wir arbeiten noch: %d Aufgaben offen." % open.size()
 
 
 ## Stellplatz eines Wagens (Startposition).

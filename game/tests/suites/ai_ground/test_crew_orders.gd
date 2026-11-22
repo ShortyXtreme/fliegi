@@ -31,7 +31,7 @@ func _setup() -> Dictionary:
 	var svc := SeatService.new()
 	world.add_child(svc)
 	var said := []
-	disp.crew_report.connect(func(t, _b): said.append(t))
+	disp.crew_report.connect(func(t, _b, _c): said.append(t))
 	return {a = a, board = board, disp = disp, side = side, said = said}
 
 
@@ -221,31 +221,55 @@ func test_status_and_auto() -> Array:
 	var self_on: bool = s.disp.is_self_service(s.a)
 	s.disp.command(C.AUTO, s.a, br)
 	await _run(400.0, func(): return s.board.is_serviced(s.a) and s.a.weapons.ammo() == s.a.weapons.ammo_max())
-	var ok: bool = seen[0].begins_with("Mechaniker A: tankt – ") and self_on and not s.disp.is_self_service(s.a) \
+	var ok: bool = seen[0] == "Mechaniker A: tankt" and self_on and not s.disp.is_self_service(s.a) \
 		and s.a.weapons.ammo() == s.a.weapons.ammo_max()
 	return [ok, "Zeile „%s“, Handbetrieb %s, danach Automatik versorgt %s" % [seen[0], self_on, s.board.is_serviced(s.a)]]
 
 
-## Befehlsrad-Ebenen: Fahrzeuge, je Mechaniker, alle; Auswahl gibt den Mechaniker der Ebene mit.
-func test_wheel_pages_route_crew() -> Array:
+## Funk (M3.5): Aufträge ohne Mechaniker-Wahl gehen an einen freien Mechaniker; Meldepunkte in
+## grober Sprache je Kanal (Start, halb, fertig), „Status?“ ohne Prozente.
+func test_auto_assign_and_milestones() -> Array:
 	var s := _setup()
+	_vehicles(s)
 	var a_br := _crew(s, 1, s.disp.crew_spawn, "Mechaniker A")
-	var b_br := _crew(s, 1, s.disp.crew_spawn + Vector3(0, 0, 3), "Mechaniker B")
-	var w := CommandWheel.new()
-	world.add_child(w)
-	var got := []
-	w.command_chosen.connect(func(c, t, cr): got.append([c, t, cr]))
-	w.open_wheel([s.a], s.a, CommandWheel.default_pages([a_br, b_br]))
-	var titles: Array = w.pages.map(func(p): return p.title)
-	w.cycle_page(2)                        # Mechaniker B
-	w.feed_mouse(Vector2(0, -80))          # oben = Tanken
-	var c1 := w.close_wheel()
-	w.open_wheel([s.a], s.a, CommandWheel.default_pages([a_br, b_br]))
-	var kept := w.page == 2                # Ebene bleibt beim nächsten Öffnen
-	w.cycle_page(-2)                       # Fahrzeuge
-	w.feed_mouse(Vector2(0, -80))
-	var c2 := w.close_wheel()
-	w.queue_free()
-	var ok: bool = titles == ["Fahrzeuge", "Mechaniker A", "Mechaniker B", "Alle Mechaniker"] \
-		and c1 == C.FUEL_ONLY and got[0][2] == b_br and kept and c2 == C.CALL_TRUCK and got[1][2] == null
-	return [ok, "Ebenen %s, Befehle %s" % [str(titles), str(got)]]
+	var b_br := _crew(s, 1, s.disp.crew_spawn + Vector3(0, 0, 2.5), "Mechaniker B")
+	s.disp.set_self_service(s.a, true)            # keine Automatik-Jobs
+	await _step(30)
+	a_br.command(C.PAUSE, null)                   # A ist beschäftigt (Pause) -> B ist frei
+	var said := []
+	s.disp.crew_report.connect(func(t, _b, c): said.append([c, t]))
+	var n: int = s.disp.command(C.FUEL_ONLY, s.a)
+	var who_b := b_br.ordered and not a_br.ordered
+	var mid := [""]
+	await _run(300.0, func():
+		if mid[0] == "" and s.a.damage.fuel.fraction() > 0.6:
+			mid[0] = s.disp.status_text(&"fuel", s.a)
+		return not b_br.ordered and b_br._leg_for == "")
+	var fuel_lines: Array = said.filter(func(x): return x[0] == &"fuel").map(func(x): return x[1])
+	var has := func(t: String) -> bool: return fuel_lines.any(func(x): return String(x).contains(t))
+	var no_pct: bool = said.all(func(x): return not String(x[1]).contains("%"))
+	var ok: bool = n == 1 and who_b and has.call("Fange an zu tanken") and has.call("Halb voll") \
+		and has.call("Tank voll") and no_pct and not mid[0].contains("%") and mid[0].begins_with("Tanke noch")
+	return [ok, "an B %s, Kanal fuel %s, Status „%s“" % [who_b, fuel_lines, mid[0]]]
+
+
+## Kanal Reparatur: Mechaniker rufen (wartet an der Maschine), wegschicken; Kanal 4: alle wegschicken.
+func test_mechanic_call_send_and_all_home() -> Array:
+	var s := _setup()
+	var vs := _vehicles(s)
+	var br := _crew(s, 1, s.disp.crew_spawn)
+	await _step(10)
+	(vs[0] as FuelTruck).place(s.a.global_position + s.side * 8.0, 0.0)
+	var n1: int = s.disp.command(C.CALL_MECH, s.a)
+	await _run(120.0, func(): return br._leg_for == "")
+	var at_ac: float = br.position_now().distance_to(s.a.global_position)
+	var standby: bool = br.command_kind == C.STANDBY and br.status().text == "wartet an der Maschine"
+	var n2: int = s.disp.command(C.MECH_HOME, s.a)
+	await _run(120.0, func(): return br._leg_for == "")
+	var home1 := _spawn_d(br, s)
+	var n3: int = s.disp.command(C.ALL_HOME, s.a)
+	await _run(200.0, func(): return br._leg_for == "")
+	var ok: bool = n1 == 1 and at_ac < 4.0 and standby and n2 == 1 and home1 < 2.0 and n3 == 1 \
+		and _home_d(s, vs[0]) < GroundCrewBrain.HOME_R and s.disp.is_self_service(s.a)
+	return [ok, "an der Maschine %.1f m, Bereitschaft %s, zurück %.1f m, Tankwagen %.1f m vom Stellplatz" % [
+		at_ac, standby, home1, _home_d(s, vs[0])]]
