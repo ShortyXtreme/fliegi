@@ -490,3 +490,6 @@ func _on_reset(in_air: bool) -> void:
 		player.reset_state(0.8, false)
 	else:
 		_place_player_on_ground()
+	var ec := EngineControl.find(player_aircraft)
+	if ec != null:
+		ec.warm()                       # M3.5: Debug-Neustart (R/T) mit laufendem Motor

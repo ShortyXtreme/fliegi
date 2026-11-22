@@ -262,6 +262,11 @@ func compute_intent(dt: float) -> PilotIntent:
 	elif v != null:
 		aim_dir = -v.global_transform.basis.z
 
+	# M3.5: Motor und Elektrik (Arcade: eine Taste, Realistisch: einzelne Schalter)
+	if v != null:
+		var ec := EngineControl.find(v)
+		if ec != null:
+			ec.input(assist_mode == FlightAssist.Mode.REALISTIC, KeyGlyphs.pad, dt)
 	throttle = clampf(throttle + (Input.get_action_strength("throttle_up")
 		- Input.get_action_strength("throttle_down")) * THROTTLE_RATE * dt, 0.0, 1.0)
 	i.pitch = stick.x

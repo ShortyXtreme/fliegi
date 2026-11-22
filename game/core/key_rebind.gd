@@ -12,7 +12,8 @@ const SECTION := "tasten"
 ## Belegung hängt groups() je Kontext an.
 const GROUPS := [
 	["Fliegen", [&"kb_pitch_down", &"kb_pitch_up", &"kb_roll_left", &"kb_roll_right", &"kb_yaw_left",
-		&"kb_yaw_right", &"throttle_up", &"throttle_down", &"engine_toggle", &"flaps_cycle", &"gear_toggle",
+		&"kb_yaw_right", &"throttle_up", &"throttle_down", &"engine_toggle", &"master_toggle", &"fuel_pump_toggle",
+		&"magneto_toggle", &"starter_hold", &"flaps_cycle", &"gear_toggle",
 		&"brakes", &"fire_primary", &"fire_secondary", &"zoom_hold", &"mouse_look", &"camera_next",
 		&"eject_hold", &"assist_toggle", &"mouse_aim_toggle"]],
 	["Boden", [&"crew_move_forward", &"crew_move_back", &"crew_move_left", &"crew_move_right", &"crew_sprint",
@@ -26,7 +27,9 @@ const GROUPS := [
 const LABELS := {
 	&"kb_pitch_down": "Nase runter", &"kb_pitch_up": "Nase hoch", &"kb_roll_left": "Rollen links",
 	&"kb_roll_right": "Rollen rechts", &"kb_yaw_left": "Seitenruder links", &"kb_yaw_right": "Seitenruder rechts",
-	&"throttle_up": "Gas mehr", &"throttle_down": "Gas weniger", &"engine_toggle": "Motor an/aus",
+	&"throttle_up": "Gas mehr", &"throttle_down": "Gas weniger", &"engine_toggle": "Motor an/aus (Realistisch: Gemisch)",
+	&"master_toggle": "Hauptschalter (Batterie)", &"fuel_pump_toggle": "Kraftstoffpumpe", &"magneto_toggle": "Zündung (Magnete)",
+	&"starter_hold": "Anlasser (halten)",
 	&"flaps_cycle": "Klappen", &"gear_toggle": "Fahrwerk", &"brakes": "Bremsen", &"fire_primary": "Feuer",
 	&"fire_secondary": "Sekundärwaffe", &"zoom_hold": "Zielzoom (halten)", &"mouse_look": "Umsehen (halten)",
 	&"camera_next": "Kamera", &"eject_hold": "Aussteigen / Notausstieg", &"assist_toggle": "Arcade / Realistisch",

@@ -51,7 +51,8 @@ const CONTEXT_ACTIONS := {
 		&"debug_toggle", &"reset_runway", &"reset_air", &"fire_primary", &"fire_secondary",
 		&"eject_hold", &"zoom_hold", &"mouse_look", &"joy_pitch_down", &"joy_pitch_up",
 		&"joy_roll_left", &"joy_roll_right", &"look_left", &"look_right", &"look_up",
-		&"look_down", &"zoom_in", &"zoom_out", &"engine_toggle"],
+		&"look_down", &"zoom_in", &"zoom_out", &"engine_toggle",
+		&"master_toggle", &"fuel_pump_toggle", &"magneto_toggle", &"starter_hold"],
 	Context.CREW: [&"crew_move_forward", &"crew_move_back", &"crew_move_left",
 		&"crew_move_right", &"joy_crew_move_forward", &"joy_crew_move_back",
 		&"joy_crew_move_left", &"joy_crew_move_right", &"crew_sprint", &"crew_interact",
@@ -151,7 +152,7 @@ static func setup() -> void:
 	_button("flaps_cycle", JOY_BUTTON_A)
 	_button("brakes", JOY_BUTTON_B)
 	_button("camera_next", JOY_BUTTON_Y)
-	_button("assist_toggle", JOY_BUTTON_X)
+	# M3.5: X = Motor (engine_toggle); Arcade/Realistisch am Pad über das Menü
 	_button("help_toggle", JOY_BUTTON_BACK)
 	_button("release_mouse", JOY_BUTTON_START)           # M3.2: Menu-Taste = Pausenmenü (war Neustart Piste)
 	_button("zoom_hold", JOY_BUTTON_RIGHT_STICK)         # M2.1: R3 halten = Zoom (war Blick zurück)
@@ -215,7 +216,12 @@ static func setup() -> void:
 	_mouse("zoom_in", MOUSE_BUTTON_WHEEL_UP)
 	_mouse("zoom_out", MOUSE_BUTTON_WHEEL_DOWN)
 	# --- M3.5: Motor an/aus (Arcade: ganze Anlassfolge; Realistisch siehe Schalter) ---
-	_keys("engine_toggle", [KEY_I])
+	_keys("engine_toggle", [KEY_I])                      # Realistisch: Gemisch reich/Abstellen
+	_button("engine_toggle", JOY_BUTTON_X)               # Pad: Arcade an/aus, Realistisch Checkliste/halten = Anlasser
+	_keys("master_toggle", [KEY_H])                      # Hauptschalter (Batterie)
+	_keys("fuel_pump_toggle", [KEY_P])                   # Kraftstoffpumpe / Hahn
+	_keys("magneto_toggle", [KEY_L])                     # Zündmagnete
+	_keys("starter_hold", [KEY_K])                       # Schwungkraft-Anlasser (halten)
 	# --- M3.5: freie Tastenbelegung (Einstellungen › Tastenbelegung) ---
 	KeyRebind.remember_defaults()
 	KeyRebind.load_saved()
