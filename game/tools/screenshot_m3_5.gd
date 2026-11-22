@@ -65,21 +65,32 @@ func _exit_near(marker: String, side_m := 2.4) -> void:
 
 func _run() -> void:
 	match mode:
-		"rad":
+		"funk":
 			await _start()
 			await _exit_near("svc_fuel_cap")
 			var gh: GroundHud = game.hud.ground_hud
+			var pa := game.player_aircraft
+			pa.damage.fuel.set_fraction(0.2)
 			gh.toggle_radio()
-			gh.radio.choose(3)                     # „Tanken“
-			await _frames(30)
+			gh.radio.choose(1)                     # Kanal 1 Tankwart
+			gh.radio.choose(3)                     # Volltanken
+			await _frames(1500)
 			gh.toggle_radio()
-			gh.radio.choose(1)                     # „Tankwagen rufen“ (anderer Mechaniker)
-			await _frames(240)
-			gh.radio.open()
-			gh.radio.choose(6)                     # Unterebene „Weitere …“ zeigen? erst oberste Ebene
-			gh.radio.back()
+			gh.radio.choose(1)                     # Kanalliste -> Kanal 1 (Befehle + Antwortzeilen)
 			await _frames(3)
 			await _shot("m3_5_funkgeraet")
+			gh.radio.back()
+			await _frames(3)
+			await _shot("m3_5_funk_kanaele")
+		"tasten":
+			var m: MainMenu = load("res://ui/menu/main_menu.tscn").instantiate()
+			root.add_child(m)
+			await _frames(90)
+			m.menu.show_page("keys")
+			for i in 18:
+				m.menu.list.nav("down")
+			await _frames(20)
+			await _shot("m3_5_tastenbelegung")
 		"markierung":
 			await _start(true)
 			await _exit_near("svc_fuel_cap", 5.5)

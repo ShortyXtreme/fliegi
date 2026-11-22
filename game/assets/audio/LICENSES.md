@@ -30,5 +30,6 @@ Ordner + Eintrag in `ENGINE_RPM`, im Flugzeug `AircraftData.engine_sound = "<typ
 | alarm_bell | Alarm: Alarmglocke (v2, Einstellung „Alarmton: Glocke“) | ja |
 | ambient | Wind + Vögel am Boden | ja |
 | ui_click, ui_confirm, ui_step | Menü, Bestätigung, Tutorial-Schritt | nein |
+| starter_whine, engine_catch, engine_stop, switch | M3.5 Schwungkraft-Anlasser, Anspringen, Abstellen, Kippschalter (`tools/gen_audio_m3_5.py`, prozedural, eigene Erzeugung) | nein |
 
 Mono, 22 050 Hz, Vorbis q0–q2; zusammen ≈ 380 KB.
