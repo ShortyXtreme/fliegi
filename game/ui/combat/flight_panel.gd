@@ -41,9 +41,9 @@ static func gather(aircraft: Aircraft, player: PlayerController, cam: CameraRig,
 	var near_stall := not t.on_ground and t.airspeed > 10.0 \
 		and t.aoa > t.stall_aoa - FlightModel.BUFFET_ONSET
 	if t.stall_amount > 0.3 and not t.on_ground:
-		w.append(["STRÖMUNGSABRISS", 2, true])
+		w.append(["STRÖMUNGSABRISS – Nase runter, Gas", 2, true])
 	elif near_stall:
-		w.append(["STALL-WARNUNG", 1, false])
+		w.append(["STALL-WARNUNG – nachdrücken", 1, true])
 	if t.gear_overspeed:
 		w.append(["FAHRWERK ZU SCHNELL  max. %d km/h" % int(aircraft.data.gear_max_speed * 3.6), 1, true])
 	elif not t.on_ground and t.gear_extension < 0.5 and t.height_agl < 60.0 \

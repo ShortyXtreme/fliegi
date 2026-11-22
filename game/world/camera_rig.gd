@@ -18,6 +18,8 @@ var _chase_basis := Basis.IDENTITY
 var _base_fov := 70.0
 ## Buffet-Rütteln (Vorwarnung vor dem Abriss): Stärke in Grad bei buffet = 1.
 const SHAKE_DEG := 0.9
+## M3.4: Kamera-Rütteln aus Einstellungen (Standard 0 = aus, „leicht“ = 0,2).
+static var shake_mul := 0.0
 var _shake_t := 0.0
 var _shake_amp := 0.0
 
@@ -82,7 +84,7 @@ func _process(dt: float) -> void:
 			camera.fov = 65.0
 	camera.near = 0.05 if mode == Mode.COCKPIT else 0.3
 	# Buffet: proportional zur Telemetrie, 9–13 Hz, im Cockpit stärker
-	var want := target.telemetry().buffet
+	var want := target.telemetry().buffet * shake_mul
 	_shake_amp = lerpf(_shake_amp, want, 1.0 - exp(-10.0 * dt))
 	_shake_t += dt
 	if _shake_amp > 0.01:

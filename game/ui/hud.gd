@@ -42,6 +42,10 @@ var _buffet_phase := 0.0
 var _noise_lp := 0.0
 var _warn_tone := 0.0     # 0..1 Lautstärke Warnton
 var _buffet_vol := 0.0    # 0..1 Lautstärke Rumpeln
+## M3.4: Controller-Vibration bei Abriss-Warnung (Einstellung, Standard leicht).
+static var rumble_mul := 0.35
+var _rumbling := false
+var _buzz_lp := 0.0
 
 
 func _ready() -> void:
@@ -156,7 +160,9 @@ func toggle_forces() -> void:
 	_debug_mi.visible = debug_visible
 
 
-## Prozeduraler Ton: Stall-Warnhorn (pulsierend) + tiefes Buffet-Rumpeln.
+## Prozeduraler Ton (M3.4): elektrischer Abriss-Summer der Epoche (rauer Rechteck-Summer
+## ~ 240 Hz mit Schnarr-Obertönen), pulsiert schneller und lauter, je näher der Abriss; im Abriss
+## Dauerton. Dazu Zellen-Vibrationsgeräusch (Rumpeln) proportional zum Buffet. Kein Kamera-Rütteln.
 func _setup_audio() -> void:
 	if DisplayServer.get_name() == "headless":
 		return
@@ -165,8 +171,8 @@ func _setup_audio() -> void:
 	gen.buffer_length = 0.1
 	_beep = AudioStreamPlayer.new()
 	_beep.stream = gen
-	_beep.volume_db = -8.0
-	_beep.bus = &"Motor"   # M3.3: Abriss-Warnung/Rütteln im Motor-Bus (Cockpit-Filter, Regler)
+	_beep.volume_db = -3.0
+	_beep.bus = &"UI"   # M3.4: Warnung über den UI-Bus (nicht mit dem Motor leiser, kein Cockpit-Filter)
 	add_child(_beep)
 	_beep.play()
 	_beep_gen = _beep.get_stream_playback() as AudioStreamGeneratorPlayback
@@ -177,14 +183,47 @@ func _fill_audio() -> void:
 		return
 	var rate := 22050.0
 	var n := _beep_gen.get_frames_available()
+	# Pulsdauer: weit weg 0,5 s Takt, nah 0,18 s, im Abriss Dauerton
+	var period := lerpf(0.5, 0.18, clampf(_warn_tone, 0.0, 1.0))
 	for k in n:
 		_beep_phase += 1.0 / rate
-		var pulse := 1.0 if fmod(_beep_phase, 0.25) < 0.14 else 0.0
-		var tone := sin(_beep_phase * TAU * 880.0) * 0.5 + sin(_beep_phase * TAU * 1320.0) * 0.2
+		var pulse := 1.0 if _warn_tone >= 0.99 or fmod(_beep_phase, period) < period * 0.6 else 0.0
+		var buzz := buzzer_sample(_beep_phase)
+		_buzz_lp = lerpf(_buzz_lp, buzz * pulse, 0.35)   # weiche Flanken, kein Klicken
 		_noise_lp = lerpf(_noise_lp, randf_range(-1.0, 1.0), 0.04)
 		var rumble := _noise_lp * 2.5 * (0.6 + 0.4 * sin(_beep_phase * TAU * 11.0))
-		var smp := tone * pulse * _warn_tone * 0.35 + rumble * _buffet_vol * 0.5
+		var smp := _buzz_lp * _warn_tone * 0.55 + rumble * _buffet_vol * 0.45
 		_beep_gen.push_frame(Vector2(smp, smp))
+
+
+## Summer: Rechteck 240 Hz (weich begrenzt) + schnarrende 50-Hz-Modulation (Anker des Summers).
+static func buzzer_sample(ph: float) -> float:
+	var sq := tanh(sin(ph * TAU * 240.0) * 4.0) * 0.6 + tanh(sin(ph * TAU * 480.0 + 0.7) * 3.0) * 0.25
+	return sq * (0.7 + 0.3 * signf(sin(ph * TAU * 50.0)))
+
+
+## Lautstärke des Abriss-Warntons 0..1 (0 = aus): ab BUFFET_ONSET vor dem Abriss 0,35, steigt
+## bis zum Abriss auf 1, im Abriss 1.
+static func stall_warn_level(t: FlightTelemetry) -> float:
+	if t.on_ground or t.airspeed <= 10.0:
+		return 0.0
+	if t.stall_amount > 0.3:
+		return 1.0
+	var d := t.aoa - (t.stall_aoa - FlightModel.BUFFET_ONSET)
+	if d <= 0.0:
+		return 0.0
+	return clampf(0.35 + 0.65 * d / FlightModel.BUFFET_ONSET, 0.35, 1.0)
+
+
+func _update_rumble(level: float) -> void:
+	var on := level > 0.0 and rumble_mul > 0.0
+	if on:
+		for dev in Input.get_connected_joypads():
+			Input.start_joy_vibration(dev, rumble_mul * level * 0.6, rumble_mul * level * level, 0.15)
+	elif _rumbling:
+		for dev in Input.get_connected_joypads():
+			Input.stop_joy_vibration(dev)
+	_rumbling = on
 
 
 func on_gear_toggled(down: bool, accepted: bool) -> void:
@@ -238,15 +277,12 @@ func _process(dt: float) -> void:
 	if t.stall_amount > 0.3 and not t.on_ground:
 		_warn.text = "STRÖMUNGSABRISS!" if fmod(_warn_t, 0.5) < 0.3 else ""
 	elif near_stall:
-		_warn.text = "STALL-WARNUNG"
+		_warn.text = "STALL-WARNUNG – nachdrücken"
 	else:
 		_warn.text = ""
-	_warn_tone = 0.0
-	if t.stall_amount > 0.3 and not t.on_ground:
-		_warn_tone = 1.0
-	elif near_stall:
-		_warn_tone = clampf(0.25 + t.buffet, 0.25, 1.0)
+	_warn_tone = stall_warn_level(t)
 	_buffet_vol = t.buffet
+	_update_rumble(_warn_tone)
 	_fill_audio()
 	# Zweite Zeile: Fahrwerk / Bauchlandung
 	_gear_msg_t -= dt

@@ -28,6 +28,9 @@ const OPTIONS := [
 	["vol_waffen", "audio", "Lautstärke Waffen", VOL, VOL_LABELS, 0.8],
 	["vol_umgebung", "audio", "Lautstärke Umgebung", VOL, VOL_LABELS, 0.7],
 	["vol_ui", "audio", "Lautstärke Menü/UI", VOL, VOL_LABELS, 0.7],
+	# M3.4: Strömungsabriss – Kamera-Rütteln (Standard aus), Controller-Vibration (Standard leicht)
+	["kamera_ruetteln", "m3_4", "Kamera-Rütteln", ["aus", "leicht"], ["Aus", "Leicht"], "aus"],
+	["vibration", "m3_4", "Controller-Vibration", ["aus", "leicht", "stark"], ["Aus", "Leicht", "Stark"], "leicht"],
 	["alarmton", "audio", "Alarmton", ["sirene", "glocke"], ["Sirene", "Glocke"], "sirene"],
 ]
 const VOL := [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
@@ -122,6 +125,8 @@ static func apply_display() -> void:
 ## Sofort wirksame Werte ins laufende Spiel (Game) übernehmen; null = nur statische Werte.
 static func apply_runtime(game: Node = null) -> void:
 	mouse_mul = float(get_value("maus"))
+	CameraRig.shake_mul = 0.2 if get_value("kamera_ruetteln") == "leicht" else 0.0
+	Hud.rumble_mul = {"aus": 0.0, "leicht": 0.35, "stark": 0.8}.get(String(get_value("vibration")), 0.35)
 	GameAudio.apply_volumes()
 	CombatHud.radar_mode = CombatHud.RadarMode.ALWAYS if get_value("radar") == "immer" \
 		else CombatHud.RadarMode.COMBAT_ONLY
