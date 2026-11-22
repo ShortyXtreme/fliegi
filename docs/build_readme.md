@@ -1,11 +1,17 @@
-# Flugkern M3.3 – Testversion „Menü, Controller-Tutorial und Sound“
+# Flugkern M3.4 – Testversion „Feinschliff“
 
 ## Installation
 1. Die vorhandene **Flugkern.exe** (Godot 4.7.2) bleibt unverändert.
 2. **Alle vier .pck-Dateien** in denselben Ordner wie Flugkern.exe kopieren (alte Flugkern.pck überschreiben):
    `Flugkern.pck`, `Flugkern_modelle.pck`, `Flugkern_karte.pck`, `Flugkern_audio.pck`.
    Fehlt Modelle oder Karte, zeigt das Spiel eine Meldung; fehlt Audio, läuft es ohne Ton.
-3. Flugkern.exe starten. Der Fenstertitel muss „Flugkern M3.3“ zeigen.
+3. Flugkern.exe starten. Der Fenstertitel muss „Flugkern M3.4“ zeigen.
+
+## Neu in M3.4
+- **Einstellungen** neu geordnet (Beschriftung links, Regler rechts) und **Anzeige:** Vollbild / Rahmenloses Fenster / Fenster, Fenstergröße, V-Sync.
+- **Tutorial** in neuer Reihenfolge: erst am Boden tanken, MG laden, einsteigen, Startklappen setzen – dann Start, Fliegen, Zielen, Landung mit Fahrwerk und Landeklappen, Abstellplatz.
+- **Strömungsabriss:** kein Bildwackeln mehr (Einstellungen → „Kamera-Rütteln“), stattdessen ein Summer, der schneller und lauter wird, je näher der Abriss ist; Controller vibriert leicht (Einstellungen → „Controller-Vibration“).
+- **Flugplätze:** Piste 1.300 m lang und 60 m breit, Rollwege sichtbar, Randsteine, Flaggen, Lande-T, Windsäcke, Hecke und Zaun, Flugleitung mit Funkmast, Schuppen.
 
 ## Neu in M3.3
 - **Sound:** Motor (V12-Reihenmotor, Leerlauf/Mitte/Vollgas überblendet) nach Gas und Fahrt, Fahrtwind, Fahrwerk, Klappen, Aufsetzen, Bauchlandung, MG-Feuer (auch Gegner, räumlich, Doppler beim Vorbeiflug), Treffer, Explosion, Brand, Notausstieg, Schritte, Tankwagen, Pumpe, Kisten, MG-Klappe, Gurt, Werkzeug, Ein-/Aussteigen, Alarm (Rotorsirene oder Glocke, Einstellungen → „Alarmton“), Wind/Vögel, Menü-Klänge. Alle Klänge selbst erzeugt (lizenzfrei, CC0).

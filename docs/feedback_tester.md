@@ -13,3 +13,10 @@
 ## M3.1 (06.11.2026)
 - UI und Hilfe überarbeiten: zu unübersichtlich, Tasten schwer zu merken, sieht nicht schön aus.
 - Hilfe für Neulinge: geführtes Tutorial (Starten, Kämpfen, Landen, Abfertigen).
+
+## M3.3 (22.11.2026) → umgesetzt in M3.4
+- Einstellungsmenü: Schieberegler ragen in die Beschriftungen. → Beschriftung links in fester Spalte, Regler mit Prozentwert rechts, Liste scrollt bei wenig Höhe (geprüft 720p bis 1440p, 16:9 und 21:9).
+- Anzeige-Einstellungen fehlen. → „Anzeigemodus“ Vollbild / Rahmenloses Fenster / Fenster, „Fenstergröße“, „V-Sync“ (gespeichert, beim Start angewendet).
+- Tutorial: erst am Boden vorbereiten (aussteigen, tanken, MG laden, einsteigen, Vorflug-Check mit Klappen), dann Start, Fliegen, Zielen, Landung mit Klappen und Fahrwerk, Abstellplatz. → umgebaut (11 Schritte), Klappen werden beim Start und bei der Landung als Aktion geprüft.
+- Strömungsabriss-Warnung: Bild soll nicht wackeln. → Kamera-Rütteln standardmäßig aus (Einstellung aus/leicht), stattdessen Summer (schneller/lauter je näher am Abriss), HUD-Hinweis, Controller-Vibration (Standard leicht).
+- Flugplatz/Startbahn aufwerten. → Piste 1.300 × 60 m (vorher 900 × 40 m), gemähte Lanen, abgefahrener Mittelstreifen, Randsteine, Schwellen mit Eckflaggen, Lande-T, zwei animierte Windsäcke, sichtbare Rollwege und Abstellfläche, Hecke/Holzzaun, Flugleitung mit Funkmast, Schuppen, Fässer (beide Plätze).

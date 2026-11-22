@@ -3,6 +3,12 @@
 Prototyp des Luftkampf-Spiels (Godot **4.7.2**, GDScript, Jolt-Physik, 60 Hz mit Physik-Interpolation).
 Ein Tier-I-Jäger („Falke“, 2.500 kg, 700 kW) startet vom **Platz Blau** im neuen 40-km-Gelände. Drei rote KI-Jäger (Stufe „Erfahren“) patrouillieren 6–10 km entfernt Richtung Platz Rot und greifen an. Bewaffnung: 2 × MG 7,92 mm, zusammen 1.000 Schuss, Leuchtspur jeder 5. Schuss.
 
+## M3.4 Feinschliff
+- **Einstellungen:** Beschriftungsspalte links, Regler/Werte rechts; neu `[anzeige] fenster` (vollbild/rahmenlos/fenster), `aufloesung`, `vsync` (beim Start angewendet, `GameSettings.apply_display()`), `[m3_4] kamera_ruetteln` (aus/leicht, Standard aus), `vibration` (aus/leicht/stark, Standard leicht).
+- **Tutorial:** 11 Schritte, zuerst Bodenvorbereitung (Aussteigen, Tanken, Munition, Einsteigen, Vorflug-Check mit Startklappen), dann Start, Fliegen, Zielen, Landung mit Landeklappen, Abstellplatz.
+- **Abriss-Warnung:** Summer statt Kamera-Rütteln, lauter und schneller je näher am Abriss.
+- **Flugplätze:** Piste 1.300 × 60 m, Ausstattung in `world/terrain/airfield_dressing.gd` (Rollwege, Markierungen, Windsäcke `Windsock`, Hecke/Zaun, Flugleitung, Schuppen); Bodenplan `AirfieldLayout.make_default()` (Layouts neu erzeugen: `godot --headless --path game --script res://ground_ops/airfield/build_layouts.gd`).
+
 ## Bodenbetrieb (M3)
 - **Start am Abstellplatz** von Platz Blau (Parkbremse): erste Maschine 50 % Treibstoff und volle Munition, nach einem Abschuss eine neue Maschine am freien Abstellplatz mit 15 % und ohne Munition (Stufe Standard). Nach einer Landung bleibt der Restzustand.
 - **Aussteigen:** im Stand am Boden J bzw. Steuerkreuz ← 1 s halten (in der Luft bleibt es der Notausstieg). Danach Third-Person zu Fuß (C = Ego-Sicht). **Einsteigen:** am Cockpit bzw. an der Fahrertür F (Xbox Y).

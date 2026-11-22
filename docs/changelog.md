@@ -1,5 +1,16 @@
 # Änderungsprotokoll Flugkern
 
+## M3.4 „Feinschliff nach Tester-Feedback“ (22.11.2026)
+
+### Neu / geändert
+- **Einstellungsmenü** (`MenuList`): Beschriftung links in fester Spalte (300 px, Schrift schrumpft bei langen Texten), Werte bzw. Regler (Balken + Prozent) rechts, breite Liste (720 px), scrollt bei wenig Höhe (Mausrad, Hinweis „▲ n / m ▼“). Neu `[anzeige] fenster = "vollbild" | "rahmenlos" | "fenster"`, `aufloesung` (1280×720 … 3440×1440), `vsync = "an" | "aus"` – `GameSettings.apply_display()` beim Start (`ui/boot.gd`) und sofort im Menü.
+- **Tutorial** (11 Schritte): Aussteigen → Tanken (Befehlsrad „Nur tanken“ oder Schlauch, Tank +10 %) → Munition (Kiste, Klappe, Gurt) → Einsteigen → Vorflug-Check (Startklappen, Gas/Parkbremse) → Start (Abheben, Fahrwerk ein, Klappen ein) → Fliegen → Zielen → Landung (Platz, Fahrwerk aus, Landeklappen, Aufsetzen) → Abstellplatz → Abschluss (Notausstieg nur noch als Hinweis). Tutorial-Maschine startet mit 25 % Tank und leerem MG; Automatik-Abfertigung für sie aus (`GroundCrewDispatch.auto_exclude`), Befehle gelten weiter.
+- **Strömungsabriss:** kein Kamera-Rütteln mehr (Einstellung `[m3_4] kamera_ruetteln = "aus" | "leicht"`, Standard aus). Warnton neu: elektrischer Summer (240 Hz Rechteck mit Schnarren), Pulstakt 0,5 → 0,18 s und Lautstärke 35 → 100 % bis zum Abriss, im Abriss Dauerton, über den UI-Bus; Zellen-Rumpeln bleibt. HUD „STALL-WARNUNG – nachdrücken“ / „STRÖMUNGSABRISS – Nase runter, Gas“. Controller-Vibration `[m3_4] vibration = "aus" | "leicht" | "stark"` (Standard leicht).
+- **Flugplätze:** Piste 1.300 × 60 m (vorher 900 × 40; die ebene Platzfläche 1.560 × 340 m reichte schon, Gelände unverändert). Westseite (Rollweg -37, Plätze -62, Fahrspur -74, Hallen, Lager, Bunker, Personal) 10 m nach Westen, Pistenausfahrten 330/530/730/930 m hinter der Schwelle, Layouts neu erzeugt. Neue Ausstattung `world/terrain/airfield_dressing.gd` (nur prozedurale Meshes/MultiMesh, keine neuen Dateien): gemähte Lanen, abgefahrener Mittelstreifen mit Radspuren, Randsteine alle 50 m, Schwellen-Steinreihen, rot-weiße Eckflaggen, Lande-T, Rollwege und Abstellfläche aus dem Rollweg-Graph, Hecke (W/N/S) und Holzzaun (O), Flugleitung mit Funkmast und Schuppen (mit Kollision), Fässer; zwei Windsäcke (`Windsock`, richten sich nach dem Wind aus Nord ±20°, 2–8 m/s mit Böen).
+
+### Tests
+- Neu `test_settings_layout`, `test_stall_warning_levels`, `test_no_camera_shake_by_default`, `test_airfield_m3_4_dressing`; `test_tutorial_flow` auf die neue Reihenfolge (inkl. Klappen-Prüfung, keine Automatik).
+
 ## M3.3 „Menü-Kulisse, Controller-Tutorial, Sound“ (07.11.2026)
 
 ### Neu

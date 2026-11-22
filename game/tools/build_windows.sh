@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # M2.2: Windows-Build (nur .pck, Flugkern.exe = unverändertes Godot-4.7.2-Template) mit
-# Pflicht-Regressionstest: die exportierten Pakete (M3.3: 4 .pck) müssen muss im Selbsttest Treffer in beide Richtungen
+# Pflicht-Regressionstest: die exportierten Pakete (seit M3.3: 4 .pck) müssen muss im Selbsttest Treffer in beide Richtungen
 # erzeugen. Aufruf (aus game/): GODOT=/pfad/godot tools/build_windows.sh <zielordner>
 set -euo pipefail
 cd "$(dirname "$0")/.."
