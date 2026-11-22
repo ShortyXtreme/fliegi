@@ -74,7 +74,7 @@ func _run() -> void:
 			gh.toggle_radio()
 			gh.radio.choose(1)                     # Kanal 1 Tankwart
 			gh.radio.choose(3)                     # Volltanken
-			await _frames(1500)
+			await _frames(240)
 			gh.toggle_radio()
 			gh.radio.choose(1)                     # Kanalliste -> Kanal 1 (Befehle + Antwortzeilen)
 			await _frames(3)
@@ -91,6 +91,15 @@ func _run() -> void:
 				m.menu.list.nav("down")
 			await _frames(20)
 			await _shot("m3_5_tastenbelegung")
+		"schalter":
+			await _start()
+			game.player.assist_mode = FlightAssist.Mode.REALISTIC
+			var ec := EngineControl.find(game.player_aircraft)
+			ec.set_master(true)
+			ec.set_fuel_pump(true)
+			ec.set_starter(true)
+			await _frames(20)
+			await _shot("m3_5_schalterpanel")
 		"markierung":
 			await _start(true)
 			await _exit_near("svc_fuel_cap", 5.5)
