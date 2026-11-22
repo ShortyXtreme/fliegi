@@ -144,6 +144,8 @@ func _ready() -> void:
 		else:
 			_place_player_on_ground()
 			spawn_manager.register(player_aircraft, player, func(): _on_reset(false))
+		# M3.5: eigener Absturz bis zum Aufschlag (Kamera folgt), dann Neustart wie bisher
+		spawn_manager.set_wait_for_impact(player_aircraft, true)
 		_board_player_seat()
 		spawn_manager.respawned.connect(_on_respawned)
 

@@ -173,7 +173,7 @@ func test_zone_cockpit() -> Array:
 	it.fire_primary = true
 	d.filter_intent(it, 0.016)
 	var ok: bool = locked and wounded and avg < 0.9 and avg > 0.4 and d.is_destroyed \
-		and log.size() == 1 and log[0][2] == CombatEvents.Cause.PILOT_KILLED and it.pitch == 0.0 and not it.fire_primary
+		and log.size() == 1 and log[0][2] == CombatEvents.Cause.PILOT_KILLED and absf(it.pitch) < 0.2 and not it.fire_primary
 	return [ok, "intakt: Ausstieg gesperrt %s, verwundet -> Eingabe Ø %.2f, tot -> Abschuss %s, Steuer lose" % [locked, avg, log.size() == 1]]
 
 

@@ -34,6 +34,8 @@ var pilot: PilotRecord = null
 ## Kampfsysteme (Stubs aus Paket 0).
 var weapons: WeaponSystem
 var damage: DamageModel
+## M3.5: Teile abtrennen (Flügel, Leitwerk) -> Debris.
+var breakup: AircraftBreakup
 ## Vom Server erlaubte Hilfen-Modi (Lobby-Einstellung).
 var allowed_assist_modes: Array[int] = [FlightAssist.Mode.ARCADE, FlightAssist.Mode.REALISTIC]
 var assist_mode: int = FlightAssist.Mode.ARCADE
@@ -88,6 +90,9 @@ func _build(with_visual: bool) -> void:
 	damage = DamageModel.new(self, flight.modifiers)
 	weapons = WeaponSystem.new(self)
 	damage.grounded.connect(_on_grounded)
+	breakup = AircraftBreakup.new()
+	breakup.setup(self)
+	add_child(breakup)
 
 	pilot_seat = Seat.new()
 	pilot_seat.name = "PilotSeat"
@@ -162,6 +167,9 @@ func _update_fuel(_dt: float) -> void:
 func _on_grounded(outcome: int) -> void:
 	if outcome == DamageModel.Outcome.CRASHED:
 		set_deferred("freeze", true)
+		# M3.5: Aufschlag – Explosion, Krater, Rauchsäule (bleibt wie das Wrack)
+		if is_inside_tree():
+			CrashFx.impact(get_parent(), global_position, true, MatchRules.wreck_lifetime)
 
 
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
