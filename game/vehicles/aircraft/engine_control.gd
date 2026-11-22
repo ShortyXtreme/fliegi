@@ -45,6 +45,8 @@ var _last_pos := Vector3.INF
 ## Eingabe-Flanken (input()).
 var _prev := {}
 var _pad_hold := 0.0
+## Seit cold() nie angelassen.
+var _cold_spawn := false
 
 
 static func find(a: Node) -> EngineControl:
@@ -81,6 +83,7 @@ func cold() -> void:
 	starter_held = false
 	auto_sequence = false
 	flywheel = 0.0
+	_cold_spawn = true
 	_set_phase(Phase.OFF)
 	_apply()
 
@@ -270,6 +273,8 @@ func next_switch_label() -> String:
 
 
 func _set_phase(p: int) -> void:
+	if p == Phase.SPINUP or p == Phase.RUNNING:
+		_cold_spawn = false
 	if p != phase:
 		phase = p
 		_t = 0.0
@@ -281,10 +286,12 @@ func _physics_process(dt: float) -> void:
 		return
 	_t += dt
 	# Teleport in die Luft (Neustart, Respawn): warm
+	# bzw. seit dem Kaltstart nie angelassen und schnell in der Luft (in die Luft gesetzt)
 	var pos := aircraft.global_position
-	if _last_pos == Vector3.INF or pos.distance_to(_last_pos) > TELEPORT_M:
+	var jump := _last_pos == Vector3.INF or pos.distance_to(_last_pos) > TELEPORT_M
+	if (jump or _cold_spawn) and phase != Phase.RUNNING:
 		var t = aircraft.call("telemetry") if aircraft.has_method("telemetry") else null
-		if t != null and not t.on_ground and phase != Phase.RUNNING:
+		if t != null and not t.on_ground and t.airspeed > 25.0 and t.height_agl > 20.0:
 			warm()
 	_last_pos = pos
 	match phase:

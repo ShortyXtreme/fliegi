@@ -63,7 +63,12 @@ func test_tutorial_flow() -> Array:
 	Input.action_press(&"throttle_up")
 	await _step(60)
 	Input.action_release(&"throttle_up")
-	var flaps_first: bool = tu.index == 4 and not tu.done[0]
+	var flaps_first: bool = tu.index == 4 and not tu.done[1]
+	# M3.5: Motor anlassen (Arcade: Motortaste, Anlasser ca. 2 s)
+	var engine_wait: bool = tu.index == 4 and not tu.done[0]
+	await _tap(&"engine_toggle")
+	await _step(180)
+	flaps_first = flaps_first and engine_wait and tu.done[0]
 	g.player.reset_state(0.0)
 	await _tap(&"flaps_cycle")
 	Input.action_press(&"throttle_up")

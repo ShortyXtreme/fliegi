@@ -50,6 +50,20 @@ static func entries_for(st: Dictionary) -> Array:
 			out.append([&"crew_wheel", "Funk"])
 			out.append([&"camera_next", "Kamera"])
 		_:
+			if st.get("on_ground", false) and st.get("engine_off", false):
+				# M3.5: Motor steht – Arcade eine Taste, Realistisch der nächste Schalter bzw. Anlasser
+				if st.get("realistic", false):
+					var nx: String = st.get("next_switch", "")
+					var acts := {"Hauptschalter": &"master_toggle", "Kraftstoffpumpe": &"fuel_pump_toggle",
+						"Zündung": &"magneto_toggle", "Gemisch": &"engine_toggle"}
+					if nx != "" and not st.get("pad", false):
+						out.append([acts.get(nx, &"master_toggle"), nx + " an"])
+					elif nx != "":
+						out.append([&"engine_toggle", nx + " an"])
+					else:
+						out.append([&"starter_hold" if not st.get("pad", false) else &"engine_toggle", "Anlasser halten"])
+				else:
+					out.append([&"engine_toggle", "Motor anlassen"])
 			if st.get("on_ground", false):
 				if st.get("parking_brake", false):
 					out.append([&"throttle_up", "Gas geben"])

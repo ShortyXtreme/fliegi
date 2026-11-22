@@ -345,9 +345,10 @@ func build_steps() -> Array:
 		 "keys": [[&"crew_enter", "Einsteigen"]],
 		 "tasks": [["Einsteigen", func(): return _ctx() == C.FLIGHT]]},
 		{"title": "Vorflug-Check",
-		 "text": "Klappen einmal tippen = Startstellung (mehr Auftrieb). Dann Gas geben – ab 10 % löst sich die Parkbremse.",
-		 "keys": [[&"flaps_cycle", "Klappen"], [&"throttle_up", "Gas"]],
+		 "text": "Motor anlassen: im Arcade-Modus die Motortaste (Anlasser läuft hoch, der Motor springt an). Realistisch der Reihe nach Hauptschalter (Batterie), Kraftstoffpumpe, Zündung einschalten, dann den Anlasser halten, bis das Schwungrad heult, und loslassen. Danach Klappen einmal tippen = Startstellung und Gas geben – ab 10 % löst sich die Parkbremse.",
+		 "keys": [[&"engine_toggle", "Motor"], [&"flaps_cycle", "Klappen"], [&"throttle_up", "Gas"]],
 		 "tasks": [
+			["Motor anlassen", _chk_engine],
 			["Startklappen setzen", func(): return _flaps() == 1],
 			["Gas geben (Parkbremse löst)", _chk_gas]]},
 		{"title": "Start",
@@ -543,6 +544,11 @@ static func _flat(v: Vector3) -> float:
 func _setup_aim() -> void:
 	hits = 0
 	spawn_target()
+
+
+func _chk_engine() -> bool:
+	var ec := EngineControl.find(_aircraft())
+	return ec == null or ec.is_running()
 
 
 func _chk_gas() -> bool:
