@@ -20,3 +20,13 @@
 - Tutorial: erst am Boden vorbereiten (aussteigen, tanken, MG laden, einsteigen, Vorflug-Check mit Klappen), dann Start, Fliegen, Zielen, Landung mit Klappen und Fahrwerk, Abstellplatz. → umgebaut (11 Schritte), Klappen werden beim Start und bei der Landung als Aktion geprüft.
 - Strömungsabriss-Warnung: Bild soll nicht wackeln. → Kamera-Rütteln standardmäßig aus (Einstellung aus/leicht), stattdessen Summer (schneller/lauter je näher am Abriss), HUD-Hinweis, Controller-Vibration (Standard leicht).
 - Flugplatz/Startbahn aufwerten. → Piste 1.300 × 60 m (vorher 900 × 40 m), gemähte Lanen, abgefahrener Mittelstreifen, Randsteine, Schwellen mit Eckflaggen, Lande-T, zwei animierte Windsäcke, sichtbare Rollwege und Abstellfläche, Hecke/Holzzaun, Flugleitung mit Funkmast, Schuppen, Fässer (beide Plätze).
+
+## M3.4 (22.11.2026)
+- Menü und Einstellungen: besser.
+- Befehlsrad überarbeiten: Fahrzeuge rufen und wegschicken; einzeln befehlen (tanken / aufmunitionieren); danach räumen sie selbst auf und fahren weg – oder man macht es selbst.
+- Tutorial: Markierungen, wo und wie man tankt/aufmunitioniert.
+- Modell: Munitionsschächte am Flugzeug gut sichtbar; Tankstutzen nicht oben drauf, sondern an sinnvoller Stelle.
+- Bug: Nach Ein-/Aussteigen beim Tanken standen noch die Flugsteuerungs-Infos.
+- Motor anlassen/abstellen, Strom (Batterie/Zündung) und was man „in echt“ braucht.
+- Warnungen (Achtung, Abriss) als rote Lampen unten beim Flug-Panel statt Bildschirmmitte.
+- Abgeschossene Flugzeuge sollen nicht verschwinden, sondern abstürzen, je nach Schaden Teile verlieren (Flügel abreißen usw.) – auch das eigene Flugzeug.
