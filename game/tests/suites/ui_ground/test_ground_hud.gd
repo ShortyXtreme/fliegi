@@ -57,8 +57,15 @@ func test_smoke_all_contexts() -> Array:
 		await _step(3)
 		seen.append([ctx, g.status.visible, g.stock_bar.visible])
 	ch.queue_free()
-	# Zu Fuß 4 m neben der Maschine: Statuspanel + Lager; im Flug (Stand am Boden): Statuspanel, kein Lager
-	var ok: bool = seen[0][1] and seen[0][2] and seen[2][1] and not seen[2][2] and not g.help.visible
+	g.character = null
+	# Zu Fuß 4 m neben der Maschine: Statuspanel; im Flug (Stand am Boden): Statuspanel.
+	# M3.5: Lager nie im normalen HUD (nur Rolle Nachschub/Werkstatt bzw. F3), StockView.
+	g.player_role = &"supply"
+	await _step(2)
+	var role_sees: bool = g.stock_bar.visible
+	g.player_role = &"pilot"
+	var ok: bool = seen[0][1] and not seen[0][2] and seen[2][1] and not seen[2][2] and not g.help.visible \
+		and StockView.visible_for(&"supply") and not StockView.visible_for(&"pilot")
 	return [ok, "Kontexte [ctx, status, lager]: %s" % str(seen)]
 
 
@@ -153,31 +160,6 @@ func test_blocked_and_pump() -> Array:
 		j.point(&"attach", b.rules)]]
 
 
-func test_wheel_segments() -> Array:
-	var segs := [CommandWheel.segment_for(Vector2(0, -1)), CommandWheel.segment_for(Vector2(1, 0)),
-		CommandWheel.segment_for(Vector2(0, 1)), CommandWheel.segment_for(Vector2(-1, 0)),
-		CommandWheel.segment_for(Vector2(0.7, -0.7))]
-	var ok: bool = segs == [0, 2, 4, 6, 1] and CommandWheel.count() == 8
-	return [ok, "Segmente %s, Befehle %s" % [str(segs), str(CommandWheel.labels())]]
-
-
-func test_wheel_issues_command() -> Array:
-	var a := _spawn(true)
-	var g := _make(a)
-	g.set_context(InputBindings.Context.CREW)
-	var got := []
-	g.command_receiver = func(cmd: int, t: Node): got.append([cmd, t])
-	g.wheel_override = 1
-	await _step(2)
-	var opened := g.wheel.is_open and g.wheel.target() == a
-	g.wheel.feed_mouse(Vector2(0, 80))          # nach unten = Segment 4
-	g.wheel_override = 0
-	await _step(2)
-	var ok: bool = opened and got.size() == 1 and got[0][0] == GroundCrewBrain.Command.TRUCK_TO_ME and got[0][1] == a \
-		and not g.wheel.is_open
-	return [ok, "Rad offen %s, Befehle %s" % [opened, str(got)]]
-
-
 func test_wheel_to_dispatch_crews() -> Array:
 	# Ohne command_receiver: Aufruf an dispatch.crews[i].command(cmd, target)
 	var g := _make(null)
@@ -260,6 +242,6 @@ func test_help_rows() -> Array:
 	var flight := GroundHelp.help_rows(InputBindings.Context.FLIGHT)
 	var has := func(rows: Array, act: String, kb: String) -> bool:
 		return rows.any(func(r): return String(r[0]).begins_with(act) and r[1] == kb)
-	var ok: bool = has.call(crew, "Befehlsrad", "Tab") and has.call(crew, "Einsteigen", "F") \
+	var ok: bool = has.call(crew, "Funkgerät", "Tab") and has.call(crew, "Einsteigen", "F") \
 		and has.call(drive, "Handbremse", "Leertaste") and has.call(flight, "Aussteigen", "J")
 	return [ok, "Zeilen zu Fuß %d, Fahren %d, Flug %d" % [crew.size(), drive.size(), flight.size()]]

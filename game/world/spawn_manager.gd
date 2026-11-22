@@ -99,6 +99,7 @@ func spawn_on_ground(aircraft: Node3D, layout: AirfieldLayout, kind: int, spot: 
 	var xf := layout.parking_transform(s)
 	if aircraft is Aircraft:
 		(aircraft as Aircraft).place_on_ground(xf.origin, -xf.basis.z, false, ServiceState.for_start(kind))
+		EngineControl.of(aircraft).cold()        # M3.5: am Abstellplatz steht der Motor
 	var c = entries[aircraft]["controller"] if entries.has(aircraft) else null
 	if c is AIPilotBrain:
 		var br := c as AIPilotBrain

@@ -24,6 +24,10 @@ var help: GroundHelp
 var root: Control
 ## Spiel (für sofort wirksame Einstellungen im Pausenmenü).
 var game: Node = null
+## M3.5 Tastenbelegung: Aktion, die auf eine Taste wartet ("" = keine), offener Konflikt.
+var capture: StringName = &""
+var pending := {}
+const KEYS_W := 820.0
 
 
 func _init() -> void:
@@ -73,6 +77,8 @@ func show_page(p: String) -> void:
 					{"id": "quit", "label": "Beenden"}])
 		"settings":
 			_settings_items(0)
+		"keys":
+			_keys_items(1)
 
 
 func _settings_items(f: int) -> void:
@@ -82,10 +88,59 @@ func _settings_items(f: int) -> void:
 		if GameSettings.is_slider(o[0]):
 			it["slider"] = GameSettings.slider_frac(o[0])
 		its.append(it)
+	its.append({"id": "keys", "label": "Tastenbelegung", "note": "Tastatur/Maus umbelegen"})
 	its.append({"id": "back", "label": "Zurück",
 		"note": "KI und Bodenbetrieb ab dem nächsten Start" if mode == Mode.PAUSE else "gilt beim Spielstart"})
 	# M3.4: breite Liste, Beschriftung links (feste Spalte), Regler/Werte rechts
 	list.set_items("Einstellungen", its, f, SETTINGS_W, 44.0, 300.0)
+
+
+## M3.5: Seite Tastenbelegung – Gruppen Fliegen / Boden / Funk / Allgemein, Taste · Controller.
+func _keys_items(f: int) -> void:
+	var its: Array = []
+	if not pending.is_empty():
+		var names := ", ".join((pending.conflicts as Array).map(func(a): return "„%s“" % KeyRebind.label(a)))
+		its.append({"id": "", "label": "Konflikt: %s ist schon belegt" % KeyGlyphs.event_token(pending.event), "header": true})
+		its.append({"id": "", "label": "für %s" % names, "header": true})
+		its.append({"id": "swap", "label": "Tauschen", "note": "„%s“ bekommt %s" % [KeyRebind.label(pending.action),
+			KeyGlyphs.event_token(pending.event)]})
+		its.append({"id": "swap_cancel", "label": "Abbrechen", "note": "Belegung bleibt"})
+		list.set_items("Tastenbelegung – Konflikt", its, 2, KEYS_W, 44.0, 420.0)
+		return
+	for g in KeyRebind.groups():
+		if (g[1] as Array).is_empty():
+			continue
+		its.append({"id": "", "label": g[0], "header": true})
+		for a in g[1]:
+			var waiting: bool = a == capture
+			its.append({"id": "key:" + String(a), "label": KeyRebind.label(a), "keybind": true, "waiting": waiting,
+				"value": "Taste drücken … (Esc: abbrechen)" if waiting else KeyRebind.display(a)})
+	its.append({"id": "keys_default", "label": "Standard wiederherstellen"})
+	its.append({"id": "keys_back", "label": "Zurück", "note": "Controller-Belegung: nur Anzeige"})
+	list.set_items("Tastenbelegung", its, f, KEYS_W, 44.0, 420.0)
+
+
+## Neue Taste für capture (Tastatur oder Maus). Rückgabe: Ereignis verbraucht.
+func capture_event(ev: InputEvent) -> bool:
+	if capture == &"" or not ev.is_pressed() or ev.is_echo():
+		return false
+	if not (ev is InputEventKey or (ev is InputEventMouseButton and ev.button_index != MOUSE_BUTTON_WHEEL_UP
+			and ev.button_index != MOUSE_BUTTON_WHEEL_DOWN)):
+		return false
+	var a := capture
+	capture = &""
+	list.active = true
+	if ev is InputEventKey and (ev as InputEventKey).physical_keycode == KEY_ESCAPE and a != &"release_mouse":
+		_keys_items(list.focus)
+		return true
+	var c := KeyRebind.conflicts(a, ev)
+	if c.is_empty():
+		KeyRebind.assign(a, ev)
+		_keys_items(list.focus)
+	else:
+		pending = {"action": a, "event": KeyRebind._clean(ev), "conflicts": c, "focus": list.focus}
+		_keys_items(2)
+	return true
 
 
 func _tutorial_items() -> Array:
@@ -105,11 +160,28 @@ static func tutorial_note() -> String:
 
 
 func _on_activated(id: String) -> void:
+	if id.begins_with("key:"):
+		capture = StringName(id.substr(4))
+		list.active = false
+		_keys_items(list.focus)
+		return
 	match id:
 		"tutorial": start_requested.emit(true)
 		"free": start_requested.emit(false)
 		"resume": resume_requested.emit()
 		"settings": show_page("settings")
+		"keys": show_page("keys")
+		"keys_back":
+			show_page("settings")
+		"keys_default":
+			KeyRebind.restore_defaults()
+			_keys_items(list.focus)
+		"swap", "swap_cancel":
+			if id == "swap":
+				KeyRebind.assign(pending.action, pending.event, true)
+			var f: int = pending.get("focus", 1)
+			pending = {}
+			_keys_items(f)
 		"controls": show_page("controls")
 		"back": show_page("start")
 		"main_menu": main_menu_requested.emit()
@@ -126,6 +198,13 @@ func _on_option(id: String, d: int) -> void:
 
 
 func _on_cancel() -> void:
+	if page == "keys":
+		if not pending.is_empty():
+			pending = {}
+			_keys_items(1)
+		else:
+			show_page("settings")
+		return
 	if page != "start":
 		show_page("start")
 	elif mode == Mode.PAUSE:
@@ -134,6 +213,9 @@ func _on_cancel() -> void:
 
 ## Steuerungs-Seite: ◀ ▶ wechselt den Kontext, Zurück/Esc/B schließt.
 func _input(event: InputEvent) -> void:
+	if page == "keys" and capture_event(event):
+		get_viewport().set_input_as_handled()
+		return
 	if mode == Mode.PAUSE and page == "start" and event is InputEventJoypadButton \
 			and event.is_action_pressed("release_mouse"):
 		get_viewport().set_input_as_handled()
@@ -161,9 +243,10 @@ func _process(_dt: float) -> void:
 	var vs := root.get_viewport_rect().size
 	var s := HudStyle.ui_scale(vs)
 	list.scale = Vector2(s, s)
-	var top := vs.y * (0.1 if page == "settings" else 0.36)
+	var tall := page == "settings" or page == "keys"
+	var top := vs.y * (0.1 if tall else 0.36)
 	# M3.4: so viele Zeilen, wie in die Höhe passen (Rest scrollt)
-	list.set_max_rows(int(floor(((vs.y - top) / s - 60.0 - MenuList.HEAD) / list.row)) if page == "settings" else 0)
+	list.set_max_rows(int(floor(((vs.y - top) / s - 60.0 - MenuList.HEAD) / list.row)) if tall else 0)
 	list.position = Vector2(vs.x * 0.5 - list.w * 0.5 * s, top)
 	if mode == Mode.MAIN:
 		list.position.x = 110.0 * s

@@ -34,8 +34,7 @@ func on_possess(new_seat: Seat) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if seat == null:
 		return
-	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED \
-			and not Input.is_action_pressed("crew_wheel"):
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		look_yaw = wrapf(look_yaw - event.relative.x * MOUSE_SENS, -PI, PI)
 		look_pitch = clampf(look_pitch - event.relative.y * MOUSE_SENS, -1.4, 1.4)
 
@@ -47,19 +46,19 @@ func compute_crew_intent(dt: float) -> CrewIntent:
 		Input.get_axis("crew_move_back", "crew_move_forward") + Input.get_axis("joy_crew_move_back", "joy_crew_move_forward"))
 	i.move = mv.limit_length(1.0)
 	var look := Vector2(Input.get_axis("look_right", "look_left"), Input.get_axis("look_down", "look_up"))
-	if Input.is_action_pressed("crew_wheel"):
-		look = Vector2.ZERO   # Paket 14: offenes Befehlsrad – rechter Stick wählt, Blick steht
 	look_yaw = wrapf(look_yaw + look.x * STICK_LOOK_RATE * dt, -PI, PI)
 	look_pitch = clampf(look_pitch + look.y * STICK_LOOK_RATE * 0.6 * dt, -1.4, 1.4)
 	i.look_yaw = look_yaw
 	i.look_pitch = look_pitch
 	i.sprint = Input.is_action_pressed("crew_sprint")
-	i.interact = Input.is_action_pressed("crew_interact")
+	# M3.5: offenes Funkgerät nimmt Pad-A/B (wählen/zurück) – Tastatur E/G bleiben frei
+	var cap := RadioPanel.pad_capture
+	i.interact = Input.is_action_pressed("crew_interact") and not (cap and _pad_held(JOY_BUTTON_A))
 	i.wheel_open = Input.is_action_pressed("crew_wheel")
 	var e := Input.is_action_pressed("crew_enter")
 	i.enter = e and not _enter_prev
 	_enter_prev = e
-	var d := Input.is_action_pressed("crew_drop")
+	var d := Input.is_action_pressed("crew_drop") and not (cap and _pad_held(JOY_BUTTON_B))
 	i.drop = d and not _drop_prev
 	_drop_prev = d
 	var vt := Input.is_action_pressed("crew_view_toggle")
@@ -68,3 +67,10 @@ func compute_crew_intent(dt: float) -> CrewIntent:
 		view_toggle_requested.emit()
 	_view_prev = vt
 	return i.clamp_values()
+
+
+static func _pad_held(b: JoyButton) -> bool:
+	for dev in Input.get_connected_joypads():
+		if Input.is_joy_button_pressed(dev, b):
+			return true
+	return false

@@ -72,7 +72,15 @@ func _finish_step(s: StringName, r: GroundRules) -> bool:
 				_load()
 		&"belt":
 			_load()
+		&"hatch_open":
+			set_part_open(_hatch(), true)
+		&"hatch_close":
+			set_part_open(_hatch(), false)
 	return true
+
+
+func _hatch() -> String:
+	return "gun_hatch_L" if gun_index % 2 == 0 else "gun_hatch_R"
 
 
 func _load() -> void:
@@ -90,6 +98,8 @@ func recheck(_r: GroundRules) -> void:
 
 
 func cleanup() -> void:
+	if step_index > steps.find(&"hatch_open") and step_index <= steps.find(&"hatch_close"):
+		set_part_open(_hatch(), false)
 	if crate != null and store != null and crate.available(ammo_type) > 0:
 		var rest := crate.available(ammo_type)
 		crate.request(ammo_type, rest)

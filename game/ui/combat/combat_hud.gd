@@ -32,6 +32,11 @@ var radar: RadarLight
 var kill_feed: KillFeed
 ## M3.2: Meldungszone oben Mitte (Flugwarnungen).
 var alerts: AlertStack
+## M3.5: Schalterpanel (Motor/Elektrik) neben dem Flug-Panel, letzte Motor-Meldung.
+var switch_panel: SwitchPanel
+var engine_msg := ""
+var _engine_msg_t := 0.0
+var _ec: EngineControl
 ## M3.2: Kampflage (erkannter Feind in COMBAT_RANGE oder eigenes Feuer) – blendet Waffen/Schaden ein.
 var in_combat := false
 ## M3.2: Waffen/Schaden-Panel ausblenden (z. B. Statuspanel im Stand übernimmt die Ecke).
@@ -70,6 +75,8 @@ func _ready() -> void:
 	add_child(kill_feed)
 	alerts = AlertStack.new()
 	add_child(alerts)
+	switch_panel = SwitchPanel.new()
+	add_child(switch_panel)
 	theme = HudStyle.theme()
 
 
@@ -89,7 +96,9 @@ func _process(dt: float) -> void:
 	if replace_legacy_text:
 		_hide_legacy()
 	flight_panel.set_data(FlightPanel.gather(a, hud.player, hud.camera_rig, hud.debug_visible))
-	alerts.set_warnings(flight_panel.data.get("warnings", []), dt)
+	# M3.5: Warnungen als Lampen am Flug-Panel – keine großen Texte mehr in der Bildmitte
+	alerts.set_warnings([], dt)
+	_update_switches(a, dt)
 	var wd := WeaponPanel.gather(a)
 	weapon_panel.set_data(wd, dt)
 	contacts = HudContacts.collect(a)
@@ -122,6 +131,26 @@ func _process(dt: float) -> void:
 		overlay.on_eject_denied()
 	overlay.tick(dt)
 	kill_feed.tick(dt)
+
+
+func _update_switches(a: Aircraft, dt: float) -> void:
+	var ec := EngineControl.find(a)
+	if ec != _ec:
+		if _ec != null and is_instance_valid(_ec) and _ec.message.is_connected(_on_engine_msg):
+			_ec.message.disconnect(_on_engine_msg)
+		_ec = ec
+		if ec != null:
+			ec.message.connect(_on_engine_msg)
+	_engine_msg_t = maxf(_engine_msg_t - dt, 0.0)
+	if _engine_msg_t <= 0.0:
+		engine_msg = ""
+	var realistic: bool = hud.player != null and hud.player.assist_mode == FlightAssist.Mode.REALISTIC
+	switch_panel.set_data(SwitchPanel.gather(ec, realistic, a.telemetry().on_ground), engine_msg, dt)
+
+
+func _on_engine_msg(text: String, _warn: bool) -> void:
+	engine_msg = text
+	_engine_msg_t = 4.0
 
 
 ## Waffen/Schaden: im Ruhezustand aus, bei Kampf/Änderung/Mangel sanft ein (M3.2).
@@ -193,6 +222,9 @@ func _layout() -> void:
 	var s := ui_scale
 	flight_panel.scale = Vector2(s, s)
 	flight_panel.position = Vector2(MARGIN * s, vs.y - (MARGIN + flight_panel.panel_height()) * s)
+	switch_panel.scale = Vector2(s, s)
+	# über dem Flug-Panel (Zone Zustand links unten), frei von der Tasten-Leiste
+	switch_panel.position = Vector2(MARGIN * s, vs.y - (MARGIN + flight_panel.panel_height() + 10.0 + switch_panel.panel_height()) * s)
 	weapon_panel.scale = Vector2(s, s)
 	weapon_panel.position = Vector2(vs.x - (MARGIN + WeaponPanel.W) * s, vs.y - (MARGIN + WeaponPanel.H) * s)
 	compass.scale = Vector2(s, s)

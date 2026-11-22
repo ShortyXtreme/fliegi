@@ -83,6 +83,8 @@ func _physics_process(dt: float) -> void:
 	var cam := director.cam if director != null else null
 	var far := cam != null and cam.global_position.distance_to(aircraft.global_position) > SoundDirector.CULL_AIRCRAFT
 	var dead := aircraft.damage != null and (aircraft.damage.is_destroyed or aircraft.damage.engine_dead)
+	# M3.5: Motor aus (abgestellt/kalt) – kein Motorklang, sobald er ausgelaufen ist
+	dead = dead or (not aircraft.flight.engine.running and t.throttle_actual < 0.02)
 	# Motor: Drehzahl aus Gas (Fahrtwind treibt den Propeller mit), Layer überblenden
 	rpm = clampf(0.25 + 0.6 * t.throttle_actual + 0.15 * clampf(t.airspeed / 120.0, 0.0, 1.0), 0.0, 1.0)
 	var lo := aircraft.data.engine_rpm_idle if aircraft.data != null else 850.0

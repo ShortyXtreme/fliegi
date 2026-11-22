@@ -125,14 +125,11 @@ func _run() -> void:
 	_override_action(ch, it)
 	await _frames(4)
 	await _shot("ground_1_interact.png")
-	# 2) Befehlsrad
-	g.wheel_override = 1
-	await _frames(2)
-	g.wheel.feed_mouse(Vector2(60, -60))
+	# 2) Funkgerät (M3.5, ersetzt das Befehlsrad)
+	g.radio.open()
 	await _frames(3)
 	await _shot("ground_2_wheel.png")
-	g.wheel.close_wheel(false)
-	g.wheel_override = 0
+	g.radio.close()
 	# 3) Pumpen am Tankdeckel + Lager leer daneben
 	var cap := a.global_transform * ServiceMarkers.aircraft_point(a, "svc_fuel_cap")
 	it.marker = "svc_fuel_cap"

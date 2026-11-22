@@ -63,7 +63,12 @@ func test_tutorial_flow() -> Array:
 	Input.action_press(&"throttle_up")
 	await _step(60)
 	Input.action_release(&"throttle_up")
-	var flaps_first: bool = tu.index == 4 and not tu.done[0]
+	var flaps_first: bool = tu.index == 4 and not tu.done[1]
+	# M3.5: Motor anlassen (Arcade: Motortaste, Anlasser ca. 2 s)
+	var engine_wait: bool = tu.index == 4 and not tu.done[0]
+	await _tap(&"engine_toggle")
+	await _step(180)
+	flaps_first = flaps_first and engine_wait and tu.done[0]
 	g.player.reset_state(0.0)
 	await _tap(&"flaps_cycle")
 	Input.action_press(&"throttle_up")
@@ -156,7 +161,8 @@ func test_tutorial_skip_and_diagnose() -> Array:
 	var quit_ok := not tu.active and g.hud.ground_hud.key_override.is_empty()
 	g.queue_free()
 	await _step(2)
-	return [d[0] and skipped and quit_ok and keys.has(&"crew_wheel"),
+	# M3.5: Schritt „Tanken“ im Cockpit – Tasten-Leiste zeigt nur Flug-Kontext (Aussteigen), keine Bodentasten
+	return [d[0] and skipped and quit_ok and not keys.has(&"crew_wheel") and keys.has(&"eject_hold"),
 		"%s, übersprungen %s, beendet %s, Leiste %s" % [d[1], skipped, quit_ok, str(keys)]]
 
 

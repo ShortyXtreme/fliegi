@@ -7,6 +7,8 @@ extends Node
 ## Die GroundCrewBrain-Instanzen nehmen sich die Jobs selbst.
 
 signal announced(text: String, aircraft: Node)
+## M3.5: Funkmeldung des Personals („Mechaniker A: Tanken erledigt – räumt auf“).
+signal crew_report(text: String, brain: Node, channel: StringName)
 
 var board: JobBoard = null
 var depot: FuelSource = null
@@ -35,6 +37,11 @@ var _known := {}
 ## M3.4: Maschinen ohne Automatik-Abfertigung (Tutorial: der Spieler bereitet selbst vor;
 ## Befehle über das Befehlsrad gelten weiter).
 var auto_exclude: Array = []
+
+## M3.5: Stellplätze der Wagen (beim ersten Tick gemerkt bzw. gesetzt).
+var _home := {}
+## Letzte Meldungen (Text, für HUD/Tests), neueste zuletzt.
+var reports: Array = []
 
 ## Nachtanken erst ab dieser Lücke (Leerlauf verbraucht etwas, kein Dauer-Nachfüllen).
 const TOP_UP_MARGIN := 0.03
@@ -110,6 +117,9 @@ func _physics_process(dt: float) -> void:
 
 
 func tick(_dt: float) -> void:
+	for v in [fuel_truck, ammo_cart]:
+		if v != null and is_instance_valid(v) and v.is_inside_tree() and not _home.has(v):
+			_home[v] = v.global_position
 	if not Authority.is_server():
 		return
 	if board == null:
@@ -119,6 +129,7 @@ func tick(_dt: float) -> void:
 	for a in _watched():
 		_check(a)
 	_check_refill()
+	_radio_milestones()
 
 
 ## Paket 14: „Wagen nachfüllen“ – fast leerer Tankwagen wird am Lager wieder befüllt
@@ -181,6 +192,7 @@ func is_player_aircraft(a: Aircraft) -> bool:
 func _check(a: Aircraft) -> void:
 	if not a.seat_on_ground() and a.seat_speed() > 20.0:
 		_airborne[a] = true      # M3.2: „gelandet“ nur nach echtem Flug melden
+		auto_exclude.erase(a)    # M3.5: Handbetrieb gilt bis zum nächsten Start
 	if not is_parked(a):
 		if _known.has(a):
 			_known.erase(a)
@@ -190,7 +202,13 @@ func _check(a: Aircraft) -> void:
 			for j in board.open_jobs(a):   # Paket 14: Maschine rollt/fliegt weg -> Abfertigung abbrechen
 				board.cancel(j.id)
 		return
-	if not board.open_jobs(a).is_empty() or not needs_service(a) or auto_exclude.has(a):
+	if not board.open_jobs(a).is_empty() or not needs_service(a):
+		return
+	if auto_exclude.has(a):
+		# M3.5: Selbstbedienung – Jobs für den Spieler anlegen, die das KI-Personal nicht nimmt
+		for id in board.plan_service(a, fuel_source(), ammo_store(), {"priority": priority_for(a),
+				"fuel_target": fuel_target, "fuel_node": fuel_truck}):
+			board.get_job(id).reserved = true
 		return
 	var ids := board.plan_service(a, fuel_source(), ammo_store(), {"priority": priority_for(a),
 		"fuel_target": fuel_target, "fuel_node": fuel_truck})
@@ -216,14 +234,192 @@ var follow_target: Node3D = null
 ## Befehlsrad (GroundHud.issue_command -> dispatch.command): verteilt an das Personal des
 ## Platzes. Job-Befehle ohne Ziel gelten der Spieler-Maschine; „Voll abfertigen“ ohne Ziel
 ## schaltet zurück auf Automatik. Rückgabe: Anzahl Empfänger.
-func command(cmd: int, target: Node) -> int:
+## M3.5: crew = einzelner Mechaniker (GroundCrewBrain) oder null = alle.
+func command(cmd: int, target: Node, crew: Node = null) -> int:
 	var C := GroundCrewBrain.Command
 	var t: Node = target
 	if cmd == C.TRUCK_TO_ME or cmd == C.FOLLOW:
 		t = follow_target if follow_target != null and is_instance_valid(follow_target) else target
-	elif t == null and cmd != C.FULL_SERVICE and cmd != C.PAUSE and not player_aircraft.is_empty():
+	elif t == null and cmd not in [C.FULL_SERVICE, C.PAUSE, C.TRUCK_HOME, C.CART_HOME] and not player_aircraft.is_empty():
 		t = player_aircraft[0]
-	return GroundCrewBrain.issue(cmd, t, crews)
+	if cmd == C.AUTO and t is Aircraft:
+		set_self_service(t, false)
+	var list: Array = crews
+	if crew != null and crews.has(crew):
+		list = [crew]
+	elif cmd in GroundCrewBrain.JOB_COMMANDS and t is Aircraft:
+		# M3.5 (Funk): automatisch an einen freien Mechaniker; „Kompletter Ablauf“ an alle freien
+		var free := free_crews(t.global_position)
+		list = free if cmd == C.FULL_SERVICE and free.size() > 1 else free.slice(0, 1)
+	var n := GroundCrewBrain.issue(cmd, t, list)
+	return n
+
+
+## Personal nach Eignung: frei (kein Auftrag, kein Job, nicht in Pause/Folgen) zuerst, dann der Nächste.
+## Ist keiner frei, nur der Nächste (er übernimmt den neuen Auftrag).
+func free_crews(ref: Vector3) -> Array:
+	var C := GroundCrewBrain.Command
+	var list: Array = crews.filter(func(b): return is_instance_valid(b))
+	var is_free := func(b) -> bool:
+		return b.job_id == 0 and not b.ordered and b._leg_for != "cmd" and b.command_kind not in [C.PAUSE, C.FOLLOW]
+	list.sort_custom(func(a, b):
+		var fa: bool = is_free.call(a)
+		var fb: bool = is_free.call(b)
+		if fa != fb:
+			return fa
+		return a.position_now().distance_to(ref) < b.position_now().distance_to(ref))
+	var out := list.filter(func(b): return is_free.call(b))
+	return out if not out.is_empty() else list.slice(0, 1)
+
+
+## Meldung des Personals (Funk), Signal crew_report.
+func report(text: String, brain: Node, channel: StringName = &"crew") -> void:
+	var who: String = brain.crew_name() if brain != null and brain.has_method("crew_name") else "Funk"
+	reports.append("%s: %s" % [who, text])
+	if reports.size() > 20:
+		reports.pop_front()
+	crew_report.emit(text, brain, channel)
+
+
+# --- M3.5: Funkmeldungen in grober Sprache (keine Balken/Prozente) ------------------------
+
+## Grobe Füllstands-Worte.
+static func rough(f: float) -> String:
+	if f <= 0.03:
+		return "leer"
+	if f < 0.2:
+		return "fast leer"
+	if f < 0.4:
+		return "etwa ein Viertel"
+	if f < 0.62:
+		return "etwa halb"
+	if f < 0.85:
+		return "etwa drei Viertel"
+	if f < 0.985:
+		return "fast voll"
+	return "voll"
+
+
+static func _channel_of(j: GroundJob) -> StringName:
+	if j is RefuelJob:
+		return &"fuel"
+	if j is RearmJob:
+		return &"ammo"
+	if j is RepairJob:
+		return &"repair"
+	return &"crew"
+
+
+## Meldepunkte je Job, an dem KI-Personal arbeitet: Start, etwa halb, fertig, Problem.
+var _milestones := {}
+func _radio_milestones() -> void:
+	if board == null:
+		return
+	for j: GroundJob in board.jobs.values():
+		var a := j.aircraft()
+		if a == null or not is_instance_valid(a) or a.nation_id != nation_id:
+			continue
+		var ai: bool = j.worker != null and is_instance_valid(j.worker) and board.is_ai_worker(j.worker)
+		var m: Dictionary = _milestones.get(j.id, {})
+		if ai:
+			m.ai = true
+		if not m.get("ai", false):
+			continue
+		var ch := _channel_of(j)
+		var say := func(key: String, text: String):
+			if not m.has(key):
+				m[key] = true
+				report(text, null, ch)
+		if j.blocked_reason != &"" and j.is_open():
+			say.call("block_%s" % j.blocked_reason, "Problem: %s." % GroundJob.block_text(j.blocked_reason))
+		if j is RefuelJob and j.dest_source == null:
+			var f: float = a.damage.fuel.fraction() / maxf(j.target_fraction, 0.01)
+			if j.current_step() == &"pump" or j.step_index > j.steps.find(&"pump"):
+				say.call("start", "Fange an zu tanken.")
+			if f >= 0.5 and j.step_index >= j.steps.find(&"pump"):
+				say.call("half", "Halb voll.")
+			if j.is_done():
+				say.call("done", "Tank voll, räume ab.")
+		elif j is RearmJob:
+			if j.step_index >= 1:
+				say.call("start", "Lade %s Seite." % ("linke" if j.gun_index % 2 == 0 else "rechte"))
+			if j.is_done():
+				say.call("done", "%s Seite fertig." % ("Linke" if j.gun_index % 2 == 0 else "Rechte"))
+		elif j is RepairJob:
+			if j.progress > 0.0 or j.is_done():
+				say.call("start", "Fange mit der Reparatur an, dauert ein paar Minuten.")
+			if j.progress >= 0.5:
+				say.call("half", "Halb fertig.")
+			if j.is_done():
+				say.call("done", "Reparatur fertig.")
+		_milestones[j.id] = m
+
+
+## „Status?“ eines Kanals für Maschine t: grobe Lage in Worten.
+func status_text(cid: StringName, t: Node) -> String:
+	var a := t as Aircraft
+	if a == null or not is_instance_valid(a):
+		return "Keine Maschine in Sicht."
+	var open: Array = board.open_jobs(a) if board != null else []
+	match cid:
+		&"fuel":
+			var busy := open.any(func(j): return j is RefuelJob and j.dest_source == null)
+			var f := a.damage.fuel.fraction()
+			return ("Tanke noch, %s." if busy else "Tank %s.") % rough(f)
+		&"ammo":
+			var r := float(a.weapons.ammo()) / maxf(float(a.weapons.ammo_max()), 1.0)
+			var busy := open.any(func(j): return j is RearmJob)
+			return ("Lade noch, Munition %s." if busy else "Munition %s.") % rough(r)
+		&"repair":
+			var rep := open.filter(func(j): return j is RepairJob)
+			if rep.is_empty():
+				var dmg := false
+				for z in DamageModel.Zone.COUNT:
+					dmg = dmg or a.damage.can_repair(z)
+				return "Kleine Schäden, sollten wir machen." if dmg else "Maschine in Ordnung."
+			return "Dauert noch ein paar Minuten." if rep.size() > 1 else "Bald fertig."
+	if open.is_empty():
+		return "Maschine fertig, nichts zu tun."
+	return "Wir arbeiten noch: %d Aufgaben offen." % open.size()
+
+
+## Stellplatz eines Wagens (Startposition).
+func home_of(v: Node3D) -> Vector3:
+	if not _home.has(v):
+		_home[v] = v.global_position
+	return _home[v]
+
+
+func set_home(v: Node3D, p: Vector3) -> void:
+	_home[v] = p
+
+
+## Selbstbedienung (Automatik für a aus): Offene, unbearbeitete KI-Jobs werden für den Spieler
+## reserviert; aus = Reservierung aufheben, Automatik übernimmt wieder.
+func set_self_service(a: Node, on: bool) -> void:
+	if a == null:
+		return
+	auto_exclude.erase(a)
+	if on:
+		auto_exclude.append(a)
+	if board == null:
+		board = JobBoard.current
+	if board == null:
+		return
+	for j in board.open_jobs(a):
+		if on:
+			# KI-Personal ohne Auftrag gibt die Jobs dieser Maschine ab (laufendes Pumpen läuft weiter)
+			if j.worker != null and is_instance_valid(j.worker) and board.is_ai_worker(j.worker) \
+					and j.for_worker == null:
+				board.release(j.id, j.worker)
+			if j.worker == null or not is_instance_valid(j.worker):
+				j.reserved = j.for_worker == null
+		else:
+			j.reserved = false
+
+
+func is_self_service(a: Node) -> bool:
+	return auto_exclude.has(a)
 
 
 ## Befehl (Befehlsrad): Jobs für a nach Befehl anlegen. Rückgabe: neue Job-Ids.
@@ -232,10 +428,16 @@ func plan_for(a: Aircraft, cmd: int) -> Array:
 		return []
 	var C := GroundCrewBrain.Command
 	if cmd == C.QUICK_SERVICE:
+		for j in board.open_jobs(a):
+			j.reserved = false
 		return Turnaround.quick_service(board, a, fuel_source(), ammo_store())
 	var o := {"priority": GroundCrewBrain.Priority.PLAYER_AIRCRAFT * 10, "fuel_target": fuel_target,
 		"fuel_node": fuel_truck, "fuel": cmd in [C.FULL_SERVICE, C.FUEL_ONLY],
 		"ammo": cmd in [C.FULL_SERVICE, C.AMMO_ONLY], "repair": cmd in [C.FULL_SERVICE, C.REPAIR]}
+	# M3.5: reservierte (Selbstbedienungs-)Jobs dieser Art gibt der Befehl an das Personal frei
+	for j in board.open_jobs(a):
+		if (j is RefuelJob and o.fuel) or (j is RearmJob and o.ammo) or (j is RepairJob and o.repair):
+			j.reserved = false
 	return board.plan_service(a, fuel_source(), ammo_store(), o)
 
 

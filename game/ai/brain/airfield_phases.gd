@@ -176,6 +176,11 @@ func _parked(a: Aircraft, i: PilotIntent, _dt: float) -> bool:
 	var serviced := JobBoard.current == null or JobBoard.current.is_serviced(a) \
 			or phase_time > scramble_timeout * 2.0
 	if (ready or scramble) and phase_time > 1.0 and serviced and GroundCrewBrain.zone_clear(a):
+		# M3.5: erst den Motor anlassen (Arcade-Ablauf), dann losrollen
+		var ec := EngineControl.find(a)
+		if ec != null and not ec.is_running():
+			ec.auto_start()
+			return true
 		scrambled = not ready
 		set_phase(Phase.TAXI_OUT)
 		var spot := parking_index
@@ -282,6 +287,9 @@ func _taxi_in(a: Aircraft, i: PilotIntent, dt: float) -> bool:
 		_release()
 		set_phase(Phase.PARKED)
 		_sub = 1 if not auto_restart else 0
+		var ec := EngineControl.find(a)
+		if ec != null:
+			ec.stop()                            # M3.5: am Abstellplatz Motor abstellen
 	return true
 
 

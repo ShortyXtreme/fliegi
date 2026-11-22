@@ -27,36 +27,72 @@ func _init() -> void:
 
 
 ## Gruppen: [Titel, Spalte 0/1, [[Aktion, Tastatur, Pad], …]].
+## M3.5: Tasten aus der aktuellen Belegung (InputMap, Einstellungen › Tastenbelegung).
+static func k(acts, sep := " ") -> String:
+	var list: Array = acts if acts is Array else [acts]
+	var out := PackedStringArray()
+	for a in list:
+		var t := KeyGlyphs.token(a, false)
+		if t != "" and not out.has(t):
+			out.append(t)
+	return sep.join(out)
+
+
+static func p(acts, sep := " ") -> String:
+	var list: Array = acts if acts is Array else [acts]
+	var out := PackedStringArray()
+	for a in list:
+		var t := KeyGlyphs.token(a, true)
+		if t != "" and not out.has(t):
+			out.append(t)
+	return sep.join(out)
+
+
 static func groups(ctx: int) -> Array:
-	var general := ["Allgemein", 1, [["Hilfe ein / aus", "F1", "View"], ["Pausenmenü / Maus frei", "Esc", "Menu"],
-		["Tutorial: Schritt weiter / beenden", "F8 / F7", ""]]]
+	var general := ["Allgemein", 1, [["Hilfe ein / aus", k(&"help_toggle"), p(&"help_toggle")],
+		["Pausenmenü / Maus frei", k(&"release_mouse"), p(&"release_mouse")],
+		["Tutorial: Schritt weiter / beenden", k([&"tutorial_skip", &"tutorial_quit"], " / "), ""]]]
+	var radio := ["Funkgerät", 1, [["Funkgerät öffnen / schließen", k(&"crew_wheel"), p(&"crew_wheel")],
+		["Kanal 1–4 wählen", k([&"radio_channel_1", &"radio_channel_4"], " – "), "Kreuz ↑↓ + A"],
+		["Befehl 1–4", k([&"radio_cmd_1", &"radio_cmd_4"], " – "), p(&"radio_select")],
+		["Zurück / Kanal wechseln", k([&"radio_back", &"radio_prev", &"radio_next"], " "), p([&"radio_back", &"radio_prev", &"radio_next"])]]]
 	match ctx:
 		InputBindings.Context.CREW:
-			general[2].append(["Alarmstart (Debug)", "F9", ""])
+			general[2].append(["Alarmstart (Debug)", k(&"alarm_debug"), ""])
 			return [
-				["Bewegen", 0, [["Gehen", "W A S D", "linker Stick"], ["Umsehen", "Maus", "rechter Stick"],
-					["Sprinten", "Shift", "L3"], ["Ego / Third-Person", "C", "R3"]]],
-				["Arbeiten", 1, [["Interagieren (halten)", "E", "A"], ["Ablegen", "G", "B"],
-					["Einsteigen", "F", "Y"], ["Befehlsrad (halten)", "Tab", "LB"]]],
-				general]
+				["Bewegen", 0, [["Gehen", k([&"crew_move_forward", &"crew_move_left", &"crew_move_back", &"crew_move_right"]), "linker Stick"],
+					["Umsehen", "Maus", "rechter Stick"],
+					["Sprinten", k(&"crew_sprint"), p(&"crew_sprint")], ["Ego / Third-Person", k(&"crew_view_toggle"), p(&"crew_view_toggle")]]],
+				["Arbeiten", 0, [["Interagieren (halten)", k(&"crew_interact"), p(&"crew_interact")], ["Ablegen", k(&"crew_drop"), p(&"crew_drop")],
+					["Einsteigen", k(&"crew_enter"), p(&"crew_enter")]]],
+				radio, general]
 		InputBindings.Context.DRIVE:
 			return [
-				["Fahren", 0, [["Gas", "W", "RT"], ["Bremse / rückwärts", "S", "LT"],
-					["Lenken", "A D", "linker Stick"], ["Handbremse", "Leertaste", "B"], ["Kamera", "C", "Y"]]],
-				["Arbeiten", 1, [["Interagieren", "E", "A"], ["Befehlsrad (halten)", "Tab", "LB"],
-					["Aussteigen (1 s halten)", "J", "Kreuz ←"]]],
-				general]
+				["Fahren", 0, [["Gas", k(&"drive_throttle"), p(&"drive_throttle")], ["Bremse / rückwärts", k(&"drive_brake"), p(&"drive_brake")],
+					["Lenken", k([&"drive_steer_left", &"drive_steer_right"]), "linker Stick"],
+					["Handbremse", k(&"drive_handbrake"), p(&"drive_handbrake")], ["Kamera", k(&"camera_next"), p(&"camera_next")]]],
+				["Arbeiten", 0, [["Interagieren", k(&"crew_interact"), p(&"crew_interact")],
+					["Aussteigen (1 s halten)", k(&"eject_hold"), p(&"eject_hold")]]],
+				radio, general]
 		_:
-			general[2].append_array([["Arcade / Realistisch", "X", "X"], ["Maus-Zielsteuerung", "M", ""],
-				["Neustart Piste / Luft", "R / T", ""], ["Treffer-Debug", "F3", "L3"]])
+			general[2].append_array([["Arcade / Realistisch", k(&"assist_toggle"), p(&"assist_toggle")],
+				["Maus-Zielsteuerung", k(&"mouse_aim_toggle"), ""],
+				["Neustart Piste / Luft", k([&"reset_runway", &"reset_air"], " / "), ""], ["Treffer-Debug", k(&"debug_toggle"), p(&"debug_toggle")]])
 			return [
-				["Fliegen", 0, [["Höhenruder", "W S", "linker Stick"], ["Querruder", "A D", "linker Stick"],
-					["Seitenruder", "Q E", "LB RB"], ["Gas", "Shift / Strg", "Kreuz ↑ ↓"],
-					["Klappen", "F", "A"], ["Fahrwerk", "G", "Kreuz →"], ["Bremsen / Parkbremse", "B", "B"]]],
-				["Kamera", 0, [["Kamera wechseln", "C", "Y"], ["Umsehen (halten)", "Alt", "rechter Stick"],
-					["Zielzoom (halten)", "RMT", "R3"]]],
-				["Kämpfen", 1, [["Feuer MG", "Leertaste / Linksklick", "RT"], ["Sekundärwaffe", "V / MMT", "LT"],
-					["Aussteigen / Notausstieg", "J", "Kreuz ←"]]],
+				["Fliegen", 0, [["Höhenruder", k([&"kb_pitch_down", &"kb_pitch_up"]), "linker Stick"],
+					["Querruder", k([&"kb_roll_left", &"kb_roll_right"]), "linker Stick"],
+					["Seitenruder", k([&"kb_yaw_left", &"kb_yaw_right"]), p([&"kb_yaw_left", &"kb_yaw_right"])],
+					["Gas", k([&"throttle_up", &"throttle_down"], " / "), "Kreuz ↑ ↓"],
+					["Motor an / aus", k(&"engine_toggle"), p(&"engine_toggle")],
+					["Realistisch: Haupt · Pumpe · Zündung · Anlasser", k([&"master_toggle", &"fuel_pump_toggle", &"magneto_toggle", &"starter_hold"]), "X halten"],
+					["Klappen", k(&"flaps_cycle"), p(&"flaps_cycle")], ["Fahrwerk", k(&"gear_toggle"), p(&"gear_toggle")],
+					["Bremsen / Parkbremse", k(&"brakes"), p(&"brakes")]]],
+				["Kamera", 0, [["Kamera wechseln", k(&"camera_next"), p(&"camera_next")],
+					["Umsehen (halten)", k(&"mouse_look"), "rechter Stick"],
+					["Zielzoom (halten)", k(&"zoom_hold"), p(&"zoom_hold")]]],
+				["Kämpfen", 1, [["Feuer MG", k(&"fire_primary", " / "), p(&"fire_primary")],
+					["Sekundärwaffe", k(&"fire_secondary", " / "), p(&"fire_secondary")],
+					["Aussteigen / Notausstieg", k(&"eject_hold"), p(&"eject_hold")]]],
 				general]
 
 
@@ -65,7 +101,7 @@ static func tips(ctx: int) -> Array:
 	match ctx:
 		InputBindings.Context.CREW:
 			return ["Am Flugzeug: Interagieren halten = tanken, munitionieren, reparieren.",
-				"Befehlsrad halten, Richtung wählen, loslassen = Befehl an die Bodenmannschaft."]
+				"Befehlsrad: Ebene Fahrzeuge (rufen / zurück) oder ein Mechaniker (Tanken, Munition …)."]
 		InputBindings.Context.DRIVE:
 			return ["Tankwagen neben die Maschine fahren, aussteigen, Schlauch mit Interagieren nehmen."]
 		_:

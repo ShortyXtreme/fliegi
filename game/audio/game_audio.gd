@@ -16,6 +16,7 @@ const SOUNDS := {
 	"pump": true, "crate_down": false, "crate_up": false, "hatch": false, "belt": false,
 	"tool": true, "enter": false, "alarm_siren": true, "alarm_bell": true, "ambient": true, "ui_click": false,
 	"ui_confirm": false, "ui_step": false,
+	"starter_whine": false, "engine_catch": false, "engine_stop": false, "switch": false,   # M3.5
 }
 
 ## Motor-Klänge je Typ (AircraftData.engine_sound): Drehzahl-Layer als Loops in

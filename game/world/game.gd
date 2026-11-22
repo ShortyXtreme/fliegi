@@ -47,6 +47,8 @@ var turnaround: Turnaround
 ## AirfieldOps je Platzindex (nur Gelände).
 var airfields := {}
 var blue_ops: AirfieldOps
+## M3.5: 3D-Interaktionshilfen (Ring/Pfeil/Beschriftung an Tankstutzen, MG-Klappen, Wagen).
+var guide: InteractionGuide
 var alarm_interval := Vector2(720.0, 900.0)
 var _alarm_next := -1.0
 var _was_airborne := false
@@ -317,6 +319,14 @@ func _setup_ground_hud() -> void:
 		gh.bunker = blue_ops.bunker
 		gh.dispatch = blue_ops.dispatch
 		blue_ops.dispatch.follow_target = crew
+	guide = InteractionGuide.new()
+	guide.character = crew
+	guide.aircraft = player_aircraft
+	guide.board = job_board
+	if blue_ops != null:
+		guide.truck = blue_ops.truck
+		guide.cart = blue_ops.cart
+	add_child(guide)
 	for ops in airfields.values():
 		ops.dispatch.announced.connect(func(text, a):
 			# M3.2: nur echte Landungen melden (nicht den Start am Abstellplatz)
@@ -477,3 +487,6 @@ func _on_reset(in_air: bool) -> void:
 		player.reset_state(0.8, false)
 	else:
 		_place_player_on_ground()
+	var ec := EngineControl.find(player_aircraft)
+	if ec != null:
+		ec.warm()                       # M3.5: Debug-Neustart (R/T) mit laufendem Motor

@@ -24,6 +24,10 @@ var priority := 0
 ## Gearbeitete Sekunden (Spielzeit, für Wertung und Tests).
 var elapsed := 0.0
 var cancelled := false
+## M3.5: Selbstbedienung – nur der Spieler arbeitet daran (KI-Personal nimmt den Job nicht).
+var reserved := false
+## M3.5: Auftrag an genau einen Mechaniker (GroundCrewBrain); andere nehmen den Job nicht.
+var for_worker: Node = null
 
 const BLOCK_TEXT := {
 	&"depot_empty": "Lager leer",
@@ -127,6 +131,14 @@ func work_seconds(rules: GroundRules) -> float:
 		if not autonomous(s, rules):
 			t += duration(s, rules)
 	return t
+
+
+## M3.5: Klappe/Deckel am Modell öffnen bzw. schließen (Agent B: Aircraft.set_service_part_open,
+## part = "gun_hatch_L" | "gun_hatch_R" | "fuel_cap"); ohne die Funktion passiert nichts.
+func set_part_open(part: String, open: bool) -> void:
+	var a := aircraft()
+	if a != null and is_instance_valid(a) and a.has_method("set_service_part_open"):
+		a.call("set_service_part_open", part, open)
 
 
 func aircraft() -> Aircraft:

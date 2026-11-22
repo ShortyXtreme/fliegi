@@ -152,14 +152,10 @@ func _run() -> void:
 	await _shot("b_zu_fuss_abfertigung")
 	# --- (c) Befehlsrad ---
 	var gh: GroundHud = game.hud.ground_hud
-	gh.wheel_override = 1
-	await _frames(3)
-	gh.wheel.feed_mouse(Vector2(60, -40))
+	gh.radio.open()                 # M3.5: Funkgerät statt Befehlsrad
 	await _frames(3)
 	await _shot("c_befehlsrad")
-	gh.wheel_override = 0
-	await _frames(3)
-	gh.wheel_override = -1
+	gh.radio.close()
 	# --- (d) F1-Hilfe zu Fuß ---
 	gh.toggle_help()
 	await _frames(4)
