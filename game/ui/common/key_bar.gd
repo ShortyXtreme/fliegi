@@ -33,8 +33,8 @@ static func entries_for(st: Dictionary) -> Array:
 	var out: Array = []
 	var ctx: int = st.get("ctx", InputBindings.Context.FLIGHT)
 	if st.get("wheel_open", false):
-		return [["Maus / rechter Stick", "Befehl wählen"], ["Mausrad / Kreuz ← →", "Maschine wechseln"],
-			[&"crew_wheel", "loslassen: geben"]]
+		return [["Maus / rechter Stick", "Befehl wählen"], ["Mausrad / Kreuz ↑↓", "Ebene"],
+			["Rechtsklick / Kreuz ← →", "Maschine"], [&"crew_wheel", "loslassen: geben"]]
 	match ctx:
 		InputBindings.Context.CREW:
 			if st.get("carrying", false):

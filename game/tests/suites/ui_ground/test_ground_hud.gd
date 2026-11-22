@@ -157,8 +157,14 @@ func test_wheel_segments() -> Array:
 	var segs := [CommandWheel.segment_for(Vector2(0, -1)), CommandWheel.segment_for(Vector2(1, 0)),
 		CommandWheel.segment_for(Vector2(0, 1)), CommandWheel.segment_for(Vector2(-1, 0)),
 		CommandWheel.segment_for(Vector2(0.7, -0.7))]
-	var ok: bool = segs == [0, 2, 4, 6, 1] and CommandWheel.count() == 8
-	return [ok, "Segmente %s, Befehle %s" % [str(segs), str(CommandWheel.labels())]]
+	var w := CommandWheel.new()
+	var n0 := w.count()
+	w.page = 1
+	var n1 := w.count()
+	var labs := w.labels()
+	w.free()
+	var ok: bool = segs == [0, 2, 4, 6, 1] and n0 == 4 and n1 == 8
+	return [ok, "Segmente %s, Ebenen %d/%d Befehle, %s" % [str(segs), n0, n1, str(labs)]]
 
 
 func test_wheel_issues_command() -> Array:
@@ -170,10 +176,11 @@ func test_wheel_issues_command() -> Array:
 	g.wheel_override = 1
 	await _step(2)
 	var opened := g.wheel.is_open and g.wheel.target() == a
-	g.wheel.feed_mouse(Vector2(0, 80))          # nach unten = Segment 4
+	g.wheel.page = 0                            # Ebene Fahrzeuge (4 Befehle)
+	g.wheel.feed_mouse(Vector2(0, 80))          # nach unten = Segment 2 „Tankwagen zurück“
 	g.wheel_override = 0
 	await _step(2)
-	var ok: bool = opened and got.size() == 1 and got[0][0] == GroundCrewBrain.Command.TRUCK_TO_ME and got[0][1] == a \
+	var ok: bool = opened and got.size() == 1 and got[0][0] == GroundCrewBrain.Command.TRUCK_HOME and got[0][1] == a \
 		and not g.wheel.is_open
 	return [ok, "Rad offen %s, Befehle %s" % [opened, str(got)]]
 

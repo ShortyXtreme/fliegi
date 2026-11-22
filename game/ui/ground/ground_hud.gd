@@ -60,6 +60,9 @@ var key_bar: KeyBar
 var key_override: Array = []
 ## Maschine im Statuspanel (für Tests).
 var status_aircraft: Node = null
+## M3.5: Empfänger des letzten Befehls (null = alle) und Mannschafts-Panel.
+var last_crew: Node = null
+var crew_panel: CrewPanel
 
 var _bus: GroundEvents
 var _alarm_fallback := -1.0
@@ -92,6 +95,8 @@ func _ready() -> void:
 	add_child(timer.alarm_banner)
 	hint = InteractionHint.new()
 	add_child(hint)
+	crew_panel = CrewPanel.new()
+	add_child(crew_panel)
 	wheel = CommandWheel.new()
 	wheel.command_chosen.connect(issue_command)
 	add_child(wheel)
@@ -158,7 +163,9 @@ func viewer_position() -> Vector3:
 
 ## Gibt den Befehl weiter: Signal command_issued, dann command_receiver, sonst dispatch.command(cmd, target),
 ## sonst jedes crews[i].command(cmd, target) (GroundCrewBrain). Rückgabe: Anzahl Empfänger.
-func issue_command(cmd: int, target: Node) -> int:
+## M3.5: crew = einzelner Mechaniker (Ebene im Rad) oder null = alle.
+func issue_command(cmd: int, target: Node, crew: Node = null) -> int:
+	last_crew = crew
 	command_issued.emit(cmd, target)
 	if command_receiver.is_valid():
 		command_receiver.call(cmd, target)
@@ -166,8 +173,7 @@ func issue_command(cmd: int, target: Node) -> int:
 	if dispatch == null or not is_instance_valid(dispatch):
 		return 0
 	if dispatch.has_method("command"):
-		dispatch.call("command", cmd, target)
-		return 1
+		return int(dispatch.call("command", cmd, target, crew))
 	var n := 0
 	for c in (dispatch.get("crews") if dispatch.get("crews") != null else []):
 		var brain = c
@@ -177,6 +183,14 @@ func issue_command(cmd: int, target: Node) -> int:
 			brain.call("command", cmd, target)
 			n += 1
 	return n
+
+
+## M3.5: KI-Mechaniker des eigenen Platzes (dispatch.crews).
+func crew_list() -> Array:
+	if dispatch == null or not is_instance_valid(dispatch):
+		return []
+	var c = dispatch.get("crews")
+	return (c as Array).filter(func(b): return b is GroundCrewBrain and is_instance_valid(b)) if c is Array else []
 
 
 # --- Eingabe ---------------------------------------------------------------------------
@@ -190,15 +204,20 @@ func _input(event: InputEvent) -> void:
 		wheel.feed_mouse(event.relative / maxf(ui_scale, 0.1))
 		get_viewport().set_input_as_handled()     # Blick friert ein, solange das Rad offen ist
 	elif event is InputEventMouseButton and event.pressed:
+		# M3.5: Mausrad = Ebene (Fahrzeuge / Mechaniker), Rechtsklick = Maschine
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			wheel.cycle_target(-1)
+			wheel.cycle_page(-1)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			wheel.cycle_page(1)
+		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			wheel.cycle_target(1)
+		get_viewport().set_input_as_handled()
 	elif event is InputEventJoypadButton and event.pressed:
-		if event.button_index == JOY_BUTTON_DPAD_LEFT:
-			wheel.cycle_target(-1)
-		elif event.button_index == JOY_BUTTON_DPAD_RIGHT:
-			wheel.cycle_target(1)
+		match event.button_index:
+			JOY_BUTTON_DPAD_LEFT: wheel.cycle_target(-1)
+			JOY_BUTTON_DPAD_RIGHT: wheel.cycle_target(1)
+			JOY_BUTTON_DPAD_UP: wheel.cycle_page(-1)
+			JOY_BUTTON_DPAD_DOWN, JOY_BUTTON_RIGHT_SHOULDER: wheel.cycle_page(1)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -222,7 +241,7 @@ func _update_wheel() -> void:
 		var list := known_aircraft()
 		var pos := viewer_position()
 		list.sort_custom(func(a, b): return a.global_position.distance_to(pos) < b.global_position.distance_to(pos))
-		wheel.open_wheel(list, list[0] if not list.is_empty() else null)
+		wheel.open_wheel(list, list[0] if not list.is_empty() else null, CommandWheel.default_pages(crew_list()))
 	elif not held and wheel.is_open:
 		wheel.close_wheel(on_ground_context())
 	if wheel.is_open:
@@ -269,6 +288,11 @@ func _process(dt: float) -> void:
 	# Abfertigung + Alarm
 	_update_turnaround(dt)
 	timer.visible = timer.timer_visible() and ground
+	# M3.5: Mannschaft (Mechaniker A: tankt – 60 %) und letzte Funkmeldung
+	var cl := crew_list()
+	crew_panel.visible = ground and not cl.is_empty()
+	if crew_panel.visible:
+		crew_panel.set_data(CrewPanel.gather(cl, dispatch), dt)
 	# Bodenmarke nach der Landung (im Cockpit)
 	var own := own_aircraft()
 	guide.active = has_parking_target and not ground and own != null and _on_ground(own)
@@ -400,7 +424,7 @@ func _layout() -> void:
 	ui_scale = HudStyle.ui_scale(vs)
 	var s := ui_scale
 	var sv := Vector2(s, s)
-	for c in [hint, wheel, status, stock_bar, timer, timer.alarm_banner, key_bar]:
+	for c in [hint, wheel, status, stock_bar, timer, timer.alarm_banner, key_bar, crew_panel]:
 		(c as Control).scale = sv
 	# Zonen (M3.2): Mitte frei (Hinweis, Rad) · unten Mitte Tasten-Leiste · links unten Zustand
 	# Flugzeug/Figur · rechts unten Waffen/Schaden · oben Mitte Meldungen/Alarm · oben links Lager
@@ -414,5 +438,8 @@ func _layout() -> void:
 		# Im Cockpit (Stand): rechts unten an Stelle des Waffen-Panels (keine doppelte Skizze)
 		status.position = Vector2(vs.x - (MARGIN + AircraftStatusPanel.W) * s, sy)
 	stock_bar.position = Vector2(MARGIN * s, MARGIN * s)
+	# Mannschaft links über dem Statuspanel (Zone Zustand)
+	var cy := (sy if status.visible else vs.y - MARGIN * s) - (crew_panel.panel_height() + 10.0) * s
+	crew_panel.position = Vector2(MARGIN * s, cy)
 	timer.position = Vector2(vs.x - (MARGIN + TurnaroundDisplay.W) * s, MARGIN * s)
 	timer.alarm_banner.position = Vector2(vs.x * 0.5, (74.0 if on_ground_context() else 104.0) * s)

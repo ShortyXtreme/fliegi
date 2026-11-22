@@ -13,9 +13,18 @@ extends Controller
 ## (voll: PilotIntent über compute_intent, Sim-LOD: getaktete Fahrzeit); ohne Fahrzeug läuft der Weg
 ## „Tankwagen holen“ als Zeit. Befehlsrad: command(cmd, target) bzw. GroundCrewBrain.issue().
 
-enum Command { FULL_SERVICE, FUEL_ONLY, AMMO_ONLY, QUICK_SERVICE, TRUCK_TO_ME, FOLLOW, REPAIR, PAUSE }
-const COMMAND_LABELS := ["Voll abfertigen", "Nur tanken", "Nur Munition", "Schnellabfertigung",
-	"Tankwagen zu mir", "Folgen", "Reparieren", "Zurück/Pause"]
+## M3.5: Befehle 0–7 wie M3, dazu Fahrzeuge rufen/wegschicken und „Automatik“.
+enum Command { FULL_SERVICE, FUEL_ONLY, AMMO_ONLY, QUICK_SERVICE, TRUCK_TO_ME, FOLLOW, REPAIR, PAUSE,
+	CALL_TRUCK, CALL_CART, TRUCK_HOME, CART_HOME, AUTO }
+const COMMAND_LABELS := ["Voll abfertigen", "Tanken", "Aufmunitionieren", "Schnellabfertigung",
+	"Tankwagen zu mir", "Folgen", "Reparieren", "Zurück / Pause",
+	"Tankwagen kommen", "Munitionswagen kommen", "Tankwagen zurück", "Munitionswagen zurück", "Automatik"]
+## M3.5: Ebenen des Befehlsrads.
+const VEHICLE_COMMANDS := [Command.CALL_TRUCK, Command.CALL_CART, Command.TRUCK_HOME, Command.CART_HOME]
+const CREW_COMMANDS := [Command.FUEL_ONLY, Command.AMMO_ONLY, Command.REPAIR, Command.FULL_SERVICE,
+	Command.QUICK_SERVICE, Command.FOLLOW, Command.PAUSE, Command.AUTO]
+## Wagen gilt ab diesem Abstand zum Stellplatz als „unterwegs“ (m).
+const HOME_R := 6.0
 enum Priority { REFILL_VEHICLE, AI_AIRCRAFT, PLAYER_AIRCRAFT, ALARM }
 const PROP_ZONE := 5.0
 const LOD_RANGE := 2000.0
@@ -76,6 +85,11 @@ var travel_time := 0.0
 ## Befehlsfilter (Paket 7b), Standard: alles.
 var command_kind := Command.FULL_SERVICE
 var command_target: Node = null
+## M3.5: ausdrücklicher Auftrag (Befehlsrad) – nach Erledigung aufräumen und zurück zum Stellplatz.
+var ordered := false
+## Befehl nach Abschluss der Befehls-Wege (_leg_for == "cmd") und Meldung dazu.
+var _then_kind := Command.FULL_SERVICE
+var _then_text := ""
 
 var _intent := CrewIntent.new()
 var _goal := Vector3.ZERO
@@ -134,11 +148,84 @@ func position_now() -> Vector3:
 
 
 ## Einträge für das Befehlsrad: [{id, label}].
-static func wheel_entries() -> Array:
+## M3.5: page 0 = Fahrzeuge, 1 = Mechaniker.
+static func wheel_entries(page := 1) -> Array:
 	var out := []
-	for i in COMMAND_LABELS.size():
+	for i in (VEHICLE_COMMANDS if page == 0 else CREW_COMMANDS):
 		out.append({id = i, label = COMMAND_LABELS[i]})
 	return out
+
+
+## Anzeigename (Figur „Mechaniker A“ …).
+func crew_name() -> String:
+	var b := body()
+	if b != null and is_instance_valid(b):
+		return String(b.name)
+	return String(name)
+
+
+## Funk-/Meldungszeile über die Dispatch (Signal crew_report).
+func _report(text: String) -> void:
+	if dispatch != null and dispatch.has_method("report"):
+		dispatch.report("%s: %s" % [crew_name(), text], self)
+
+
+func _vehicle_for(cmd: int) -> GroundVehicle:
+	if dispatch == null:
+		return null
+	var v: GroundVehicle = dispatch.fuel_truck if cmd in [Command.CALL_TRUCK, Command.TRUCK_HOME] else dispatch.ammo_cart
+	return v if v != null and is_instance_valid(v) else null
+
+
+static func vehicle_label(v: Node) -> String:
+	return "Tankwagen" if v is FuelTruck else "Munitionswagen"
+
+
+## Statuszeile für das Mannschafts-Panel: {text, progress (-1 = ohne)}.
+func status() -> Dictionary:
+	var b := _board()
+	if command_kind == Command.PAUSE:
+		return {text = "Pause", progress = -1.0}
+	if command_kind == Command.FOLLOW:
+		return {text = "folgt dir", progress = -1.0}
+	if _leg_for == "cmd" and not _legs.is_empty():
+		var leg: Dictionary = _legs[0]
+		if leg.has("drive"):
+			var back: bool = _then_text.contains("Stellplatz")
+			return {text = "fährt %s %s" % [vehicle_label(leg.drive), "zurück" if back else "her"], progress = -1.0}
+		if leg.has("stow"):
+			return {text = "rollt Schlauch ein", progress = -1.0}
+		return {text = "geht zum Stellplatz", progress = -1.0}
+	var j := b.get_job(job_id) if b != null else null
+	if j == null and b != null:
+		for oj: GroundJob in b.open_jobs():
+			if oj.worker == _worker_node():
+				j = oj
+				break
+	if j == null:
+		return {text = "wartet" if ordered else "bereit", progress = -1.0}
+	var a := j.aircraft()
+	if j is RefuelJob:
+		if j.dest_source != null:
+			return {text = "füllt Tankwagen", progress = -1.0}
+		var st := j.current_step()
+		var f: float = a.damage.fuel.fraction() if a != null else 0.0
+		if st == &"bring":
+			return {text = "bringt Schlauch", progress = f}
+		if st == &"detach":
+			return {text = "koppelt ab", progress = f}
+		return {text = "tankt", progress = f}
+	if j is RearmJob:
+		var am: float = float(a.weapons.ammo()) / maxf(float(a.weapons.ammo_max()), 1.0) if a != null else 0.0
+		if j.current_step() == &"hatch_close":
+			return {text = "schließt Klappe", progress = am}
+		return {text = "munitioniert auf", progress = am}
+	if j is RepairJob:
+		var hl := 1.0
+		if a != null:
+			hl = a.damage.hp[j.zone] / maxf(a.damage.hp_max[j.zone], 1.0)
+		return {text = "repariert", progress = hl}
+	return {text = "arbeitet", progress = j.progress}
 
 
 ## Befehl an das Personal (Befehlsrad). Job-Befehle gehen an alle in crew (leer = alle),
@@ -148,25 +235,34 @@ static func issue(cmd: int, target: Node, crew: Array = []) -> int:
 	list = list.filter(func(b): return is_instance_valid(b))
 	if list.is_empty():
 		return 0
-	if cmd == Command.TRUCK_TO_ME or cmd == Command.FOLLOW:
+	if cmd == Command.TRUCK_TO_ME or cmd == Command.FOLLOW or cmd in VEHICLE_COMMANDS:
 		var ref := Vector3.ZERO
 		var first: GroundCrewBrain = list[0]
+		var v: Node3D = first._vehicle_for(cmd) if cmd in VEHICLE_COMMANDS else null
 		if cmd == Command.TRUCK_TO_ME and first.dispatch != null and first.dispatch.fuel_truck != null:
 			ref = first.dispatch.fuel_truck.global_position
+		elif v != null:
+			ref = v.global_position
 		elif target is Node3D:
 			ref = target.global_position
-		list.sort_custom(func(a, b): return a.position_now().distance_to(ref) < b.position_now().distance_to(ref))
+		# M3.5: Fahrzeug-Befehle bevorzugt an freies Personal (kein Auftrag, kein Job), dann der Nächste.
+		list.sort_custom(func(a, b):
+			var fa: bool = a.job_id == 0 and not a.ordered and a._leg_for != "cmd"
+			var fb: bool = b.job_id == 0 and not b.ordered and b._leg_for != "cmd"
+			if fa != fb:
+				return fa
+			return a.position_now().distance_to(ref) < b.position_now().distance_to(ref))
 		return 1 if list[0].command(cmd, target) else 0
 	var n := 0
 	for b in list:
-		if b.command(cmd, target):
+		if b.command(cmd, target, list.size() == 1):
 			n += 1
 	return n
 
 
 ## Befehl aus dem Befehlsrad (nur Server). target = Zielmaschine (Job-Befehle), Ziel für
 ## „Tankwagen zu mir“/„Folgen“ (Node3D). FULL_SERVICE mit null = zurück zur Automatik.
-func command(cmd: int, target: Node) -> bool:
+func command(cmd: int, target: Node, exclusive := false) -> bool:
 	if not Authority.is_server() or cmd < 0 or cmd >= COMMAND_LABELS.size():
 		return false
 	var b := _board()
@@ -176,14 +272,47 @@ func command(cmd: int, target: Node) -> bool:
 		return false
 	if cmd == Command.TRUCK_TO_ME and (dispatch == null or dispatch.fuel_truck == null):
 		return false
+	if cmd in VEHICLE_COMMANDS:
+		return _vehicle_command(cmd, target)
 	_release_mine()
 	_drop_focus()
 	command_kind = cmd
 	command_target = target
+	ordered = false
+	_then_kind = Command.FULL_SERVICE
+	_then_text = ""
 	match cmd:
+		Command.AUTO:
+			command_kind = Command.FULL_SERVICE
+			command_target = null
+			if target is Aircraft and dispatch != null and dispatch.has_method("set_self_service"):
+				dispatch.set_self_service(target, false)
+			_report("Automatik – arbeitet selbstständig")
+		Command.PAUSE:
+			_report("Pause, geht zum Stellplatz")
+		Command.FOLLOW:
+			_report("folgt dir")
 		Command.FULL_SERVICE, Command.FUEL_ONLY, Command.AMMO_ONLY, Command.REPAIR, Command.QUICK_SERVICE:
 			if target is Aircraft and dispatch != null:
+				# M3.5: Auftrag = Handbetrieb für diese Maschine (Automatik aus, bis „Automatik“)
+				if dispatch.has_method("set_self_service"):
+					dispatch.set_self_service(target, true)
 				dispatch.plan_for(target, cmd)
+				ordered = true
+				if exclusive:
+					# Auftrag nur für diesen Mechaniker: anderes KI-Personal gibt diese Jobs ab
+					var bd := _board()
+					for j: GroundJob in bd.open_jobs(target):
+						if not _job_allowed(j):
+							continue
+						if j.worker != null and is_instance_valid(j.worker) and j.worker != _worker_node() \
+								and bd.is_ai_worker(j.worker):
+							bd.release(j.id, j.worker)
+						if j.worker == null or not is_instance_valid(j.worker):
+							j.for_worker = self
+				_report("%s – verstanden" % COMMAND_LABELS[cmd])
+			elif cmd == Command.FULL_SERVICE:
+				_report("Automatik – arbeitet selbstständig")
 		Command.TRUCK_TO_ME:
 			var t := dispatch.fuel_truck
 			var goal: Vector3 = target.global_position
@@ -194,6 +323,105 @@ func command(cmd: int, target: Node) -> bool:
 			_legs = _route_drives([{drive = t, pos = goal + away.normalized() * TRUCK_STOP}])
 			_leg_for = "cmd"
 	return true
+
+
+## M3.5: Fahrzeug rufen (zur Maschine target; danach bedient der Spieler selbst) bzw. zurück zum
+## Stellplatz schicken (vorher Schlauch einrollen). Rückgabe: angenommen.
+func _vehicle_command(cmd: int, target: Node) -> bool:
+	var v := _vehicle_for(cmd)
+	if v == null:
+		return false
+	var legs := []
+	var call := cmd in [Command.CALL_TRUCK, Command.CALL_CART]
+	var hose = v.get("hose")
+	if call:
+		var a := target as Aircraft
+		if a == null:
+			return false
+		var cart := cmd == Command.CALL_CART
+		var pt := a.service_point(ServiceMarkers.SVC_GUN_HATCH_L if cart else ServiceMarkers.SVC_FUEL_CAP)
+		legs.append({drive = v, pos = _vehicle_spot(a, pt, cart)})
+		if dispatch.has_method("set_self_service"):
+			dispatch.set_self_service(a, true)
+		_then_text = "%s steht bereit" % vehicle_label(v)
+	else:
+		if hose is FuelHose and hose.is_coupled():
+			_report("Schlauch ist noch angekoppelt – erst abkoppeln")
+			return false
+		legs = tidy_legs([v], true)
+		if legs.is_empty():
+			_report("%s steht schon am Stellplatz" % vehicle_label(v))
+			return true
+		_then_text = "%s am Stellplatz" % vehicle_label(v)
+	_release_mine()
+	_drop_focus()
+	ordered = false
+	command_kind = Command.FULL_SERVICE
+	command_target = null
+	_then_kind = Command.FULL_SERVICE
+	_legs = _route_drives(legs)
+	_leg_for = "cmd"
+	_leg_left = -1.0
+	_report("%s %s" % [vehicle_label(v), "kommt" if call else "fährt zurück"])
+	return true
+
+
+## Aufräumen: Schlauch einrollen (Tankwagen), Wagen zum Stellplatz fahren, zu Fuß zum Crew-Platz.
+## Wagen, die noch gebraucht werden (Schlauch gekoppelt, fremder Fahrer), bleiben stehen.
+func tidy_legs(vehicles: Array, walk_home: bool) -> Array:
+	var legs := []
+	for v in vehicles:
+		if v == null or not is_instance_valid(v):
+			continue
+		var hose = v.get("hose")
+		if hose is FuelHose and hose.is_coupled():
+			continue
+		if v.driver_seat.controller != null and v.driver_seat.controller != self:
+			continue
+		if hose is FuelHose and not hose.stowed:
+			legs.append({pos = hose.reel_position(), wait = 0.0, teleport = false, stow = v})
+		var home: Vector3 = dispatch.home_of(v) if dispatch != null and dispatch.has_method("home_of") else v.global_position
+		if _flat_dist(v.global_position, home) > HOME_R:
+			legs.append({drive = v, pos = home})
+	if walk_home and dispatch != null and (not legs.is_empty() or _flat_dist(position_now(), dispatch.crew_spawn) > 3.0):
+		legs.append({pos = dispatch.crew_spawn, wait = 0.0, teleport = false})
+	return legs
+
+
+## Auftrag erledigt: aufräumen und zurück (Wagen, die zu dem Auftrag gehören).
+func _finish_order() -> void:
+	var vs := []
+	if dispatch != null:
+		if command_kind in [Command.FULL_SERVICE, Command.FUEL_ONLY, Command.QUICK_SERVICE]:
+			vs.append(dispatch.fuel_truck)
+		if command_kind in [Command.FULL_SERVICE, Command.AMMO_ONLY, Command.QUICK_SERVICE, Command.REPAIR]:
+			vs.append(dispatch.ammo_cart)
+	var what: String = COMMAND_LABELS[command_kind]
+	ordered = false
+	_drop_focus()
+	_legs = _route_drives(tidy_legs(vs, true))
+	_then_kind = Command.FULL_SERVICE
+	command_kind = Command.FULL_SERVICE
+	command_target = null
+	_then_text = "zurück am Stellplatz"
+	if _legs.is_empty():
+		_report("%s erledigt" % what)
+		_then_text = ""
+		return
+	_leg_for = "cmd"
+	_leg_left = -1.0
+	_report("%s erledigt – räumt auf" % what)
+
+
+## Hat der Auftrag noch offene Arbeit (Jobs an der Zielmaschine, die dieser Befehl erlaubt)?
+func _order_open() -> bool:
+	var b := _board()
+	if b == null or command_target == null or not is_instance_valid(command_target):
+		return false
+	for j: GroundJob in b.open_jobs(command_target):
+		if _job_allowed(j) and not j.reserved:
+			return true
+	return false
 
 
 func compute_intent(_dt: float) -> PilotIntent:
@@ -284,8 +512,11 @@ func think(dt: float) -> void:
 	if _leg_for == "cmd":
 		if _legs.is_empty():
 			_leg_for = ""
-			command_kind = Command.FULL_SERVICE
+			command_kind = _then_kind
 			command_target = null
+			if _then_text != "":
+				_report(_then_text)
+				_then_text = ""
 		else:
 			_run_legs(dt)
 			return
@@ -307,11 +538,17 @@ func think(dt: float) -> void:
 	if j != null and j.blocked_reason != &"" and not _fixable(j):
 		b.release(j.id, _worker_node())
 		j = null
+	if j != null and (j.reserved or (j.for_worker != null and is_instance_valid(j.for_worker) and j.for_worker != self)):
+		if j.worker == _worker_node():
+			b.release(j.id, _worker_node())
+		j = null
 	if j == null or not j.is_open() or not _job_allowed(j):
 		_drop_focus()
 		j = _pick_job()
 		if j == null:
 			state = State.IDLE
+			if ordered and not _order_open():
+				_finish_order()
 			return
 	_work_on(j, dt)
 
@@ -363,7 +600,9 @@ func _pick_job() -> GroundJob:
 	var best_score := -INF
 	var here := position_now()
 	for j: GroundJob in b.open_jobs():
-		if (j.blocked_reason != &"" and not _fixable(j)) or not _job_allowed(j):
+		if (j.blocked_reason != &"" and not _fixable(j)) or not _job_allowed(j) or j.reserved:
+			continue
+		if j.for_worker != null and is_instance_valid(j.for_worker) and j.for_worker != self:
 			continue
 		var mine := j.worker == _worker_node()
 		if j.worker != null and is_instance_valid(j.worker) and not mine:
@@ -377,7 +616,7 @@ func _pick_job() -> GroundJob:
 		if refill and (dispatch == null or j.target != dispatch.fuel_truck):
 			continue
 		var d := here.distance_to(_rough_pos(j))
-		if not mine and _idle_other_closer(j, d):
+		if not mine and j.for_worker != self and _idle_other_closer(j, d):
 			continue
 		# Priorität zuerst, dann längste Kette (Pumpzeit zählt doppelt: läuft parallel), dann Weg.
 		var score := j.priority * 1000.0 + _job_length(j, b.rules) - d / maxf(b.rules.walk_speed, 0.1) \
@@ -593,6 +832,10 @@ func _run_legs(dt: float) -> void:
 func _arrive() -> void:
 	var leg: Dictionary = _legs.pop_front()
 	_leg_left = -1.0
+	if leg.has("stow"):
+		var h = leg.stow.get("hose") if is_instance_valid(leg.stow) else null
+		if h is FuelHose and not h.is_coupled():
+			h.stow()                       # M3.5: Schlauch eingerollt
 	if leg.get("toolbox", false):
 		var j := _board().get_job(job_id)
 		if j is RepairJob:
@@ -1104,5 +1347,7 @@ func _release_mine() -> void:
 	if b == null:
 		return
 	for j: GroundJob in b.open_jobs():
+		if j.for_worker == self:
+			j.for_worker = null
 		if j.worker == _worker_node() and not j.autonomous(j.current_step(), b.rules):
 			b.release(j.id, _worker_node())

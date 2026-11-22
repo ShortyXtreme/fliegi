@@ -37,7 +37,8 @@ static func groups(ctx: int) -> Array:
 				["Bewegen", 0, [["Gehen", "W A S D", "linker Stick"], ["Umsehen", "Maus", "rechter Stick"],
 					["Sprinten", "Shift", "L3"], ["Ego / Third-Person", "C", "R3"]]],
 				["Arbeiten", 1, [["Interagieren (halten)", "E", "A"], ["Ablegen", "G", "B"],
-					["Einsteigen", "F", "Y"], ["Befehlsrad (halten)", "Tab", "LB"]]],
+					["Einsteigen", "F", "Y"], ["Befehlsrad (halten)", "Tab", "LB"],
+					["Rad: Ebene / Maschine", "Mausrad / Rechtsklick", "Kreuz ↑↓ / ←→"]]],
 				general]
 		InputBindings.Context.DRIVE:
 			return [
@@ -65,7 +66,7 @@ static func tips(ctx: int) -> Array:
 	match ctx:
 		InputBindings.Context.CREW:
 			return ["Am Flugzeug: Interagieren halten = tanken, munitionieren, reparieren.",
-				"Befehlsrad halten, Richtung wählen, loslassen = Befehl an die Bodenmannschaft."]
+				"Befehlsrad: Ebene Fahrzeuge (rufen / zurück) oder ein Mechaniker (Tanken, Munition …)."]
 		InputBindings.Context.DRIVE:
 			return ["Tankwagen neben die Maschine fahren, aussteigen, Schlauch mit Interagieren nehmen."]
 		_:

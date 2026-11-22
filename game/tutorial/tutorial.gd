@@ -322,11 +322,11 @@ func build_steps() -> Array:
 		 "keys": [[&"eject_hold", "Aussteigen (1 s halten)"]],
 		 "tasks": [["Aussteigen", func(): return _ctx() == C.CREW]]},
 		{"title": "Tanken",
-		 "text": "Befehlsrad halten und „Nur tanken“ wählen – oder selbst: Schlauch am Tankwagen nehmen und am Tankdeckel ankoppeln (Interagieren halten).",
+		 "text": "Befehlsrad halten, Ebene „Mechaniker A“, „Tanken“ wählen – oder selbst: Schlauch am Tankwagen nehmen und am Tankdeckel ankoppeln (Interagieren halten).",
 		 "keys": [[&"crew_wheel", "Befehlsrad (halten)"], [&"crew_interact", "Interagieren (halten)"]],
 		 "setup": _setup_fuel,
 		 "tasks": [
-			["„Nur tanken“ oder Schlauch ankoppeln", func(): return _cmd_fuel or _fuel() > _fuel_mark + 0.01],
+			["Befehl „Tanken“ oder Schlauch ankoppeln", func(): return _cmd_fuel or _fuel() > _fuel_mark + 0.01],
 			["Tank füllt sich (+10 %)", func(): return _fuel() > _fuel_mark + 0.1]]},
 		{"title": "Munition",
 		 "text": "Kiste vom Munitionswagen nehmen, zur MG-Klappe am Flügel tragen und Interagieren halten: Klappe auf, Gurt ein, Klappe zu.",

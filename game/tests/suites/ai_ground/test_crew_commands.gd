@@ -89,7 +89,8 @@ func test_wheel_api_and_client() -> Array:
 	var c2 := GroundCrewBrain.issue(C.FUEL_ONLY, s.a)
 	Authority.simulate_client = false
 	var bad := br.command(C.TRUCK_TO_ME, s.a)          # kein Tankwagen am Platz
-	var ok: bool = e.size() == 8 and e[0].label == "Voll abfertigen" and e[7].label == "Zurück/Pause" \
+	var ok: bool = e.size() == 8 and e[0].label == "Tanken" and e[6].label == "Zurück / Pause" \
+		and GroundCrewBrain.wheel_entries(0).size() == 4 \
 		and not c1 and c2 == 0 and not bad and s.board.jobs.is_empty()
 	return [ok, "%d Einträge, Client %s/%d, ohne Wagen %s" % [e.size(), c1, c2, bad]]
 

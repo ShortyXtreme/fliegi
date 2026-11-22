@@ -24,6 +24,10 @@ var priority := 0
 ## Gearbeitete Sekunden (Spielzeit, für Wertung und Tests).
 var elapsed := 0.0
 var cancelled := false
+## M3.5: Selbstbedienung – nur der Spieler arbeitet daran (KI-Personal nimmt den Job nicht).
+var reserved := false
+## M3.5: Auftrag an genau einen Mechaniker (GroundCrewBrain); andere nehmen den Job nicht.
+var for_worker: Node = null
 
 const BLOCK_TEXT := {
 	&"depot_empty": "Lager leer",
