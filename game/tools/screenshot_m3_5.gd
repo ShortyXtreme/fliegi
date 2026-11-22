@@ -84,25 +84,43 @@ func _absturz(game: Game) -> void:
 	for i in 60:
 		await physics_frame
 	a.damage.apply_hit(DamageModel.Zone.WING_L, 1000.0, null)
-	for i in 55:
+	for i in 50:
 		await physics_frame
 	var c := Camera3D.new()
 	c.fov = 50.0
 	c.far = 9000.0
 	game.add_child(c)
 	c.make_current()
-	var xf := a.global_transform
-	c.global_position = xf.origin + Vector3(-14, 7, 22)
-	c.look_at(xf.origin + Vector3(-6, 0, 0), Vector3.UP)
+	var deb: Node3D = null
+	for n in game.find_children("Debris", "RigidBody3D", true, false):
+		deb = n
+	var ap := a.global_position
+	var mid := ap if deb == null else ap.lerp(deb.global_position, 0.5)
+	var span := 20.0 if deb == null else ap.distance_to(deb.global_position)
+	var side := (ap - mid).cross(Vector3.UP).normalized() if deb != null else Vector3.FORWARD
+	c.global_position = mid + side * (span * 1.1 + 14.0) + Vector3.UP * 6.0
+	c.look_at(mid, Vector3.UP)
+	for i in 2:
+		await process_frame
 	await _shot("m3_5_absturz_fluegel_ab")
 	# bis zum Aufschlag weiterfallen lassen, dann die Absturzstelle
 	for i in 60 * 30:
 		await physics_frame
 		if a.damage.outcome != DamageModel.Outcome.FLYING:
 			break
-	for i in 70:
+	for i in 60 * 7:
 		await physics_frame
 	var g := a.global_position
-	c.global_position = g + Vector3(-45, 18, 40)
-	c.look_at(g + Vector3(0, 6, 0), Vector3.UP)
+	print("ABSTURZ out=%d y=%.0f boden=%.0f destroyed=%s" % [a.damage.outcome, g.y, WorldGround.height_at(g.x, g.z), a.damage.is_destroyed])
+	for n in game.find_children("CrashSite", "", true, false):
+		g = (n as Node3D).global_position
+	var site: Node3D = null
+	for n in game.find_children("CrashSite", "", true, false):
+		site = n
+	for k in 4:   # Ursprungsverschiebung (OriginShifter) kann die Kamera versetzen
+		if site != null:
+			g = site.global_position
+		c.global_position = g + Vector3(-60, 22, 55)
+		c.look_at(g + Vector3(0, 12, 0), Vector3.UP)
+		await process_frame
 	await _shot("m3_5_absturzstelle")
