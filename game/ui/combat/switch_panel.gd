@@ -6,8 +6,8 @@ extends Control
 ## bei stehendem Motor), im Arcade-Modus nur bei stehendem Motor (dann eine Zeile mit der Motortaste).
 ## Daten: gather(EngineControl, realistic). CombatHud setzt position/scale.
 
-const W := 330.0
-const H_REAL := 140.0
+const W := 340.0
+const H_REAL := 146.0
 const H_ARCADE := 58.0
 const OLIVE := Color(0.20, 0.23, 0.14, 0.9)
 const BRASS := Color(0.80, 0.64, 0.32)
@@ -47,20 +47,20 @@ func set_data(d: Dictionary, msg: String, dt: float) -> void:
 func _switch(x: float, label: String, on: bool, action: StringName, button := false) -> void:
 	var cx := x + 26.0
 	# Grundplatte und Kippschalter
-	draw_circle(Vector2(cx, 44), 13.0, Color(0.08, 0.08, 0.06, 0.95))
-	draw_arc(Vector2(cx, 44), 13.0, 0, TAU, 24, Color(BRASS, 0.9), 1.5, true)
+	draw_circle(Vector2(cx, 52), 13.0, Color(0.08, 0.08, 0.06, 0.95))
+	draw_arc(Vector2(cx, 52), 13.0, 0, TAU, 24, Color(BRASS, 0.9), 1.5, true)
 	if button:
-		draw_circle(Vector2(cx, 44), 8.0 if on else 9.5, Color(0.75, 0.2, 0.15) if on else Color(0.55, 0.14, 0.1))
+		draw_circle(Vector2(cx, 52), 8.0 if on else 9.5, Color(0.75, 0.2, 0.15) if on else Color(0.55, 0.14, 0.1))
 	else:
-		var tip := Vector2(cx, 44 + (-15.0 if on else 15.0))
-		draw_line(Vector2(cx, 44), tip, Color(0.85, 0.85, 0.82), 4.0, true)
+		var tip := Vector2(cx, 52 + (-15.0 if on else 15.0))
+		draw_line(Vector2(cx, 52), tip, Color(0.85, 0.85, 0.82), 4.0, true)
 		draw_circle(tip, 3.5, Color(0.92, 0.92, 0.9))
-	HudStyle.text(self, Vector2(cx, 26 - 6), "AN" if not button else "", 9, HudStyle.DIM, false, 1)
-	HudStyle.heading(self, Vector2(cx, 78), label, 9, HudStyle.ACCENT if on else HudStyle.LABEL, 1)
+	HudStyle.text(self, Vector2(cx, 33), "AN" if not button else "", 9, HudStyle.DIM, false, 1)
+	HudStyle.heading(self, Vector2(cx, 88), label, 9, HudStyle.ACCENT if on else HudStyle.LABEL, 1)
 	var k := KeyGlyphs.token(action, KeyGlyphs.pad and false)
 	if k != "":
 		var kw := KeyGlyphs.token_width(k, 20, false)
-		KeyGlyphs.draw_token(self, Vector2(cx - kw * 0.5, 98), k, 20, false)
+		KeyGlyphs.draw_token(self, Vector2(cx - kw * 0.5, 110), k, 20, false)
 
 
 func _draw() -> void:
@@ -86,9 +86,9 @@ func _draw() -> void:
 		if String(data.get("msg", "")) != "":
 			HudStyle.text(self, Vector2(W - 10, 50), String(data.msg), 11, HudStyle.CAUTION, false, 2)
 		return
-	HudStyle.heading(self, Vector2(12, 16), "Motor · Elektrik", 10, BRASS)
-	draw_circle(Vector2(W - 18, 12), 5.5, lamp)
-	HudStyle.text(self, Vector2(W - 30, 16), String(data.get("phase_name", "")), 10, HudStyle.LABEL, false, 2)
+	HudStyle.heading(self, Vector2(12, 20), "Motor · Elektrik", 10, BRASS)
+	draw_circle(Vector2(W - 18, 15), 5.5, lamp)
+	HudStyle.text(self, Vector2(W - 30, 20), String(data.get("phase_name", "")), 10, HudStyle.LABEL, false, 2)
 	var x := 6.0
 	_switch(x, "Haupt", data.master, &"master_toggle")
 	_switch(x + 64, "Pumpe", data.fuel_pump, &"fuel_pump_toggle")

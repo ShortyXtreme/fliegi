@@ -222,7 +222,8 @@ func _layout() -> void:
 	flight_panel.scale = Vector2(s, s)
 	flight_panel.position = Vector2(MARGIN * s, vs.y - (MARGIN + flight_panel.panel_height()) * s)
 	switch_panel.scale = Vector2(s, s)
-	switch_panel.position = Vector2((MARGIN + FlightPanel.W + 12.0) * s, vs.y - (MARGIN + switch_panel.panel_height()) * s)
+	# über dem Flug-Panel (Zone Zustand links unten), frei von der Tasten-Leiste
+	switch_panel.position = Vector2(MARGIN * s, vs.y - (MARGIN + flight_panel.panel_height() + 10.0 + switch_panel.panel_height()) * s)
 	weapon_panel.scale = Vector2(s, s)
 	weapon_panel.position = Vector2(vs.x - (MARGIN + WeaponPanel.W) * s, vs.y - (MARGIN + WeaponPanel.H) * s)
 	compass.scale = Vector2(s, s)
