@@ -84,6 +84,7 @@ static func groups(ctx: int) -> Array:
 					["Seitenruder", k([&"kb_yaw_left", &"kb_yaw_right"]), p([&"kb_yaw_left", &"kb_yaw_right"])],
 					["Gas", k([&"throttle_up", &"throttle_down"], " / "), "Kreuz ↑ ↓"],
 					["Motor an / aus", k(&"engine_toggle"), p(&"engine_toggle")],
+					["Realistisch: Haupt · Pumpe · Zündung · Anlasser", k([&"master_toggle", &"fuel_pump_toggle", &"magneto_toggle", &"starter_hold"]), "X halten"],
 					["Klappen", k(&"flaps_cycle"), p(&"flaps_cycle")], ["Fahrwerk", k(&"gear_toggle"), p(&"gear_toggle")],
 					["Bremsen / Parkbremse", k(&"brakes"), p(&"brakes")]]],
 				["Kamera", 0, [["Kamera wechseln", k(&"camera_next"), p(&"camera_next")],
