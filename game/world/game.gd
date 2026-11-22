@@ -330,11 +330,6 @@ func _setup_ground_hud() -> void:
 			# M3.2: nur echte Landungen melden (nicht den Start am Abstellplatz)
 			if hud.combat != null and ops == blue_ops and String(text).ends_with("gelandet"):
 				hud.combat.kill_feed.add_text(a, text, a))
-	# M3.5: Funkmeldungen des eigenen Personals (Befehl verstanden, erledigt, Wagen bereit …)
-	if blue_ops != null:
-		blue_ops.dispatch.crew_report.connect(func(text, _b):
-			if hud.combat != null:
-				hud.combat.kill_feed.add_text(null, "Funk · " + String(text), player_aircraft))
 
 
 func _on_context_changed(ctx: int) -> void:
