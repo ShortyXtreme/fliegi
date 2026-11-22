@@ -35,10 +35,10 @@ func _shot(n: String) -> void:
 
 func _start(tutorial := false) -> void:
 	CombatHud.replace_legacy_text = true
+	Game.tutorial_mode = tutorial
 	game = load("res://world/main.tscn").instantiate()
-	if tutorial:
-		game.tutorial_mode = true
 	root.add_child(game)
+	Game.tutorial_mode = false
 	await _frames(60)
 	if game.hud._help.visible:
 		game.hud.toggle_help()
@@ -77,4 +77,9 @@ func _run() -> void:
 			gh.wheel.feed_mouse(Vector2(70, -30))
 			await _frames(3)
 			await _shot("m3_5_befehlsrad")
+		"markierung":
+			await _start(true)
+			await _exit_near("svc_fuel_cap", 5.5)
+			await _frames(30)
+			await _shot("m3_5_tutorial_markierung")
 	quit(0)

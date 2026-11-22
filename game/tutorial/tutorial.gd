@@ -111,6 +111,7 @@ func go_to(i: int) -> void:
 		done.append(false)
 	if s.has("setup"):
 		(s.setup as Callable).call()
+	_set_marks(s.get("marks", Callable()))
 	save_progress("last_step", i)
 	_refresh()
 	step_changed.emit(i)
@@ -132,6 +133,7 @@ func _finish(completed: bool) -> void:
 	if completed:
 		save_progress("completed", true)
 	_set_keys([])
+	_set_marks(Callable())
 	if card != null and is_instance_valid(card):
 		card.queue_free()
 	_remove_target()
@@ -322,21 +324,24 @@ func build_steps() -> Array:
 		 "keys": [[&"eject_hold", "Aussteigen (1 s halten)"]],
 		 "tasks": [["Aussteigen", func(): return _ctx() == C.CREW]]},
 		{"title": "Tanken",
-		 "text": "Befehlsrad halten, Ebene „Mechaniker A“, „Tanken“ wählen – oder selbst: Schlauch am Tankwagen nehmen und am Tankdeckel ankoppeln (Interagieren halten).",
+		 "text": "Der Tankwagen steht neben der Maschine. Selbst tanken: am gelben Ring „Schlauch hier nehmen“ Interagieren halten, zum Ring „Tankstutzen“ am Rumpf gehen und dort halten – der Schlauch koppelt an, die Pumpe läuft. Oder: Befehlsrad halten, Ebene „Mechaniker A“, „Tanken“.",
+		 "marks": _marks_fuel,
 		 "keys": [[&"crew_wheel", "Befehlsrad (halten)"], [&"crew_interact", "Interagieren (halten)"]],
 		 "setup": _setup_fuel,
 		 "tasks": [
 			["Befehl „Tanken“ oder Schlauch ankoppeln", func(): return _cmd_fuel or _fuel() > _fuel_mark + 0.01],
 			["Tank füllt sich (+10 %)", func(): return _fuel() > _fuel_mark + 0.1]]},
 		{"title": "Munition",
-		 "text": "Kiste vom Munitionswagen nehmen, zur MG-Klappe am Flügel tragen und Interagieren halten: Klappe auf, Gurt ein, Klappe zu.",
+		 "text": "Am Munitionswagen beim Ring „Kiste hier holen“ Interagieren halten. Die Kiste zur markierten MG-Klappe im Flügel tragen und dort halten: Klappe auf, Gurt einlegen, Klappe zu.",
+		 "marks": _marks_ammo,
 		 "keys": [[&"crew_interact", "Interagieren (halten)"], [&"crew_drop", "Ablegen"]],
 		 "setup": _setup_ammo,
 		 "tasks": [
 			["Munitionskiste nehmen", func(): return _crate_taken],
 			["Klappe öffnen, Gurt einlegen", _chk_ammo]]},
 		{"title": "Einsteigen",
-		 "text": "Zum Cockpit gehen und einsteigen.",
+		 "text": "Zum markierten Einstieg am Cockpit gehen und einsteigen.",
+		 "marks": _marks_entry,
 		 "keys": [[&"crew_enter", "Einsteigen"]],
 		 "tasks": [["Einsteigen", func(): return _ctx() == C.FLIGHT]]},
 		{"title": "Vorflug-Check",
@@ -418,13 +423,93 @@ func _flaps() -> int:
 	return int(pl.flap_index) if pl != null else -1
 
 
+# --- M3.5: 3D-Markierungen ---------------------------------------------------------
+
+func _guide() -> InteractionGuide:
+	var g = game.get("guide") if game != null else null
+	return g if g is InteractionGuide and is_instance_valid(g) else null
+
+
+func _set_marks(c: Callable) -> void:
+	var g := _guide()
+	if g != null:
+		g.override = c
+
+
+func _carried() -> StringName:
+	var ch = game.get("crew") if game != null else null
+	var it = ch.get("carried") if ch != null else null
+	return it.kind if it is Object and it.get("kind") != null else &""
+
+
+func _ops():
+	return game.get("blue_ops") if game != null else null
+
+
+func _marks_fuel() -> Array:
+	var a := _aircraft()
+	var ops = _ops()
+	if a == null or ops == null or _ctx() != InputBindings.Context.CREW:
+		return []
+	var cap := InteractionGuide.at_aircraft(a, ServiceMarkers.SVC_FUEL_CAP, "Tankstutzen", "hier ankoppeln – Interagieren halten")
+	var hose = ops.truck.hose if ops.truck != null else null
+	if _carried() == CarryItem.HOSE:
+		return [cap]
+	if hose is FuelHose and hose.is_coupled():
+		cap.sub = "Schlauch gekoppelt – Pumpe läuft"
+		return [cap]
+	return [InteractionGuide.at_vehicle(ops.truck, ServiceMarkers.HOSE_REEL, "Schlauch hier nehmen", "Interagieren halten"), cap]
+
+
+func _marks_ammo() -> Array:
+	var a := _aircraft()
+	var ops = _ops()
+	if a == null or ops == null or _ctx() != InputBindings.Context.CREW:
+		return []
+	var hatches := []
+	for i in a.weapons.gun_count():
+		if a.weapons.gun_ammo(i) < a.weapons.gun_capacity(i):
+			var m := ServiceMarkers.SVC_GUN_HATCH_L if i % 2 == 0 else ServiceMarkers.SVC_GUN_HATCH_R
+			if not hatches.has(m):
+				hatches.append(m)
+	if _carried() == CarryItem.CRATE:
+		return hatches.map(func(m): return InteractionGuide.at_aircraft(a, m, InteractionGuide.hatch_text(m),
+			"Klappe auf, Gurt ein, Klappe zu – halten"))
+	var out := [InteractionGuide.at_vehicle(ops.cart, ServiceMarkers.crate_slot(1), "Kiste hier holen", "Interagieren halten")]
+	if not hatches.is_empty():
+		out.append(InteractionGuide.at_aircraft(a, hatches[0], InteractionGuide.hatch_text(hatches[0]), "hierhin tragen"))
+	return out
+
+
+func _marks_entry() -> Array:
+	var a := _aircraft()
+	if a == null or _ctx() != InputBindings.Context.CREW:
+		return []
+	return [InteractionGuide.at_aircraft(a, ServiceMarkers.SVC_ENTRY, "Einstieg", "Einsteigen")]
+
+
+## Wagen neben die Maschine stellen (Tutorial: kein Rangieren nötig).
+func _park_vehicle(cart: bool) -> void:
+	var a := _aircraft()
+	var ops = _ops()
+	if a == null or ops == null:
+		return
+	var v: GroundVehicle = ops.cart if cart else ops.truck
+	var spot = ops.dispatch.vehicle_spot(a, cart)
+	if v != null and spot is Vector3 and v.driver_seat.controller == null:
+		var fwd := -a.global_transform.basis.z
+		v.place(spot, atan2(-fwd.x, -fwd.z))
+
+
 func _setup_fuel() -> void:
+	_park_vehicle(false)
 	_cmd_fuel = false
 	_fuel_mark = _fuel()
 	_connect_ground()
 
 
 func _setup_ammo() -> void:
+	_park_vehicle(true)
 	_crate_taken = false
 	_ammo_mark = -1
 	_connect_ground()

@@ -309,8 +309,14 @@ func _process(dt: float) -> void:
 	var ks := key_state()
 	var entries := KeyBar.entries_for(ks)
 	if not key_override.is_empty() and not ks.wheel_open:
-		entries = key_override.duplicate()
-		entries.append([&"help_toggle", "Hilfe"])
+		# M3.5: nur Tasten des aktuellen Kontexts (nach Ein-/Aussteigen keine Flugtasten zu Fuß
+		# bzw. Bodentasten im Cockpit); passt keine, gilt die automatische Leiste.
+		var ctx := current_context()
+		var fit := key_override.filter(func(e): return not (e[0] is StringName) \
+			or InputBindings.in_context(e[0], ctx))
+		if not fit.is_empty():
+			entries = fit
+			entries.append([&"help_toggle", "Hilfe"])
 	key_bar.set_entries(entries, pad)
 	_layout()
 
@@ -405,10 +411,16 @@ func _apply_flight_hud(flight: bool) -> void:
 	if not flight:
 		for n in ["combat", "_info", "_warn", "_warn2", "_aim_marker", "_nose_marker", "_help"]:
 			var c = hud.get(n)
-			if c is CanvasItem and (c as CanvasItem).visible:
+			if not (c is CanvasItem):
+				continue
+			# M3.5: auch unsichtbare Teile sperren (sonst blendet sich das Kampf-HUD im nächsten Frame
+			# selbst wieder ein); im Flug kommen nur die zurück, die vorher sichtbar waren.
+			if n == "combat" and (c as Node).process_mode != Node.PROCESS_MODE_DISABLED:
+				(c as Node).process_mode = Node.PROCESS_MODE_DISABLED
+				if not _hidden_flight.has(c):
+					_hidden_flight.append(c)
+			if (c as CanvasItem).visible:
 				(c as CanvasItem).visible = false
-				if n == "combat":
-					(c as Node).process_mode = Node.PROCESS_MODE_DISABLED
 				if not _hidden_flight.has(c) and n != "_help":
 					_hidden_flight.append(c)
 	elif not _hidden_flight.is_empty():
