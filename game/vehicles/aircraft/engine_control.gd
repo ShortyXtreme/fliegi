@@ -282,7 +282,7 @@ func _physics_process(dt: float) -> void:
 	_t += dt
 	# Teleport in die Luft (Neustart, Respawn): warm
 	var pos := aircraft.global_position
-	if _last_pos != Vector3.INF and pos.distance_to(_last_pos) > TELEPORT_M:
+	if _last_pos == Vector3.INF or pos.distance_to(_last_pos) > TELEPORT_M:
 		var t = aircraft.call("telemetry") if aircraft.has_method("telemetry") else null
 		if t != null and not t.on_ground and phase != Phase.RUNNING:
 			warm()

@@ -45,7 +45,9 @@ func test_volume_settings() -> Array:
 func test_game_sounds_wired() -> Array:
 	var g: Game = (load("res://world/main.tscn") as PackedScene).instantiate()
 	get_tree().root.add_child(g)
-	await _step(20)
+	await _step(5)
+	EngineControl.of(g.player_aircraft).warm()     # M3.5: Partie beginnt mit stehendem Motor
+	await _step(15)
 	var d := g.sound
 	var s: AircraftSound = d.aircraft.get(g.player_aircraft)
 	var eng_ok := s != null and s.engine.playing and s.engine.bus == &"Motor"

@@ -156,7 +156,8 @@ func test_tutorial_skip_and_diagnose() -> Array:
 	var quit_ok := not tu.active and g.hud.ground_hud.key_override.is_empty()
 	g.queue_free()
 	await _step(2)
-	return [d[0] and skipped and quit_ok and keys.has(&"crew_wheel"),
+	# M3.5: Schritt „Tanken“ im Cockpit – Tasten-Leiste zeigt nur Flug-Kontext (Aussteigen), keine Bodentasten
+	return [d[0] and skipped and quit_ok and not keys.has(&"crew_wheel") and keys.has(&"eject_hold"),
 		"%s, übersprungen %s, beendet %s, Leiste %s" % [d[1], skipped, quit_ok, str(keys)]]
 
 

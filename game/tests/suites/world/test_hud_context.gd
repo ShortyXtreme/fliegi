@@ -49,13 +49,12 @@ func _chain(tutorial: bool) -> Array:
 	await _hold("eject_hold", 75)
 	await _step(3)
 	res.append(_check(g, C.CREW, "ausgestiegen"))
-	# Befehlsrad auf/zu
-	g.hud.ground_hud.wheel_override = 1
+	# Funkgerät auf/zu
+	g.hud.ground_hud.toggle_radio()
 	await _step(3)
-	g.hud.ground_hud.wheel_override = 0
+	g.hud.ground_hud.toggle_radio()
 	await _step(3)
-	g.hud.ground_hud.wheel_override = -1
-	res.append(_check(g, C.CREW, "nach Rad"))
+	res.append(_check(g, C.CREW, "nach Funk"))
 	var truck: FuelTruck = g.blue_ops.truck
 	g.crew.global_position = truck.driver_seat.entry_position()
 	await _step(5)

@@ -242,6 +242,6 @@ func test_help_rows() -> Array:
 	var flight := GroundHelp.help_rows(InputBindings.Context.FLIGHT)
 	var has := func(rows: Array, act: String, kb: String) -> bool:
 		return rows.any(func(r): return String(r[0]).begins_with(act) and r[1] == kb)
-	var ok: bool = has.call(crew, "Befehlsrad", "Tab") and has.call(crew, "Einsteigen", "F") \
+	var ok: bool = has.call(crew, "Funkgerät", "Tab") and has.call(crew, "Einsteigen", "F") \
 		and has.call(drive, "Handbremse", "Leertaste") and has.call(flight, "Aussteigen", "J")
 	return [ok, "Zeilen zu Fuß %d, Fahren %d, Flug %d" % [crew.size(), drive.size(), flight.size()]]
