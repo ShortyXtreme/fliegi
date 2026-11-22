@@ -56,7 +56,56 @@ static func gather(aircraft: Aircraft, player: PlayerController, cam: CameraRig,
 	elif t.on_ground and aircraft.pilot_seat and aircraft.pilot_seat.intent.brakes > 0.1:
 		w.append(["BREMSE", 0, false])
 	d.warnings = w   # [Text, Stufe 0 Hinweis / 1 Vorsicht / 2 Warnung, blinkt]
+	d.lamps = lamps(aircraft, player, t, w)
 	return d
+
+
+## M3.5: Warnlampen-Reihe (Annunciator) unten am Flug-Panel: feste Lampen, aus = dunkel,
+## gelb = Hinweis, rot = Gefahr, Abriss blinkt. [{id, label, level 0/1/2, blink, text}].
+const LAMP_IDS := ["abriss", "fahrwerk", "kraftstoff", "motor", "bremse"]
+const LAMP_LABELS := {"abriss": "ABRISS", "fahrwerk": "FAHRW.", "kraftstoff": "KRAFTST.", "motor": "MOTOR",
+	"bremse": "BREMSE"}
+static func lamps(aircraft: Aircraft, player, t, w: Array) -> Array:
+	var st := {}
+	for id in LAMP_IDS:
+		st[id] = {id = id, label = LAMP_LABELS[id], level = 0, blink = false, text = ""}
+	var put := func(id: String, lvl: int, blink: bool, text: String):
+		if lvl > int(st[id].level):
+			st[id].level = lvl
+			st[id].blink = blink
+			st[id].text = text
+	for e in w:
+		var txt: String = String(e[0])
+		var lvl: int = maxi(int(e[1]), 1)
+		if txt.begins_with("STRÖMUNGSABRISS") or txt.begins_with("STALL"):
+			put.call("abriss", 2 if txt.begins_with("STRÖMUNGSABRISS") else 1, true,
+				"Strömungsabriss – Nase runter, Gas" if txt.begins_with("STRÖMUNGSABRISS") else "Abriss droht – nachdrücken")
+		elif txt.begins_with("FAHRWERK ZU SCHNELL"):
+			put.call("fahrwerk", 1, true, "Fahrwerk zu schnell (max. %d km/h)" % int(aircraft.data.gear_max_speed * 3.6))
+		elif txt.begins_with("FAHRWERK") or txt.begins_with("BAUCH"):
+			put.call("fahrwerk", 2, false, "Fahrwerk eingefahren!" if txt.begins_with("FAHRWERK") else "Bauchlandung")
+		elif txt.begins_with("PARKBREMSE"):
+			put.call("bremse", 1, false, "Parkbremse – Gas > 10 % oder Bremse löst")
+		elif txt.begins_with("BREMSE"):
+			put.call("bremse", 1, false, "Bremse")
+	var ff: float = t.fuel_fraction
+	if ff <= 0.05:
+		put.call("kraftstoff", 2, false, "Kraftstoff fast leer")
+	elif ff < 0.15:
+		put.call("kraftstoff", 1, false, "Kraftstoff niedrig")
+	var dm = aircraft.damage
+	var ec := EngineControl.find(aircraft)
+	var running: bool = aircraft.flight.engine.running and (dm == null or not dm.is_engine_failed())
+	if not running and not t.on_ground:
+		put.call("motor", 2, true, "Motor aus!")
+	elif dm != null and dm.hp_fraction(DamageModel.Zone.ENGINE) < 0.5 and not dm.is_destroyed:
+		put.call("motor", 2 if dm.hp_fraction(DamageModel.Zone.ENGINE) < 0.25 else 1, false, "Motor heiß / beschädigt")
+	elif not running and t.on_ground and ec != null:
+		put.call("motor", 1, false, "Motor aus")
+	var out := []
+	for id in LAMP_IDS:
+		out.append(st[id])
+	return out
 
 
 func set_data(d: Dictionary) -> void:
@@ -73,7 +122,7 @@ static func dec(v: float, digits := 1) -> String:
 
 
 func panel_height() -> float:
-	return 196.0
+	return 226.0
 
 
 func _draw() -> void:
@@ -141,11 +190,38 @@ func _draw() -> void:
 	cx = _chip(cx, String(data.mode), HudStyle.ACCENT)
 	if data.mouse_aim:
 		cx = _chip(cx, "Maus-Ziel", HudStyle.LABEL)
-	for e in data.get("warnings", []):
-		if int(e[1]) == 0:
-			cx = _chip(cx, String(e[0]).get_slice("  ", 0), HudStyle.CAUTION)
+	# M3.5: Parkbremse/Bremse zeigt die Lampe BREMSE
+	_draw_lamps(198.0)
 	if data.fps >= 0:
 		HudStyle.text(self, Vector2(W - PAD, 181), "%d FPS" % data.fps, 12, HudStyle.DIM, false, 2)
+
+
+## M3.5: Lampenreihe + Klartext der wichtigsten Warnung (klein, keine großen Texte in der Mitte).
+func _draw_lamps(y: float) -> void:
+	var ls: Array = data.get("lamps", [])
+	if ls.is_empty():
+		return
+	HudStyle.rule(self, Vector2(PAD, y - 6), Vector2(W - PAD, y - 6))
+	var x := PAD
+	var top := {}
+	for l in ls:
+		var lvl: int = l.level
+		var col := Color(0.16, 0.14, 0.11)
+		if lvl >= 2:
+			col = HudStyle.WARNING
+		elif lvl == 1:
+			col = HudStyle.CAUTION
+		var lit: bool = lvl > 0 and not (l.blink and fmod(_blink, 0.5) > 0.3)
+		draw_circle(Vector2(x + 6, y + 6), 5.5, col if (lit or lvl == 0) else col.darkened(0.6))
+		draw_arc(Vector2(x + 6, y + 6), 6.0, 0, TAU, 16, Color(HudStyle.BG_EDGE, 0.9), 1.0, true)
+		HudStyle.text(self, Vector2(x + 15, y + 10), String(l.label), 9,
+				(HudStyle.VALUE if lit else HudStyle.LABEL) if lvl > 0 else HudStyle.DIM, true)
+		x += 15.0 + HudStyle.text_width(String(l.label), 9, true) + 9.0
+		if lvl > int(top.get("level", 0)):
+			top = l
+	if not top.is_empty():
+		HudStyle.text(self, Vector2(PAD, y + 24), String(top.text), 11,
+				HudStyle.WARNING if int(top.level) >= 2 else HudStyle.CAUTION, false)
 
 
 func _chip(x: float, t: String, col: Color) -> float:

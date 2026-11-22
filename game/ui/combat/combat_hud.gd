@@ -96,7 +96,8 @@ func _process(dt: float) -> void:
 	if replace_legacy_text:
 		_hide_legacy()
 	flight_panel.set_data(FlightPanel.gather(a, hud.player, hud.camera_rig, hud.debug_visible))
-	alerts.set_warnings(flight_panel.data.get("warnings", []), dt)
+	# M3.5: Warnungen als Lampen am Flug-Panel – keine großen Texte mehr in der Bildmitte
+	alerts.set_warnings([], dt)
 	_update_switches(a, dt)
 	var wd := WeaponPanel.gather(a)
 	weapon_panel.set_data(wd, dt)

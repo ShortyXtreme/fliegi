@@ -169,3 +169,29 @@ func test_weapon_panel_data() -> Array:
 		and absf(d.zones[DamageModel.Zone.WING_L] - 0.5) < 0.01
 	return [ok, "Gruppen %d, Munition %s/%s, Flügel L %.2f" % [d.groups.size(), g.get("ammo"),
 		g.get("max"), d.zones[DamageModel.Zone.WING_L]]]
+
+
+## M3.5: Warnlampen – feste Reihe, Stufen (gelb/rot), Abriss blinkt, Kraftstoff/Motor/Bremse;
+## keine Warnungen mehr in der Bildmitte (AlertStack leer).
+func test_warning_lamps() -> Array:
+	var a := _spawn(true)
+	var t := a.telemetry()
+	t.on_ground = false
+	t.stall_amount = 0.5
+	t.fuel_fraction = 0.1
+	var w := [["STRÖMUNGSABRISS – Nase runter, Gas", 2, true], ["PARKBREMSE  (Gas > 10 % oder B)", 0, false]]
+	var ls := FlightPanel.lamps(a, null, t, w)
+	var by := {}
+	for l in ls:
+		by[l.id] = l
+	var ok: bool = ls.size() == 5 and by.abriss.level == 2 and by.abriss.blink and by.kraftstoff.level == 1 \
+		and by.bremse.level == 1 and by.fahrwerk.level == 0
+	t.fuel_fraction = 0.02
+	a.flight.engine.running = false
+	var ls2 := FlightPanel.lamps(a, null, t, [])
+	var m2 := {}
+	for l in ls2:
+		m2[l.id] = l
+	a.flight.engine.running = true
+	ok = ok and m2.kraftstoff.level == 2 and m2.motor.level == 2 and m2.abriss.level == 0
+	return [ok, "Lampen %s / %s" % [ls.map(func(l): return [l.id, l.level]), ls2.map(func(l): return [l.id, l.level])]]

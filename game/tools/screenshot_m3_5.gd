@@ -100,6 +100,15 @@ func _run() -> void:
 			ec.set_starter(true)
 			await _frames(20)
 			await _shot("m3_5_schalterpanel")
+		"lampen":
+			await _start()
+			var pa := game.player_aircraft
+			var b := Basis.looking_at(Vector3(0, 0, -1), Vector3.UP)
+			pa.place(Transform3D(b, pa.global_position + Vector3(0, 600, 0)), 105.0, 0.9, true)
+			game.player.reset_state(0.9, true)
+			pa.damage.fuel.set_fraction(0.04)
+			await _frames(40)
+			await _shot("m3_5_warnlampen")
 		"markierung":
 			await _start(true)
 			await _exit_near("svc_fuel_cap", 5.5)
