@@ -100,7 +100,7 @@ static func tutorial_note() -> String:
 	if bool(c.get_value("tutorial", "completed", false)):
 		return "abgeschlossen ✓"
 	if c.has_section_key("tutorial", "last_step"):
-		return "zuletzt Schritt %d / 7" % (int(c.get_value("tutorial", "last_step", 0)) + 1)
+		return "zuletzt Schritt %d / %d" % [int(c.get_value("tutorial", "last_step", 0)) + 1, Tutorial.STEP_COUNT]
 	return "empfohlen für den Einstieg"
 
 

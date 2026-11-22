@@ -32,6 +32,9 @@ var crews: Array = []
 var fuel_truck: FuelTruck = null
 var ammo_cart: AmmoCart = null
 var _known := {}
+## M3.4: Maschinen ohne Automatik-Abfertigung (Tutorial: der Spieler bereitet selbst vor;
+## Befehle über das Befehlsrad gelten weiter).
+var auto_exclude: Array = []
 
 ## Nachtanken erst ab dieser Lücke (Leerlauf verbraucht etwas, kein Dauer-Nachfüllen).
 const TOP_UP_MARGIN := 0.03
@@ -187,7 +190,7 @@ func _check(a: Aircraft) -> void:
 			for j in board.open_jobs(a):   # Paket 14: Maschine rollt/fliegt weg -> Abfertigung abbrechen
 				board.cancel(j.id)
 		return
-	if not board.open_jobs(a).is_empty() or not needs_service(a):
+	if not board.open_jobs(a).is_empty() or not needs_service(a) or auto_exclude.has(a):
 		return
 	var ids := board.plan_service(a, fuel_source(), ammo_store(), {"priority": priority_for(a),
 		"fuel_target": fuel_target, "fuel_node": fuel_truck})

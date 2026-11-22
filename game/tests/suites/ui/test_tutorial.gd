@@ -31,22 +31,59 @@ func test_tutorial_flow() -> Array:
 	var pa := g.player_aircraft
 	var home := tu.home
 	var fwd := -home.basis.z
-	# 1 Starten: zuerst darf nichts weitergehen
+	# M3.4: Maschine fast leer, zuerst Bodenvorbereitung; ohne Aktion geht nichts weiter
+	var empty := pa.weapons.ammo() == 0 and pa.telemetry().fuel_fraction < 0.3
 	await _step(30)
 	var waits: bool = tu.index == 0 and not tu.done[0]
+	# 0 Aussteigen
+	Input.action_press(&"eject_hold")
+	await _step(75)
+	Input.action_release(&"eject_hold")
+	await _step(60)
+	log.append("s1 %d" % tu.index)
+	var no_auto := pa.weapons.ammo() == 0   # Automatik-Abfertigung aus
+	# 1 Tanken: Befehlsrad „Nur tanken“, Tank füllt sich
+	g.hud.ground_hud.issue_command(GroundCrewBrain.Command.FUEL_ONLY, pa)
+	await _step(2)
+	pa.damage.fuel.set_fraction(0.45)
+	await _step(4)
+	log.append("s2 %d" % tu.index)
+	# 2 Munition: Kiste, Klappe/Gurt
+	var crate := CarryItem.new()
+	g.crew.carried_changed.emit(crate)
+	await _step(2)
+	pa.weapons.magazines[0].count += 50
+	await _step(3)
+	log.append("s3 %d" % tu.index)
+	# 3 Einsteigen
+	g.crew.try_enter(pa.pilot_seat)
+	await _step(30)
+	log.append("s4 %d" % tu.index)
+	# 4 Vorflug-Check: Gas allein reicht nicht, erst Startklappen
+	Input.action_press(&"throttle_up")
+	await _step(60)
+	Input.action_release(&"throttle_up")
+	var flaps_first: bool = tu.index == 4 and not tu.done[0]
+	g.player.reset_state(0.0)
+	await _tap(&"flaps_cycle")
 	Input.action_press(&"throttle_up")
 	for i in 200:
 		await _step(1)
-		if tu.done[0]:
+		if tu.index != 4:
 			break
 	Input.action_release(&"throttle_up")
-	log.append("gas %s" % tu.done[0])
+	log.append("s5 %d" % tu.index)
+	# 5 Start: abheben, Fahrwerk ein, Klappen ein (zweimal tippen: Landung -> ein)
 	_place_air(g, home.origin + fwd * 400 + Vector3(0, 60, 0), fwd)
 	await _step(5)
-	log.append("s2 %d" % tu.index)
-	# 2 Fliegen: Fahrwerk (echte Taste), Kurve, Steigen
 	await _tap(&"gear_toggle")
 	await _step(480)
+	var flaps_wait: bool = tu.index == 5 and not tu.done[2]
+	await _tap(&"flaps_cycle")
+	await _tap(&"flaps_cycle")
+	await _step(5)
+	log.append("s6 %d" % tu.index)
+	# 6 Fliegen: Kurve, Steigen
 	var p := pa.global_position
 	for k in 7:
 		var d := fwd.rotated(Vector3.UP, 0.3 * (k + 1))
@@ -54,10 +91,8 @@ func test_tutorial_flow() -> Array:
 		await _step(3)
 	_place_air(g, p + Vector3(0, 400, 0), fwd)
 	await _step(5)
-	log.append("s3 %d" % tu.index)
-	if tu.index == 1:
-		log.append(str(tu.done))
-	# 3 Zielen: Übungsziel da, schießt nicht; Zoom + Treffer
+	log.append("s7 %d" % tu.index)
+	# 7 Zielen: Übungsziel da, schießt nicht; Zoom + Treffer
 	var tgt := tu.target
 	var tgt_ok := tgt != null and tgt.nation_id == Nations.RED and tgt.get("pilot_seat") != null \
 		and tgt.pilot_seat.controller == null
@@ -68,46 +103,37 @@ func test_tutorial_flow() -> Array:
 		CombatEvents.bus().hit_confirmed.emit(pa, tgt, DamageModel.Zone.TAIL, 5.0)
 		await _step(2)
 	await _step(3)
-	log.append("s4 %d" % tu.index)
-	# 4 Notausstieg (Text): läuft nach Lesezeit weiter
-	tu.step_t = Tutorial.TEXT_STEP_TIME + 1.0
-	await _step(3)
-	log.append("s5 %d" % tu.index)
-	# 5 Landen
+	log.append("s8 %d" % tu.index)
+	# 8 Landung: Platz, Fahrwerk aus, Landeklappen (Aktion wird geprüft), Aufsetzen
 	_place_air(g, home.origin + fwd * -1500 + Vector3(0, 200, 0), fwd, 60.0)
 	await _step(3)
 	await _tap(&"gear_toggle")
 	await _step(480)
+	var land_flaps_wait: bool = tu.index == 8 and tu.done[1] and not tu.done[2]
+	await _tap(&"flaps_cycle")
+	await _tap(&"flaps_cycle")
+	await _step(3)
+	g.player.throttle = 0.0
 	pa.place_on_ground(home.origin, -home.basis.z, false)
+	await _step(30)
+	log.append("s9 %d" % tu.index)
+	# 9 Abstellplatz
 	g.player.reset_state(0.0)
 	await _step(120)
-	log.append("s6 %d" % tu.index)
-	# 6 Abfertigen
-	Input.action_press(&"eject_hold")
-	await _step(75)
-	Input.action_release(&"eject_hold")
-	await _step(10)
-	g.hud.ground_hud.issue_command(GroundCrewBrain.Command.FUEL_ONLY, pa)
-	await _step(2)
-	var crate := CarryItem.new()
-	g.crew.carried_changed.emit(crate)
-	await _step(2)
-	pa.weapons.magazines[0].count += 50
-	await _step(3)
-	g.crew.try_enter(pa.pilot_seat)
-	await _step(30)
-	log.append("s7 %d" % tu.index)
-	# 7 Abschluss
+	log.append("s10 %d" % tu.index)
+	# 10 Abschluss
 	tu.step_t = Tutorial.TEXT_STEP_TIME
 	await _step(3)
 	var completed := not tu.active and bool(Tutorial.load_progress().get_value("tutorial", "completed", false))
+	var auto_back: bool = not g.blue_ops.dispatch.auto_exclude.has(pa)
 	crate.free()
 	g.queue_free()
 	await _step(2)
-	var ok: bool = red == 0 and alarm_off and waits and tgt_ok and completed \
-		and log == ["gas true", "s2 1", "s3 2", "s4 3", "s5 4", "s6 5", "s7 6"]
-	return [ok, "Rote %d, Alarm aus %s, wartet %s, Ziel ok %s, Ablauf %s, fertig %s" % [
-		red, alarm_off, waits, tgt_ok, str(log), completed]]
+	var ok: bool = red == 0 and alarm_off and waits and tgt_ok and completed and empty and no_auto \
+		and flaps_first and flaps_wait and land_flaps_wait and auto_back \
+		and log == ["s1 1", "s2 2", "s3 3", "s4 4", "s5 5", "s6 6", "s7 7", "s8 8", "s9 9", "s10 10"]
+	return [ok, "Rote %d, Alarm aus %s, leer %s, keine Automatik %s, wartet %s, Klappen vor Gas %s, Klappen ein %s, Landeklappen %s, Ziel ok %s, Ablauf %s, fertig %s" % [
+		red, alarm_off, empty, no_auto, waits, flaps_first, flaps_wait, land_flaps_wait, tgt_ok, str(log), completed]]
 
 
 func test_tutorial_skip_and_diagnose() -> Array:
@@ -130,7 +156,7 @@ func test_tutorial_skip_and_diagnose() -> Array:
 	var quit_ok := not tu.active and g.hud.ground_hud.key_override.is_empty()
 	g.queue_free()
 	await _step(2)
-	return [d[0] and skipped and quit_ok and keys.has(&"gear_toggle"),
+	return [d[0] and skipped and quit_ok and keys.has(&"crew_wheel"),
 		"%s, übersprungen %s, beendet %s, Leiste %s" % [d[1], skipped, quit_ok, str(keys)]]
 
 

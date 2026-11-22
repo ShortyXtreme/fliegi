@@ -15,6 +15,10 @@ const TEXT_STEP_TIME := 12.0
 const TARGET_RADIUS := 900.0
 const TARGET_SPEED := 65.0
 const HITS_NEEDED := 3
+## M3.4: Bodenvorbereitung zuerst (11 Schritte)
+const STEP_COUNT := 11
+const STEP_AMMO := 2
+const START_FUEL := 0.25
 
 var game: Node = null
 var steps: Array = []
@@ -33,6 +37,7 @@ var _last_heading := INF
 var _cmd_fuel := false
 var _crate_taken := false
 var _ammo_mark := -1
+var _fuel_mark := 0.0
 var _bus: CombatEvents
 var _target_angle := 0.0
 var _target_center := Vector3.ZERO
@@ -65,7 +70,7 @@ static func diagnose() -> Array:
 	var t := Tutorial.new()
 	t.steps = t.build_steps()
 	var c := TutorialCard.new()
-	var ok := t.steps.size() == 7 and c != null
+	var ok := t.steps.size() == STEP_COUNT and c != null
 	for s in t.steps:
 		ok = ok and not (s.tasks as Array).is_empty() and String(s.title) != ""
 	var n := t.steps.size()
@@ -82,6 +87,7 @@ func _ready() -> void:
 	var a := _aircraft()
 	if a != null:
 		home = a.global_transform
+	_prepare_aircraft()
 	card = TutorialCard.new()
 	var h = game.get("hud") if game != null else null
 	if h != null:
@@ -122,6 +128,7 @@ func quit() -> void:
 
 func _finish(completed: bool) -> void:
 	active = false
+	_set_auto_service(true)
 	if completed:
 		save_progress("completed", true)
 	_set_keys([])
@@ -310,61 +317,120 @@ func _remove_target() -> void:
 func build_steps() -> Array:
 	var C := InputBindings.Context
 	return [
-		{"title": "Starten",
-		 "text": "Die Parkbremse ist an. Gib Gas – ab 10 % löst sie sich. Halte die Maschine mit dem Seitenruder auf der Bahn und ziehe ab etwa 150 km/h leicht.",
-		 "keys": [[&"throttle_up", "Gas"], [&"kb_yaw_left", "Seitenruder"], [&"kb_pitch_up", "Ziehen"]],
+		{"title": "Aussteigen",
+		 "text": "Erst die Maschine vorbereiten: Tank und MG sind fast leer. Steig aus – im Stand Taste 1 s halten.",
+		 "keys": [[&"eject_hold", "Aussteigen (1 s halten)"]],
+		 "tasks": [["Aussteigen", func(): return _ctx() == C.CREW]]},
+		{"title": "Tanken",
+		 "text": "Befehlsrad halten und „Nur tanken“ wählen – oder selbst: Schlauch am Tankwagen nehmen und am Tankdeckel ankoppeln (Interagieren halten).",
+		 "keys": [[&"crew_wheel", "Befehlsrad (halten)"], [&"crew_interact", "Interagieren (halten)"]],
+		 "setup": _setup_fuel,
 		 "tasks": [
-			["Gas geben (Parkbremse löst)", _chk_gas],
-			["Rollen und abheben", _chk_airborne]]},
+			["„Nur tanken“ oder Schlauch ankoppeln", func(): return _cmd_fuel or _fuel() > _fuel_mark + 0.01],
+			["Tank füllt sich (+10 %)", func(): return _fuel() > _fuel_mark + 0.1]]},
+		{"title": "Munition",
+		 "text": "Kiste vom Munitionswagen nehmen, zur MG-Klappe am Flügel tragen und Interagieren halten: Klappe auf, Gurt ein, Klappe zu.",
+		 "keys": [[&"crew_interact", "Interagieren (halten)"], [&"crew_drop", "Ablegen"]],
+		 "setup": _setup_ammo,
+		 "tasks": [
+			["Munitionskiste nehmen", func(): return _crate_taken],
+			["Klappe öffnen, Gurt einlegen", _chk_ammo]]},
+		{"title": "Einsteigen",
+		 "text": "Zum Cockpit gehen und einsteigen.",
+		 "keys": [[&"crew_enter", "Einsteigen"]],
+		 "tasks": [["Einsteigen", func(): return _ctx() == C.FLIGHT]]},
+		{"title": "Vorflug-Check",
+		 "text": "Klappen einmal tippen = Startstellung (mehr Auftrieb). Dann Gas geben – ab 10 % löst sich die Parkbremse.",
+		 "keys": [[&"flaps_cycle", "Klappen"], [&"throttle_up", "Gas"]],
+		 "tasks": [
+			["Startklappen setzen", func(): return _flaps() == 1],
+			["Gas geben (Parkbremse löst)", _chk_gas]]},
+		{"title": "Start",
+		 "text": "Auf der Bahn mit dem Seitenruder geradeaus halten, ab etwa 150 km/h leicht ziehen. In der Luft Fahrwerk und Klappen einfahren.",
+		 "keys": [[&"kb_yaw_left", "Seitenruder"], [&"kb_pitch_up", "Ziehen"], [&"gear_toggle", "Fahrwerk"], [&"flaps_cycle", "Klappen"]],
+		 "tasks": [
+			["Abheben", _chk_airborne],
+			["Fahrwerk einfahren", _chk_gear_up],
+			["Klappen einfahren", func(): return _flaps() == 0]]},
 		{"title": "Fliegen",
-		 "text": "Fahrwerk einfahren, dann eine Kurve fliegen: Rollen und gleichzeitig ziehen. Danach auf 300 m über Grund steigen.",
-		 "keys": [[&"gear_toggle", "Fahrwerk"], [&"kb_roll_left", "Rollen"], [&"kb_pitch_up", "Ziehen"]],
+		 "text": "Kurve fliegen: rollen und gleichzeitig ziehen. Dann auf 300 m über Grund steigen.",
+		 "keys": [[&"kb_roll_left", "Rollen"], [&"kb_pitch_up", "Ziehen"], [&"throttle_up", "Gas"]],
 		 "setup": func(): _turn = 0.0,
 		 "tasks": [
-			["Fahrwerk einfahren", _chk_gear_up],
 			["Kurve fliegen (90°)", func(): return _turn > PI * 0.5],
 			["Auf 300 m über Grund steigen", _chk_climb]]},
 		{"title": "Zielen",
-		 "text": "Vor dir kreist ein Übungsziel – es schießt nicht. Halte den Zielzoom, setze das Fadenkreuz auf den Vorhaltepunkt (Kreis vor dem Ziel) und feuere kurze Stöße.",
+		 "text": "Vor dir kreist ein Übungsziel – es schießt nicht. Zielzoom halten, Fadenkreuz auf den Vorhaltekreis, kurze Stöße.",
 		 "keys": [[&"zoom_hold", "Zielzoom (halten)"], [&"fire_primary", "Feuer"]],
 		 "setup": _setup_aim,
 		 "tasks": [
 			["Zielzoom halten", func(): return Input.is_action_pressed(&"zoom_hold")],
 			["%d Treffer am Übungsziel" % HITS_NEEDED, func(): return hits >= HITS_NEEDED]]},
-		{"title": "Notausstieg",
-		 "text": "Notausstieg geht nur bei schwerem Schaden: Taste 1 s halten. Bei leichtem Schaden lieber landen – die Maschine wird repariert.",
-		 "keys": [[&"eject_hold", "Notausstieg (1 s halten)"]],
+		{"title": "Landung",
+		 "text": "Zurück zum Platz. Parallel zur Bahn Gas raus, Fahrwerk aus, Klappen zweimal = Landestellung. Flach anschweben und aufsetzen.",
+		 "keys": [[&"gear_toggle", "Fahrwerk"], [&"flaps_cycle", "Klappen"], [&"throttle_down", "Gas weg"], [&"brakes", "Bremsen"]],
 		 "setup": func(): _remove_target(),
-		 "tasks": [["Gelesen", func(): return step_t > TEXT_STEP_TIME]]},
-		{"title": "Landen",
-		 "text": "Flieg zurück zum Platz. Platzrunde: parallel zur Bahn, Gas raus, Fahrwerk und Klappen aus, Endanflug flach. Nach der Landung zum Abstellplatz rollen (Bodenmarke) und anhalten.",
-		 "keys": [[&"gear_toggle", "Fahrwerk"], [&"flaps_cycle", "Klappen"], [&"brakes", "Bremsen"]],
 		 "tasks": [
 			["Zurück zum Platz (< 2,5 km)", _chk_home],
 			["Fahrwerk ausfahren", _chk_gear_down],
-			["Landen", _chk_landed],
-			["Am Abstellplatz anhalten", _chk_parked]]},
-		{"title": "Abfertigen",
-		 "text": "Steig aus. Öffne das Befehlsrad und wähle „Nur tanken“ – die Mannschaft tankt. Die Munition lädst du selbst: Kiste holen, an der Klappe Interagieren halten (Klappe, Gurt). Dann wieder einsteigen.",
-		 "keys": [[&"eject_hold", "Aussteigen (halten)"], [&"crew_wheel", "Befehlsrad"], [&"crew_interact", "Interagieren"], [&"crew_enter", "Einsteigen"]],
-		 "setup": _setup_service,
-		 "tasks": [
-			["Aussteigen", func(): return _ctx() == C.CREW],
-			["Befehlsrad: „Nur tanken“", func(): return _cmd_fuel],
-			["Munitionskiste holen", func(): return _crate_taken],
-			["Klappe öffnen, Gurt einlegen", _chk_ammo],
-			["Einsteigen", func(): return _ctx() == C.FLIGHT]]},
+			["Landeklappen setzen", func(): return _flaps() == 2],
+			["Landen", _chk_landed]]},
+		{"title": "Abstellplatz",
+		 "text": "Zum Abstellplatz rollen (Bodenmarke) und anhalten.",
+		 "keys": [[&"kb_yaw_left", "Lenken"], [&"throttle_up", "Gas"], [&"brakes", "Bremsen"]],
+		 "tasks": [["Am Abstellplatz anhalten", _chk_parked]]},
 		{"title": "Geschafft",
-		 "text": "Alle Tasten findest du jederzeit unter F1. Im freien Spiel kommt ein Alarmstart: Rote greifen an – Maschine schnell abfertigen und starten. Viel Erfolg!",
-		 "keys": [[&"help_toggle", "Hilfe"]],
+		 "text": "Alle Tasten unter F1. Notausstieg nur bei schwerem Schaden (Taste 1 s halten) – sonst landen und reparieren lassen. Im freien Spiel kommt der Alarmstart. Viel Erfolg!",
+		 "keys": [[&"help_toggle", "Hilfe"], [&"eject_hold", "Notausstieg"]],
 		 "tasks": [["Abschluss", func(): return step_t > TEXT_STEP_TIME * 0.6]]},
 	]
 
 
-func _setup_service() -> void:
+## M3.4: Tutorial-Maschine fast leer (Tank 25 %, MG leer) – sie wird zuerst am Boden vorbereitet.
+func _prepare_aircraft() -> void:
+	var a := _aircraft()
+	if a == null:
+		return
+	if a.damage != null:
+		a.damage.fuel.set_fraction(START_FUEL)
+	a.weapons.set_ammo_fraction(0.0)
+	_set_auto_service(false)
+
+
+## Automatik-Abfertigung des eigenen Platzes für die Tutorial-Maschine aus/an.
+func _set_auto_service(on: bool) -> void:
+	var ops = game.get("blue_ops") if game != null else null
+	var a := _aircraft()
+	if ops == null or ops.dispatch == null or a == null:
+		return
+	ops.dispatch.auto_exclude.erase(a)
+	if not on:
+		ops.dispatch.auto_exclude.append(a)
+
+
+func _fuel() -> float:
+	var t := _tel()
+	return t.fuel_fraction if t != null else 0.0
+
+
+func _flaps() -> int:
+	var pl = game.get("player") if game != null else null
+	return int(pl.flap_index) if pl != null else -1
+
+
+func _setup_fuel() -> void:
 	_cmd_fuel = false
+	_fuel_mark = _fuel()
+	_connect_ground()
+
+
+func _setup_ammo() -> void:
 	_crate_taken = false
 	_ammo_mark = -1
+	_connect_ground()
+
+
+func _connect_ground() -> void:
 	var gh := _ground_hud()
 	if gh != null and not gh.command_issued.is_connected(_on_command):
 		gh.command_issued.connect(_on_command)
@@ -379,7 +445,7 @@ func _on_command(cmd: int, _t: Node) -> void:
 
 
 func _on_carried(item: Node) -> void:
-	if item != null and item.get("kind") == CarryItem.CRATE and _cmd_fuel:
+	if item != null and item.get("kind") == CarryItem.CRATE and index == STEP_AMMO and not _crate_taken:
 		_crate_taken = true
 		var a := _aircraft()
 		_ammo_mark = a.weapons.ammo() if a != null else -1
