@@ -1,11 +1,18 @@
-# Flugkern M3.4 – Testversion „Feinschliff“
+# Flugkern M3.5 – Testversion „Funkgerät und Motor“
 
 ## Installation
 1. Die vorhandene **Flugkern.exe** (Godot 4.7.2) bleibt unverändert.
 2. **Alle vier .pck-Dateien** in denselben Ordner wie Flugkern.exe kopieren (alte Flugkern.pck überschreiben):
    `Flugkern.pck`, `Flugkern_modelle.pck`, `Flugkern_karte.pck`, `Flugkern_audio.pck`.
    Fehlt Modelle oder Karte, zeigt das Spiel eine Meldung; fehlt Audio, läuft es ohne Ton.
-3. Flugkern.exe starten. Der Fenstertitel muss „Flugkern M3.4“ zeigen.
+3. Flugkern.exe starten. Der Fenstertitel muss „Flugkern M3.5“ zeigen.
+
+## Neu in M3.5
+- **Funkgerät** statt Befehlsrad: **Tab/LB** öffnet es unten rechts. Erst Kanal wählen (1 Tankwart, 2 Munition, 3 Reparatur, 4 Bodenpersonal), dann Befehl 1–4 (z. B. „Tankwagen rufen“, „Volltanken“, „Status?“). Antworten erscheinen im jeweiligen Kanal, mit kurzem Funk-Klang (Einstellungen → „Funk-Klang“).
+- **Motor und Elektrik:** Kaltstart am Abstellplatz. Schalterpanel über dem Flug-Panel (Hauptschalter H, Pumpe P, Zündung L, Gemisch I, Anlasser K halten); in Arcade genügt eine Taste bzw. am Pad X.
+- **Warnlampen** am Flug-Panel (Abriss, Fahrwerk, Kraftstoff, Motor, Bremse) statt Warntexten in der Bildmitte.
+- **Interaktionshilfen** (Ring, Pfeil, Beschriftung) an Tankstutzen, MG-Klappen, Schlauchtrommel und Kisten; abschaltbar in den Einstellungen.
+- **Tastenbelegung** als eigene Seite im Menü; Tutorial mit Schritt „Motor anlassen“.
 
 ## Neu in M3.4
 - **Einstellungen** neu geordnet (Beschriftung links, Regler rechts) und **Anzeige:** Vollbild / Rahmenloses Fenster / Fenster, Fenstergröße, V-Sync.
@@ -34,10 +41,10 @@
 
 ## Was ist neu (M3)
 - **Start am Boden:** Du sitzt im Jäger am Abstellplatz von Platz Blau (50 % Treibstoff, volle Munition). Nach einem Abschuss steht eine neue Maschine am Abstellplatz (15 % Treibstoff, keine Munition), ohne Treibstoff springt der Motor nicht an.
-- **Aussteigen und zu Fuß:** Im Stand **J** bzw. **Steuerkreuz ← 1 s halten**. Zu Fuß: WASD/linker Stick, Maus/rechter Stick, Shift/L3 Sprint, **E/A halten = arbeiten**, G/B ablegen, **F/Y einsteigen**, C/R3 Ego-Sicht, **Tab/LB halten = Befehlsrad**.
+- **Aussteigen und zu Fuß:** Im Stand **J** bzw. **Steuerkreuz ← 1 s halten**. Zu Fuß: WASD/linker Stick, Maus/rechter Stick, Shift/L3 Sprint, **E/A halten = arbeiten**, G/B ablegen, **F/Y einsteigen**, C/R3 Ego-Sicht, **Tab/LB = Funkgerät**.
 - **Selbst abfertigen:** Schlauch am Tankwagen nehmen, am Tankdeckel ankoppeln (E halten), Pumpe läuft, danach abkoppeln. Kiste vom Munitionswagen nehmen, an der MG-Klappe E halten (Klappe, Gurt, Klappe). Reparatur light an den Servicepunkten.
 - **Fahrzeuge:** Tankwagen und Munitionswagen selbst fahren (W/RT Gas, S/LT Bremse bzw. rückwärts, Leertaste/B Handbremse, J 1 s aussteigen).
-- **KI-Bodenpersonal** (2 Mechaniker je Platz) versorgt gelandete Maschinen automatisch, fährt die Wagen und füllt den Tankwagen am Lager nach. Befehle über das Befehlsrad.
+- **KI-Bodenpersonal** (2 Mechaniker je Platz) versorgt gelandete Maschinen automatisch, fährt die Wagen und füllt den Tankwagen am Lager nach. Befehle über das Funkgerät.
 - **Rote KI** startet und landet jetzt selbst auf Platz Rot und wird dort versorgt.
 - **Alarmstart** alle 12–15 min oder sofort mit **F9**: Countdown, Zeitwertung, Bestzeit.
 - **F1** zeigt die Belegung für Flug, zu Fuß und Fahren.
@@ -59,7 +66,7 @@ Alles unter `%APPDATA%\Godot\app_userdata\Flugkern M2\logs\` (Ordnername bleibt 
 
 ## Bitte zuerst ausprobieren
 1. Selbsttest (oben).
-2. Spiel starten, J 1 s halten (aussteigen), um die Maschine gehen, F1 lesen. Tab halten → „Voll abfertigen“ und zusehen, wie die Mechaniker Tankwagen und Munitionswagen holen.
+2. Spiel starten, J 1 s halten (aussteigen), um die Maschine gehen, F1 lesen. Tab → Funkgerät, Kanal 1 Tankwart → „Tankwagen rufen“ und zusehen, wie die Mechaniker Tankwagen und Munitionswagen holen.
 3. Selbst tanken: zum Tankwagen gehen, Schlauch nehmen (E), zum Tankdeckel (Rumpfmitte vor dem Cockpit), E halten.
 4. Einsteigen (F), starten, einen Gegner abschießen oder abgeschossen werden, landen, zum gelben Abstellplatz rollen, abfertigen lassen.
 5. F9 drücken (Alarmstart) und die Zeit schlagen.
