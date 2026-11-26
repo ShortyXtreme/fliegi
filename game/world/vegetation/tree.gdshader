@@ -11,7 +11,7 @@ uniform float near_r = 0.0;
 uniform float lod_r = 380.0;
 uniform float far_r = 2200.0;
 uniform float wind = 1.0;
-uniform float albedo_gain = 2.1;
+uniform float albedo_gain = 3.0;   // Vertexfarben dunkel (Cycles-Palette), Gras ist heller
 
 varying vec3 tint;
 

@@ -3,7 +3,9 @@ extends RefCounted
 ## M3.4: Platz-Ausstattung im Stil B (sparsam: prozedurale Meshes, MultiMesh, Rauschtexturen zur
 ## Laufzeit – keine neuen Bilddateien). Alles lokal zum Platzknoten (Mitte der Piste, y = 0 =
 ## Platzhöhe; die Platzfläche 1.560 × 340 m ist eben).
-##   Graspiste 1.300 × 60 m mit gemähtem/abgefahrenem Mittelstreifen und Radspuren,
+##   Graspiste 1.300 × 60 m mit Mählanen; M3.7: Abnutzung als weiche, platt gefahrene Grasbahnen
+##   (Aufsetzzonen, Mittelbahn, Rollwege, Abstellfläche) statt Strichen – Reifenabrieb nur bei
+##   befestigtem Belag (Layout-Metadaten "belag"),
 ##   Randmarken (weiße Steine alle 50 m), Schwellen (Steinreihe, rot-weiße Eckflaggen), Lande-T,
 ##   zwei Windsäcke (Windsock, animiert), Rollwege und Abstellfläche aus dem Rollweg-Graph,
 ##   Platzrand (Hecke West/Nord/Süd, Holzzaun Ost), Flugleitung mit Funkmast, Holzschuppen, Fässer.
@@ -131,16 +133,73 @@ static func _runway(node: Node3D, l: AirfieldLayout) -> void:
 	for k in nl:
 		if k % 2 == 0:
 			_mi(node, _plane(w / nl, len), lane, Vector3(-w * 0.5 + (k + 0.5) * w / nl, 0.055, mid_z), false)
-	# abgefahrener Mittelstreifen (lehmig, halbtransparent) und zwei Radspuren
-	var worn := noise_mat(Color(0.30, 0.27, 0.15), Color(0.42, 0.37, 0.22), 0.05, Vector3(1.0, 60.0, 1.0), 0.65)
-	_mi(node, _plane(w * 0.25, len - 60.0), worn, Vector3(0, 0.07, mid_z), false).name = "RunwayWorn"
-	var track := noise_mat(Color(0.28, 0.23, 0.13), Color(0.38, 0.32, 0.2), 0.08, Vector3(1.0, 80.0, 1.0), 0.7)
-	for sx in [-1.0, 1.0]:
-		_mi(node, _plane(1.6, len - 120.0), track, Vector3(sx * 1.9, 0.09, mid_z), false)
+	# M3.7: Abnutzung als weiche, platt gefahrene Grasbahnen (_worn_grass), keine Striche mehr;
+	# die Gras-Halme (Vegetation) stehen dort niedriger und gelblich (Vegetation.airfield_mask).
 
 
-## Rollwege als ein Mesh (Streifen je Kante, 12 m breit) + Abstellfläche.
+## M3.7: Rollwege und Abstellfläche als Kette weicher Flecken (abgefahrenes, gelbliches Gras
+## mit weichen Kanten statt harter Streifen). Die harte Variante (_taxiways_hard) bleibt für
+## befestigten Belag.
 static func _taxiways(node: Node3D, l: AirfieldLayout) -> void:
+	if paved(l):
+		_taxiways_hard(node, l)
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1940
+	var xf := []
+	var cols := []
+	for k in range(0, l.taxi_edges.size() - 1, 2):
+		var a := l.taxi_nodes[l.taxi_edges[k]]
+		var b := l.taxi_nodes[l.taxi_edges[k + 1]]
+		var d := Vector3(b.x - a.x, 0, b.z - a.z)
+		var n := maxi(int(d.length() / 5.0), 1)
+		var yaw := atan2(d.x, d.z)
+		for i in n + 1:
+			var p := a + d * (float(i) / n)
+			p.y = 0.06
+			xf.append(_flat(p, rng.randf_range(15.0, 19.0), rng.randf_range(12.0, 18.0), yaw + rng.randf_range(-0.2, 0.2)))
+			cols.append(_worn_tone(rng, 0.32, 0.5))
+			# Radspuren: zwei schmale, weiche Bahnen
+			if i % 2 == 0:
+				var side := Vector3(-d.z, 0, d.x).normalized() * 1.6
+				for sx in [-1.0, 1.0]:
+					xf.append(_flat(p + side * sx + Vector3(0, 0.005, 0), rng.randf_range(2.0, 3.0), rng.randf_range(14.0, 20.0), yaw))
+					cols.append(_worn_tone(rng, 0.2, 0.32, true))
+	if l.parking_count() > 0:
+		var zmin := INF
+		var zmax := -INF
+		var x := 0.0
+		for p in l.parking_positions:
+			zmin = minf(zmin, p.z)
+			zmax = maxf(zmax, p.z)
+			x += p.x / l.parking_count()
+		var z := zmin - 15.0
+		while z < zmax + 15.0:
+			for dx in [-7.0, 7.0]:
+				xf.append(_flat(Vector3(x + dx + rng.randf_range(-2.0, 2.0), 0.055, z), rng.randf_range(16.0, 22.0),
+					rng.randf_range(14.0, 20.0), rng.randf_range(-0.5, 0.5)))
+				cols.append(_worn_tone(rng, 0.3, 0.48))
+			z += 7.0
+	_multi(node, _plane(1.0, 1.0), _blob_mat(1), xf, cols).name = "Taxiways"
+
+
+## Abgefahrenes Gras: gelblich-olivgrün bis lehmig, a = Deckkraft (dark: dunklere Radspur).
+static func _worn_tone(rng: RandomNumberGenerator, a0: float, a1: float, dark := false) -> Color:
+	var tones := [Color(0.31, 0.30, 0.11), Color(0.27, 0.25, 0.10), Color(0.35, 0.31, 0.13), Color(0.25, 0.26, 0.09)]
+	var c: Color = tones[rng.randi() % tones.size()]
+	if dark:
+		c = c.darkened(0.25)
+	c.a = rng.randf_range(a0, a1)
+	return c
+
+
+## Befestigter Belag? (Layout-Metadaten "belag" = "beton"/"asphalt"; Standard Gras)
+static func paved(l: AirfieldLayout) -> bool:
+	return String(l.get_meta("belag", "gras")) in ["beton", "asphalt"]
+
+
+## Rollwege als ein Mesh (Streifen je Kante, 12 m breit) + Abstellfläche (befestigter Belag).
+static func _taxiways_hard(node: Node3D, l: AirfieldLayout) -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var hw := 6.0
@@ -303,10 +362,12 @@ static func _ground_detail(node: Node3D, l: AirfieldLayout) -> void:
 		c.a = rng.randf_range(0.3, 0.5)
 		pc.append(c)
 	_multi(node, quad, _blob_mat(0), px, pc).name = "RunwayPatches"
-	# 2) Reifenabrieb: lange dunkle Striche an den Radspuren in beiden Aufsetzzonen
+	# 2) M3.7: Graspiste – platt gefahrene Bahnen (weich, gelblich); Reifenabrieb nur auf Belag
+	if not paved(l):
+		_worn_grass(node, l, rng)
 	var tx := []
 	var tc := []
-	for zone in [[s0 - 40.0, s0 - 260.0], [s1 + 40.0, s1 + 260.0]]:
+	for zone in ([[s0 - 40.0, s0 - 260.0], [s1 + 40.0, s1 + 260.0]] if paved(l) else []):
 		for i in 110:
 			var z := rng.randf_range(zone[1], zone[0])
 			var track := (1.0 if rng.randf() < 0.5 else -1.0) * 1.9
@@ -316,7 +377,8 @@ static func _ground_detail(node: Node3D, l: AirfieldLayout) -> void:
 			tx.append(_flat(Vector3(x, 0.1, z), rng.randf_range(0.4, 0.8), rng.randf_range(5.0, 16.0),
 				rng.randf_range(-0.025, 0.025)))
 			tc.append(Color(0.10, 0.08, 0.05, lerpf(0.3, 0.65, near) * rng.randf_range(0.7, 1.0)))
-	_multi(node, quad, _blob_mat(2), tx, tc).name = "TireMarks"
+	if not tx.is_empty():
+		_multi(node, quad, _blob_mat(2), tx, tc).name = "TireMarks"
 	# 3) Ölflecken auf dem Vorfeld (Abstellplätze, Tanklager), leicht glänzend
 	var ox := []
 	var oc := []
@@ -352,6 +414,43 @@ static func _ground_detail(node: Node3D, l: AirfieldLayout) -> void:
 	for i in wf.size():
 		wf[i] = Transform3D(pen_b, wf[i])
 	_multi(node, pen, mat("gelb", Color(0.92, 0.72, 0.12)), wf).name = "EdgePennants"
+
+
+## M3.7: Platt gefahrene Grasbahnen auf der Graspiste: Aufsetzzonen (breit, zur Schwelle hin
+## dichter), Mittelbahn des Startlaufs (schwächer), Radspuren als weiche Doppelbahn. Alles aus
+## überlappenden, weichen Flecken – keine Striche, keine harten Kanten.
+static func _worn_grass(node: Node3D, l: AirfieldLayout, rng: RandomNumberGenerator) -> void:
+	var s0 := l.runway_start.z
+	var s1 := l.runway_end.z
+	var xf := []
+	var cols := []
+	# Mittelbahn über die ganze Piste
+	var z := s1 + 20.0
+	while z < s0 - 20.0:
+		xf.append(_flat(Vector3(rng.randf_range(-2.5, 2.5), 0.075, z), rng.randf_range(12.0, 18.0), rng.randf_range(26.0, 40.0),
+			rng.randf_range(-0.04, 0.04)))
+		cols.append(_worn_tone(rng, 0.12, 0.22))
+		z += 14.0
+	# Aufsetzzonen
+	for zone in [[s0 - 30.0, -1.0], [s1 + 30.0, 1.0]]:
+		var z0: float = zone[0]
+		var dir: float = zone[1]
+		for i in 70:
+			var t := pow(rng.randf(), 1.6)   # dichter an der Schwelle
+			var zz := z0 + dir * t * 320.0
+			var near := 1.0 - t
+			xf.append(_flat(Vector3(rng.randf_range(-5.0, 5.0), 0.08, zz), rng.randf_range(9.0, 16.0),
+				rng.randf_range(22.0, 38.0), rng.randf_range(-0.05, 0.05)))
+			cols.append(_worn_tone(rng, 0.12 + 0.14 * near, 0.2 + 0.2 * near))
+		# Hauptfahrwerk: zwei weiche, dunklere Bahnen (Spur 3,8 m)
+		for i in 36:
+			var t := pow(rng.randf(), 1.4)
+			var zz := z0 + dir * t * 300.0
+			for sx in [-1.0, 1.0]:
+				xf.append(_flat(Vector3(sx * 1.9 + rng.randf_range(-0.6, 0.6), 0.085, zz), rng.randf_range(2.6, 4.0),
+					rng.randf_range(18.0, 30.0), rng.randf_range(-0.02, 0.02)))
+				cols.append(_worn_tone(rng, 0.1 + 0.12 * (1.0 - t), 0.18 + 0.14 * (1.0 - t), true))
+	_multi(node, _plane(1.0, 1.0), _blob_mat(1), xf, cols).name = "WornGrass"
 
 
 # --- Platzrand -----------------------------------------------------------------------------

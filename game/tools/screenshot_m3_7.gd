@@ -59,8 +59,8 @@ func _run() -> void:
 			from = af.to_global(Vector3(45, 1.7, s0 - 40))
 			at = af.to_global(Vector3(-120, 5, s0 - 300))
 		"spuren":
-			from = af.to_global(Vector3(-8, 2.6, s0 - 18))
-			at = af.to_global(Vector3(3, 0, s0 - 130))
+			from = af.to_global(Vector3(0, 2.4, s0 - 8))
+			at = af.to_global(Vector3(0, 0, s0 - 150))
 		"luft":
 			var p := af.to_global(Vector3(2500, 0, -3500))
 			from = Vector3(p.x, tw.height_at(p.x, p.z) + 500.0, p.z)

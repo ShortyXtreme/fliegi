@@ -28,6 +28,7 @@ uniform float albedo_gain = 2.1;
 varying float vh;
 varying float vwear;
 varying float vtone;
+varying float vmown;
 
 float H(ivec2 p) {
 	p = clamp(p, ivec2(0), ivec2(samples - 1));
@@ -100,6 +101,7 @@ void vertex() {
 	vh = up;
 	vwear = wear;
 	vtone = h2.x;
+	vmown = 1.0 - clamp(hgt, 0.0, 1.0);
 }
 
 void fragment() {
@@ -108,6 +110,8 @@ void fragment() {
 	vec3 lo = vec3(0.045, 0.075, 0.018);
 	vec3 hi = mix(vec3(0.095, 0.14, 0.036), vec3(0.13, 0.145, 0.045), vtone);
 	vec3 col = mix(lo, hi, vh);
+	// kurz gemäht: helle, abgeschnittene Spitzen (passt zur Piste)
+	col = mix(col, vec3(0.12, 0.15, 0.045), vmown * 0.75);
 	// platt gefahren: gelblich, matter
 	col = mix(col, mix(vec3(0.07, 0.065, 0.025), vec3(0.14, 0.125, 0.05), vh), vwear * 0.8);
 	ALBEDO = col * albedo_gain;
