@@ -16,7 +16,7 @@ func _initialize() -> void:
 	if args.size() > 1:
 		mode = args[1]
 	if args.size() > 2:
-		Vegetation.level = Vegetation.LEVELS.find(args[2])
+		Vegetation.override_level = Vegetation.LEVELS.find(args[2])
 	_run.call_deferred()
 
 
@@ -59,8 +59,8 @@ func _run() -> void:
 			from = af.to_global(Vector3(-20, 1.8, s0 - 330))
 			at = af.to_global(Vector3(-100, 4, s0 - 150))
 		"spuren":
-			from = af.to_global(Vector3(-9, 3.0, s0 + 8))
-			at = af.to_global(Vector3(2, 0, s0 - 140))
+			from = af.to_global(Vector3(-8, 2.6, s0 - 18))
+			at = af.to_global(Vector3(3, 0, s0 - 130))
 		"luft":
 			var p := af.to_global(Vector3(2500, 0, -3500))
 			from = Vector3(p.x, tw.height_at(p.x, p.z) + 500.0, p.z)
@@ -74,9 +74,20 @@ func _run() -> void:
 			var e := _forest_edge(tw, af.global_position)
 			from = e[0]
 			at = e[1]
-	for i in 60:
+	var veg: Vegetation = tw.vegetation
+	c.global_position = from
+	c.look_at(at, Vector3.UP)
+	if veg:
+		veg.warm_up()
+	for i in 400:
 		c.global_position = from
 		c.look_at(at, Vector3.UP)
+		await process_frame
+		if i > 60 and (veg == null or veg.settled()):
+			break
+	if veg:
+		print("Vegetation: Stufe %s, Zellen %d, Instanzen %d" % [Vegetation.LEVELS[Vegetation.level], veg.cell_count(), veg.instance_count()])
+	for i in 10:
 		await process_frame
 	await _shot("m3_7_" + {"boden": "flugplatz_boden", "spuren": "wiese_spuren", "luft": "luft", "wald": "wald", "oben": "oben"}[mode])
 	quit(0)
@@ -97,7 +108,7 @@ func _forest_edge(tw: TerrainWorld, center: Vector3) -> Array:
 			var f := _m(mask, p, tw, res)
 			var f2 := _m(mask, p - d * 3.0 * px, tw, res)
 			if f > 0.85 and f2 < 0.1:
-				var cam := p - d * 4.0 * px
+				var cam := p - d * 1.8 * px
 				var from := Vector3(cam.x, 0, cam.y) + o
 				from.y = tw.height_at(from.x, from.z) + 2.2
 				var at := Vector3(p.x, 0, p.y) + o

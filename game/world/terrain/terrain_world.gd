@@ -36,6 +36,7 @@ var terrain_root: Node3D
 var sun: DirectionalLight3D
 var heights := PackedFloat32Array()
 
+var vegetation: Vegetation
 var _materials: Array[ShaderMaterial] = []
 var _shader_origin := Vector3.ZERO
 var _n := 0
@@ -43,7 +44,9 @@ var _sp := 1.0
 var _inv_sp := 1.0
 var _half := 0.0
 
-static var _cache := {}   # Pfad -> {data, heights, shapes, tex}
+static var _cache := {}   # Pfad -> {data, heights, shapes, tex, noise_img, warp_imgs}
+## M3.7: Kantenlängen der Verzerrungs-Texturen (warp_lo, warp_mid), siehe terrain.gdshader
+const WARP_SIZES := [24, 64]
 
 
 func _init() -> void:
@@ -67,6 +70,10 @@ func _ready() -> void:
 	_build_targets()
 	if build_visuals:
 		_build_environment()
+		# M3.7: Bäume, Büsche, Gras (nur mit Optik; Stufe aus den Einstellungen)
+		vegetation = Vegetation.new()
+		vegetation.setup(self)
+		add_child(vegetation)
 
 
 func _process(_dt: float) -> void:
@@ -89,7 +96,7 @@ func _load() -> void:
 	var c: Dictionary = _cache.get(data_path, {})
 	if c.is_empty():
 		var td: TerrainData = load(data_path)
-		c = {"data": td, "heights": td.decode_heights(), "shapes": [], "tex": null}
+		c = {"data": td, "heights": td.decode_heights(), "shapes": [], "tex": null, "noise_img": null, "warp_imgs": []}
 		_cache[data_path] = c
 	data = c.data
 	heights = c.heights
@@ -353,6 +360,15 @@ func _material() -> ShaderMaterial:
 		nimg.generate_mipmaps()
 		c.tex = [ImageTexture.create_from_image(himg), ImageTexture.create_from_image(mimg), ImageTexture.create_from_image(nimg)]
 		c.tex.append_array(_detail_textures(data.seed))
+		# M3.7: Verzerrungs-Texturen (grobe Oktaven) – Bilder bleiben für VegetationGen im Cache
+		c.noise_img = nimg
+		c.warp_imgs = []
+		for sz in WARP_SIZES:
+			var w := nimg.duplicate() as Image
+			w.clear_mipmaps()
+			w.resize(sz, sz, Image.INTERPOLATE_LANCZOS)
+			c.warp_imgs.append(w)
+			c.tex.append(ImageTexture.create_from_image(w))
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://world/terrain/terrain.gdshader")
 	mat.set_shader_parameter("heightmap", c.tex[0])
@@ -361,6 +377,8 @@ func _material() -> ShaderMaterial:
 	mat.set_shader_parameter("detail_tex", c.tex[3])
 	mat.set_shader_parameter("cell_tex", c.tex[4])
 	mat.set_shader_parameter("detail_nrm", c.tex[5])
+	mat.set_shader_parameter("warp_lo", c.tex[6])
+	mat.set_shader_parameter("warp_mid", c.tex[7])
 	mat.set_shader_parameter("spacing", _sp)
 	mat.set_shader_parameter("half_size", _half)
 	mat.set_shader_parameter("samples", _n)
@@ -402,6 +420,23 @@ static func _detail_textures(seed_: int) -> Array:
 		img.generate_mipmaps()
 		out.append(ImageTexture.create_from_image(img))
 	return out
+
+
+## M3.7: Bilder für die CPU-Nachrechnung der Felder (VegetationGen): [Rauschen 512², warp_lo, warp_mid].
+## Baut die Gelände-Texturen bei Bedarf (auch ohne Optik nutzbar).
+func field_images() -> Array:
+	var c: Dictionary = _cache[data_path]
+	if c.tex == null:
+		_material()
+	return [c.noise_img, c.warp_imgs[0], c.warp_imgs[1]]
+
+
+## M3.7: Gelände-Texturen [Höhen, Maske, Rauschen, …] (für Gras-Shader).
+func terrain_textures() -> Array:
+	var c: Dictionary = _cache[data_path]
+	if c.tex == null:
+		_material()
+	return c.tex
 
 
 ## M3.7: Radius der Baum-Modelle (Vegetation) an den Gelände-Shader (Waldboden statt Kronen).

@@ -35,6 +35,8 @@ const OPTIONS := [
 	["hilfen", "m3_5", "Interaktionshilfen", ["an", "aus"], ["An", "Aus"], "an"],
 	["funk_piep", "m3_5", "Funk-Klang", ["an", "aus"], ["An", "Aus"], "an"],
 	["alarmton", "audio", "Alarmton", ["sirene", "glocke"], ["Sirene", "Glocke"], "sirene"],
+	# M3.7: Bäume, Büsche, Gras (Dichte und Sichtweite), Standard Mittel
+	["vegetation", "m3_7", "Vegetation", Vegetation.LEVELS, Vegetation.LABELS, "mittel"],
 ]
 const VOL := [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 const VOL_LABELS := ["0 %", "10 %", "20 %", "30 %", "40 %", "50 %", "60 %", "70 %", "80 %", "90 %", "100 %"]
@@ -134,6 +136,7 @@ static func apply_runtime(game: Node = null) -> void:
 	InteractionGuide.enabled = get_value("hilfen") != "aus"
 	InteractionHint.arcade = get_value("flug") != "realistisch"
 	RadioPanel.beep_on = get_value("funk_piep") != "aus"
+	Vegetation.set_level(maxi(Vegetation.LEVELS.find(String(get_value("vegetation"))), 0))
 	CombatHud.radar_mode = CombatHud.RadarMode.ALWAYS if get_value("radar") == "immer" \
 		else CombatHud.RadarMode.COMBAT_ONLY
 	if game != null:

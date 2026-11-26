@@ -14,6 +14,11 @@ uniform sampler2D noise_tex : filter_linear_mipmap, repeat_enable;
 uniform sampler2D detail_tex : filter_linear_mipmap_anisotropic, repeat_enable;   // feines fBm
 uniform sampler2D cell_tex : filter_linear_mipmap_anisotropic, repeat_enable;     // Zellen (Schollen, Steine, Risse)
 uniform sampler2D detail_nrm : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
+// M3.7: grobe Rausch-Oktaven für die Feld-Verzerrung (kleine Bilder, linear, ohne Mipmaps) –
+// die Vegetation rechnet dieselben Felder auf der CPU nach (VegetationGen), daher exakt
+// nachrechenbar (Hash ohne sin(), kleine Texturen).
+uniform sampler2D warp_lo : filter_linear, repeat_enable;
+uniform sampler2D warp_mid : filter_linear, repeat_enable;
 uniform float spacing = 19.53125;
 uniform float half_size = 20000.0;
 uniform int samples = 2049;
@@ -59,7 +64,18 @@ void vertex() {
 	th = h;
 }
 
+// Permutations-Hash (mod 289), exakt in float32 für ganzzahlige Eingaben – gleich auf der CPU
+float perm(float x) {
+	return mod((34.0 * x + 1.0) * x, 289.0);
+}
+
 vec2 hash22(vec2 p) {
+	p = mod(p, 289.0);
+	return vec2(perm(perm(p.x) + p.y), perm(perm(p.y + 51.0) + p.x)) / 289.0;
+}
+
+// Nicht-ganzzahlige Eingaben (nur Optik, nicht nachgerechnet)
+vec2 hash22f(vec2 p) {
 	p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
 	return fract(sin(p) * 43758.5453);
 }
@@ -87,16 +103,20 @@ vec4 voronoi(vec2 p) {
 			}
 		}
 	}
-	return vec4(sqrt(f1), sqrt(f2) - sqrt(f1), hash22(id * 1.37 + 0.5));
+	return vec4(sqrt(f1), sqrt(f2) - sqrt(f1), hash22(id + vec2(101.0, 37.0)));
 }
 
 float nz(vec2 p) {
 	return texture(noise_tex, p).r;
 }
 
-// Nur die groben Oktaven (hohe Mip-Stufe): für Verzerrungen, sonst falten sich die Felder
-float nzs(vec2 p, float lod) {
-	return (textureLod(noise_tex, p, lod).r - 0.5) * 1.6 + 0.5;
+// Nur die groben Oktaven: für Verzerrungen, sonst falten sich die Felder zu Klecksen
+float wlo(vec2 p) {
+	return (texture(warp_lo, p).r - 0.5) * 1.6 + 0.5;
+}
+
+float wmid(vec2 p) {
+	return (texture(warp_mid, p).r - 0.5) * 1.6 + 0.5;
 }
 
 const mat2 ROT_A = mat2(vec2(0.799, 0.602), vec2(-0.602, 0.799));   // 37°
@@ -148,12 +168,12 @@ void fragment() {
 	// Felder: Flurstücke (große Voronoi-Zellen mit eigener Ausrichtung), darin
 	// gestreckte Schläge mit verzogenen Rändern. Kein Raster, keine Drehung um den
 	// Kartenursprung (sonst Strudel).
-	vec2 warp = vec2(nzs(tpos / 1700.0 + 0.11, 4.5), nzs(tpos / 1700.0 + 0.53, 4.5)) - 0.5;
+	vec2 warp = vec2(wlo(tpos / 1700.0 + 0.11), wlo(tpos / 1700.0 + 0.53)) - 0.5;
 	vec2 fp = tpos + warp * 220.0;
 	vec4 reg = voronoi(fp / 1900.0);
 	float ang = reg.z * 3.14159;
 	mat2 rot = mat2(vec2(cos(ang), sin(ang)), vec2(-sin(ang), cos(ang)));
-	vec2 warp2 = vec2(nzs(tpos / 420.0 + 0.27, 3.0), nzs(tpos / 420.0 + 0.81, 3.0)) - 0.5;
+	vec2 warp2 = vec2(wmid(tpos / 420.0 + 0.27), wmid(tpos / 420.0 + 0.81)) - 0.5;
 	vec2 fq = rot * (fp + warp2 * 14.0) + reg.zw * 977.0;
 	vec4 vc = voronoi(fq / mix(vec2(310.0, 105.0), vec2(230.0, 150.0), reg.w));
 	float cell = vc.z;
@@ -189,7 +209,7 @@ void fragment() {
 		fcol = grass * vec3(1.12, 1.06, 0.8);   // Weide
 	}
 	fcol *= 0.78 + 0.44 * vc.w;
-	fcol *= vec3(1.0 + 0.16 * (hash22(vc.zw * 7.1).x - 0.5), 1.0, 1.0 + 0.2 * (hash22(vc.zw * 3.3).y - 0.5));
+	fcol *= vec3(1.0 + 0.16 * (hash22f(vc.zw * 7.1).x - 0.5), 1.0, 1.0 + 0.2 * (hash22f(vc.zw * 3.3).y - 0.5));
 	fcol *= 0.9 + 0.2 * n3;
 	// Bearbeitungsstreifen (mittlere Entfernung) und Furchen (nah)
 	float stripe = sin(row * 0.8);
