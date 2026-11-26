@@ -352,16 +352,62 @@ func _material() -> ShaderMaterial:
 		nimg.convert(Image.FORMAT_L8)
 		nimg.generate_mipmaps()
 		c.tex = [ImageTexture.create_from_image(himg), ImageTexture.create_from_image(mimg), ImageTexture.create_from_image(nimg)]
+		c.tex.append_array(_detail_textures(data.seed))
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://world/terrain/terrain.gdshader")
 	mat.set_shader_parameter("heightmap", c.tex[0])
 	mat.set_shader_parameter("mask_tex", c.tex[1])
 	mat.set_shader_parameter("noise_tex", c.tex[2])
+	mat.set_shader_parameter("detail_tex", c.tex[3])
+	mat.set_shader_parameter("cell_tex", c.tex[4])
+	mat.set_shader_parameter("detail_nrm", c.tex[5])
 	mat.set_shader_parameter("spacing", _sp)
 	mat.set_shader_parameter("half_size", _half)
 	mat.set_shader_parameter("samples", _n)
 	mat.set_shader_parameter("tile_cells", _cells())
 	return mat
+
+
+## M3.7: kleine kachelbare Detail-Texturen (je 512², zur Laufzeit, keine Bilddateien):
+## fBm (Grasbüschel/Krume), Zellen (Schollen, Steine, Felsrisse), Normal-Detail aus beidem.
+static func _detail_textures(seed_: int) -> Array:
+	var fb := FastNoiseLite.new()
+	fb.seed = seed_ + 11
+	fb.noise_type = FastNoiseLite.TYPE_SIMPLEX
+	fb.frequency = 8.0 / 512.0
+	fb.fractal_octaves = 5
+	fb.fractal_gain = 0.55
+	var fimg := fb.get_seamless_image(512, 512)
+	fimg.convert(Image.FORMAT_L8)
+	var ce := FastNoiseLite.new()
+	ce.seed = seed_ + 23
+	ce.noise_type = FastNoiseLite.TYPE_CELLULAR
+	ce.frequency = 12.0 / 512.0
+	ce.cellular_return_type = FastNoiseLite.RETURN_DISTANCE2_SUB
+	ce.fractal_type = FastNoiseLite.FRACTAL_NONE
+	ce.domain_warp_enabled = true
+	ce.domain_warp_amplitude = 6.0
+	var cimg := ce.get_seamless_image(512, 512)
+	cimg.convert(Image.FORMAT_L8)
+	# Normal-Detail: Höhe = fBm + Zellränder
+	var fa := fimg.get_data()
+	var ca := cimg.get_data()
+	for i in fa.size():
+		fa[i] = (fa[i] * 5 + ca[i] * 3) >> 3
+	var bimg := Image.create_from_data(512, 512, false, Image.FORMAT_L8, fa)
+	bimg.convert(Image.FORMAT_RGBA8)
+	bimg.bump_map_to_normal_map(3.0)
+	var out := []
+	for img in [fimg, cimg, bimg]:
+		img.generate_mipmaps()
+		out.append(ImageTexture.create_from_image(img))
+	return out
+
+
+## M3.7: Radius der Baum-Modelle (Vegetation) an den Gelände-Shader (Waldboden statt Kronen).
+func set_tree_radius(r: float) -> void:
+	for m in _materials:
+		m.set_shader_parameter("tree_radius", r)
 
 
 func _build_environment() -> void:
