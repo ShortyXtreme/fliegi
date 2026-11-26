@@ -40,7 +40,7 @@ Neue Kanäle werden in `default_channels()` (bzw. später je Platz/Partie) **nur
 ## 4. Rückmeldung: Funk statt Balken (Realismus-Regel)
 
 - **Keine Fortschrittsbalken und keine Prozentanzeigen** für Aufgaben (Tanken, Munition, Reparatur, Pumpen) – weder in der Mannschaftsanzeige noch beim Selbermachen. Rückmeldung beim Selbermachen nur über Geräusch, das Flugzeug selbst und die Tankanzeige im Cockpit (Instrument). Im Arcade-Modus höchstens eine dezente Zeile „Tanken läuft …“.
-- Die KI meldet sich per Funk **im jeweiligen Kanal** in grober Sprache, mit kurzem Funk-Piep (Einstellung „Funk-Piep“): Start („Tankwart: Fange an zu tanken.“), etwa halb („Halb voll.“), fertig („Tank voll, räume ab.“ / „Munitionswart: Linke Seite fertig.“), Aufräumen, Probleme („Problem: Lager leer.“, „Schlauch reicht nicht“).
+- Die KI meldet sich per Funk **im jeweiligen Kanal** in grober Sprache, mit kurzem Funk-Klang (Einstellung „Funk-Klang“; M3.6: Klick + Rauschen beim Senden, Rauschen + Doppelton beim Empfang): Start („Tankwart: Fange an zu tanken.“), etwa halb („Halb voll.“), fertig („Tank voll, räume ab.“ / „Munitionswart: Linke Seite fertig.“), Aufräumen, Probleme („Problem: Lager leer.“, „Schlauch reicht nicht“).
 - **Status?** in jedem Kanal: grobe Antwort („Tanke noch, etwa drei Viertel.“, „Dauert noch ein paar Minuten.“).
 - Ein kleiner Punkt am Kanal zeigt, dass dort gerade jemand arbeitet.
 

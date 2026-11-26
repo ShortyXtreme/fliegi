@@ -101,7 +101,7 @@ static func tips(ctx: int) -> Array:
 	match ctx:
 		InputBindings.Context.CREW:
 			return ["Am Flugzeug: Interagieren halten = tanken, munitionieren, reparieren.",
-				"Befehlsrad: Ebene Fahrzeuge (rufen / zurück) oder ein Mechaniker (Tanken, Munition …)."]
+				"Funkgerät: erst Kanal (Tankwart, Munition, Reparatur, Bodenpersonal), dann Befehl 1–4."]
 		InputBindings.Context.DRIVE:
 			return ["Tankwagen neben die Maschine fahren, aussteigen, Schlauch mit Interagieren nehmen."]
 		_:

@@ -28,7 +28,7 @@ enum Stage { CHANNELS, COMMANDS }
 
 ## Pad-Tasten A/B gehören dem offenen Funkgerät (CrewPlayerController/DrivePlayerController).
 static var pad_capture := false
-## Kurzer Funk-Piep bei jeder Antwort (Einstellung „Funk-Piep“, Standard an).
+## Funk-Klang beim Senden und Empfangen (Einstellung „Funk-Klang“, Standard an).
 static var beep_on := true
 var _beep: AudioStreamPlayer
 
@@ -52,30 +52,82 @@ func _init() -> void:
 	visible = false
 
 
-## Funk-Piep (prozedural: zwei kurze Töne 1,2 kHz, leichtes Rauschen).
+## M3.6: Funk-Klang (prozedural, Bus „UI“ = Regler „Lautstärke Menü/UI“, abschaltbar über
+## „Funk-Klang“). Senden: Sprechtasten-Klick + kurzes Rauschen. Empfang: Rauschstoß (Squelch),
+## zwei kurze Töne 1,2 kHz, Rauschschwanz. Zähler sounds je Art (auch headless, für Tests).
+var sounds := {"senden": 0, "empfang": 0}
+var _streams := {}
+
+
+## Empfangs-Klang (Antwort eingegangen).
 func beep() -> void:
-	if not beep_on or DisplayServer.get_name() == "headless":
+	_radio_sound("empfang")
+
+
+## Sende-Klang (Befehl abgesetzt).
+func send_sound() -> void:
+	_radio_sound("senden")
+
+
+func _radio_sound(kind: String) -> void:
+	if not beep_on:
+		return
+	sounds[kind] = int(sounds.get(kind, 0)) + 1
+	if DisplayServer.get_name() == "headless":
 		return
 	if _beep == null:
-		var rate := 22050
-		var data := PackedByteArray()
-		var n := int(rate * 0.16)
-		data.resize(n * 2)
-		for i in n:
-			var t := float(i) / rate
-			var on := t < 0.06 or (t > 0.09 and t < 0.15)
-			var v := (sin(TAU * 1200.0 * t) * 0.5 + randf_range(-0.08, 0.08)) * (1.0 if on else 0.0)
-			data.encode_s16(i * 2, int(clampf(v, -1, 1) * 9000))
-		var w := AudioStreamWAV.new()
-		w.format = AudioStreamWAV.FORMAT_16_BITS
-		w.mix_rate = rate
-		w.data = data
 		_beep = AudioStreamPlayer.new()
-		_beep.stream = w
 		_beep.bus = &"UI"
 		_beep.volume_db = -8.0
 		add_child(_beep)
+	if not _streams.has(kind):
+		_streams[kind] = make_radio_stream(kind)
+	_beep.stream = _streams[kind]
+	_beep.pitch_scale = randf_range(0.97, 1.03)
 	_beep.play()
+
+
+## Klang als 16-Bit-WAV (22,05 kHz). Rauschen tiefpassgefiltert und mit 3 kHz „Bandbreite“,
+## damit es nach Funkgerät klingt und nicht nach weißem Rauschen.
+static func make_radio_stream(kind: String) -> AudioStreamWAV:
+	var rate := 22050
+	var dur := 0.2 if kind == "senden" else 0.34
+	var n := int(rate * dur)
+	var data := PackedByteArray()
+	data.resize(n * 2)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1937 if kind == "senden" else 1938
+	var lp := 0.0
+	var hp := 0.0
+	for i in n:
+		var t := float(i) / rate
+		lp += (rng.randf_range(-1.0, 1.0) - lp) * 0.45   # Tiefpass
+		var noise := lp - hp
+		hp += noise * 0.08                               # Hochpass (kein Brummen)
+		var v := 0.0
+		if kind == "senden":
+			# Klick der Sprechtaste (5 ms), dann Rauschen, das nach 0,15 s abreißt
+			if t < 0.005:
+				v = (1.0 - t / 0.005) * 0.9 * (1.0 if i % 6 < 3 else -1.0)
+			elif t < 0.15:
+				v = noise * 0.55 * minf(1.0, (t - 0.005) / 0.01)
+			elif t < 0.157:
+				v = 0.6 * (1.0 if i % 8 < 4 else -1.0) * (1.0 - (t - 0.15) / 0.007)
+		else:
+			# Squelch-Öffnung, Doppelton, Rauschschwanz
+			var tone := t > 0.05 and t < 0.11 or t > 0.14 and t < 0.2
+			if t < 0.05:
+				v = noise * 0.7
+			elif tone:
+				v = sin(TAU * 1200.0 * t) * 0.45 + noise * 0.12
+			elif t < 0.29:
+				v = noise * 0.4 * (1.0 if t < 0.2 else 1.0 - (t - 0.2) / 0.09)
+		data.encode_s16(i * 2, int(clampf(v, -1.0, 1.0) * 9000.0))
+	var w := AudioStreamWAV.new()
+	w.format = AudioStreamWAV.FORMAT_16_BITS
+	w.mix_rate = rate
+	w.data = data
+	return w
 
 
 func channel() -> RadioChannel:
@@ -147,6 +199,7 @@ func choose(n: int) -> RadioCommand:
 	var c: RadioCommand = e[n - 1]
 	var ch := channel()
 	close()
+	send_sound()
 	command_chosen.emit(ch, c)
 	return c
 

@@ -140,6 +140,13 @@ func _series(hills: bool) -> Array:
 	return [ok, txt]
 
 
+## Bekannt rot seit 3bd2292 (M3.6 geprüft, unverändert 6/10, 1 Zusammenstoß): keine Regression,
+## sondern Abnahme 6 (≥ 8/10) noch nie erreicht. Ursache: zwei gleich starke KIs – in jedem Duell
+## kommt nur EINE Seite überhaupt ins Feuerfenster (3–15 s von 180 s), Seed 1000 bleibt 180 s im
+## Patt ohne einen Schuss. Ein Abschuss braucht bei verteilten Treffern (~10 HP je Treffer,
+## Strukturbruch 320 HP) 20–33 Treffer; Seeds 1002/1009 enden mit 8 bzw. 23 Treffern ohne
+## Abschuss, Seed 1004 mit Zusammenstoß. Behebung = KI-Abstimmung des Kurvenkampfs (Patt-Brecher,
+## Feuerfenster) bzw. Schadensbalance – kein kleiner Eingriff, daher Schwelle NICHT gesenkt.
 func test_duels_flat() -> Array:
 	return await _series(false)
 
