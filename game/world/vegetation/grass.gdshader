@@ -10,6 +10,8 @@ render_mode diffuse_burley, specular_schlick_ggx, cull_disabled;
 uniform sampler2D heightmap : filter_nearest, repeat_disable;
 uniform sampler2D mask_tex : filter_linear, repeat_disable;
 uniform sampler2D af_mask : filter_linear, repeat_disable;
+uniform sampler2D noise_tex : filter_linear_mipmap, repeat_enable;
+#include "res://world/terrain/fields.gdshaderinc"
 uniform float spacing = 19.53125;
 uniform float half_size = 20000.0;
 uniform int samples = 2049;
@@ -57,7 +59,19 @@ void vertex() {
 	float d = length(wxz - cam.xz);
 	vec4 m = textureLod(mask_tex, (t + half_size) / (2.0 * half_size), 0.0);
 	float dens = (1.0 - smoothstep(0.35, 0.55, m.r)) * (1.0 - smoothstep(0.55, 0.75, m.b));
-	dens *= max(1.0 - smoothstep(0.45, 0.6, m.a), m.g);
+	// Äcker (wie im Gelände-Shader): auf Getreide, Stoppeln, Saat, Rüben, Pflug, Senf kein Gras;
+	// Klee/Heu kürzer, Weiden normal
+	if (m.a > 0.3 && m.g < 0.3) {
+		vec4 reg;
+		vec2 fq;
+		vec4 vc = field_cell(t, reg, fq);
+		float n2 = textureLod(noise_tex, t / 610.0 + 0.37, 0.0).r;
+		float fields = smoothstep(0.5, 0.56, m.a * 0.9 + (vc.w - 0.5) * 0.5 + (n2 - 0.5) * 0.15);
+		float clover = step(0.40, vc.z) * step(vc.z, 0.50);
+		float crop = step(vc.z, 0.70) * (1.0 - clover);
+		dens *= 1.0 - fields * crop;
+		dens *= 1.0 - fields * clover * 0.3;
+	}
 	float hgt = mix(1.0, 0.55, smoothstep(0.3, 0.8, m.g));   // gemähte Plätze kürzer
 	float wear = 0.0;
 	vec2 al = (wxz - af_center.xz) / af_half;
@@ -92,7 +106,7 @@ void fragment() {
 	// Rückseiten nicht abdunkeln (Halme sind beidseitig)
 	NORMAL = FRONT_FACING ? NORMAL : -NORMAL;
 	vec3 lo = vec3(0.045, 0.075, 0.018);
-	vec3 hi = mix(vec3(0.085, 0.125, 0.032), vec3(0.115, 0.13, 0.04), vtone);
+	vec3 hi = mix(vec3(0.095, 0.14, 0.036), vec3(0.13, 0.145, 0.045), vtone);
 	vec3 col = mix(lo, hi, vh);
 	// platt gefahren: gelblich, matter
 	col = mix(col, mix(vec3(0.07, 0.065, 0.025), vec3(0.14, 0.125, 0.05), vh), vwear * 0.8);

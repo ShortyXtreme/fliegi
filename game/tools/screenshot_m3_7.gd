@@ -56,8 +56,8 @@ func _run() -> void:
 	var at: Vector3
 	match mode:
 		"boden":
-			from = af.to_global(Vector3(-20, 1.8, s0 - 330))
-			at = af.to_global(Vector3(-100, 4, s0 - 150))
+			from = af.to_global(Vector3(45, 1.7, s0 - 40))
+			at = af.to_global(Vector3(-120, 5, s0 - 300))
 		"spuren":
 			from = af.to_global(Vector3(-8, 2.6, s0 - 18))
 			at = af.to_global(Vector3(3, 0, s0 - 130))
@@ -105,6 +105,9 @@ func _forest_edge(tw: TerrainWorld, center: Vector3) -> Array:
 			var a := TAU * k / 48.0
 			var p := Vector2(c.x, c.z) + Vector2(cos(a), sin(a)) * r * px
 			var d := Vector2(cos(a), sin(a))
+			# Sonne im Rücken (Licht fällt Richtung +x/−z)
+			if d.dot(Vector2(0.574, -0.819)) < 0.6:
+				continue
 			var f := _m(mask, p, tw, res)
 			var f2 := _m(mask, p - d * 3.0 * px, tw, res)
 			if f > 0.85 and f2 < 0.1:

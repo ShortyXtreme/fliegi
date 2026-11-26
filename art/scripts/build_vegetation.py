@@ -20,7 +20,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), 
 OUT = os.path.join(ROOT, "art", "models", "ground", "vegetation.glb")
 GAME = os.path.join(ROOT, "game", "assets", "ground", "vegetation.glb")
 
-BARK = (0.075, 0.055, 0.040)
+BARK = (0.060, 0.050, 0.040)
 
 
 def reset():
@@ -222,7 +222,7 @@ def nadel_b(lod):
     trunk(p, Vector((0, 0, -0.3)), Vector((0.3, 0.0, 12.5)), 0.33, 0.14, [7, 5, 3][lod])
     cc = Vector((0.4, 0.0, 13.0))
     lo, hi = 10.0, 16.5
-    bark2 = (0.11, 0.06, 0.035)   # rötliche Kiefernrinde oben
+    bark2 = (0.095, 0.060, 0.040)   # rötliche Kiefernrinde oben
     if lod == 0:
         trunk(p, Vector((0.3, 0, 10.0)), Vector((2.0, 0.6, 12.6)), 0.12, 0.05, 4)
         trunk(p, Vector((0.3, 0, 10.8)), Vector((-1.4, -1.0, 13.0)), 0.11, 0.05, 4)
