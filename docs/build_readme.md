@@ -1,11 +1,16 @@
-# Flugkern M3.5 – Testversion „Funkgerät und Motor“
+# Flugkern M3.6 – Testversion „Funkgerät und Motor“
 
 ## Installation
 1. Die vorhandene **Flugkern.exe** (Godot 4.7.2) bleibt unverändert.
 2. **Alle vier .pck-Dateien** in denselben Ordner wie Flugkern.exe kopieren (alte Flugkern.pck überschreiben):
    `Flugkern.pck`, `Flugkern_modelle.pck`, `Flugkern_karte.pck`, `Flugkern_audio.pck`.
    Fehlt Modelle oder Karte, zeigt das Spiel eine Meldung; fehlt Audio, läuft es ohne Ton.
-3. Flugkern.exe starten. Der Fenstertitel muss „Flugkern M3.5“ zeigen.
+3. Flugkern.exe starten. Der Fenstertitel muss „Flugkern M3.6“ zeigen.
+
+## Neu in M3.6
+
+- Piste mit mehr Bodendetail: Reifenabrieb an den Aufsetzzonen, Farbflecken im Gras, gelbe Randwimpel, Ölflecken auf dem Vorfeld.
+- Funk-Klang: Klick und Rauschen beim Senden, Rauschen und Doppelton beim Empfang (Einstellung „Funk-Klang“).
 
 ## Neu in M3.5
 - **Funkgerät** statt Befehlsrad: **Tab/LB** öffnet es unten rechts. Erst Kanal wählen (1 Tankwart, 2 Munition, 3 Reparatur, 4 Bodenpersonal), dann Befehl 1–4 (z. B. „Tankwagen rufen“, „Volltanken“, „Status?“). Antworten erscheinen im jeweiligen Kanal, mit kurzem Funk-Klang (Einstellungen → „Funk-Klang“).
