@@ -11,7 +11,7 @@ extends Node3D
 ## Platzflächen, Roll-/Fahrwege und die An-/Abflugschneisen bleiben frei (VegetationGen.keepout).
 ##
 ## Einstellung "Vegetation" (GameSettings): Aus / Niedrig / Mittel / Hoch, Standard Mittel;
-## im Selbsttest höchstens Niedrig.
+## im Selbsttest aus (Software-Darstellung, Laufzeit wie bisher).
 
 const LEVELS := ["aus", "niedrig", "mittel", "hoch"]
 const LABELS := ["Aus", "Niedrig", "Mittel", "Hoch"]
@@ -54,7 +54,7 @@ static func set_level(l: int) -> void:
 	if override_level >= 0:
 		l = override_level
 	if Selbsttest.requested():
-		l = mini(l, 1)
+		l = 0
 	level = clampi(l, 0, LEVELS.size() - 1)
 	var st := Engine.get_main_loop() as SceneTree
 	if st != null:
@@ -74,7 +74,7 @@ func _ready() -> void:
 		if l < 0:
 			l = 2
 	if Selbsttest.requested():
-		l = mini(l, 1)
+		l = 0
 	level = l
 	gen = VegetationGen.create(tw)
 	_load_meshes()
