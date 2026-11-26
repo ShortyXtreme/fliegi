@@ -1,11 +1,18 @@
-# Flugkern M3.6 – Testversion „Funkgerät und Motor“
+# Flugkern M3.7 – Testversion „Lebendige Welt“
 
 ## Installation
 1. Die vorhandene **Flugkern.exe** (Godot 4.7.2) bleibt unverändert.
 2. **Alle vier .pck-Dateien** in denselben Ordner wie Flugkern.exe kopieren (alte Flugkern.pck überschreiben):
    `Flugkern.pck`, `Flugkern_modelle.pck`, `Flugkern_karte.pck`, `Flugkern_audio.pck`.
    Fehlt Modelle oder Karte, zeigt das Spiel eine Meldung; fehlt Audio, läuft es ohne Ton.
-3. Flugkern.exe starten. Der Fenstertitel muss „Flugkern M3.6“ zeigen.
+3. Flugkern.exe starten. Der Fenstertitel muss „Flugkern M3.7“ zeigen.
+
+## Neu in M3.7
+
+- Neue Bodentexturen: Felder, Wiesen, Erde und Fels statt einfarbiger Fläche.
+- Bäume (Laub und Nadel), Büsche und Gras, das sich im Wind bewegt. Piste, Rollwege und Anflug bleiben frei.
+- Auf der Wiese platt gefahrene Grasbahnen statt Reifenstrichen.
+- Einstellung „Vegetation“ (Aus/Niedrig/Mittel/Hoch). Bei ruckelndem Bild Niedrig oder Aus wählen.
 
 ## Neu in M3.6
 
