@@ -33,7 +33,7 @@ const OPTIONS := [
 	["vibration", "m3_4", "Controller-Vibration", ["aus", "leicht", "stark"], ["Aus", "Leicht", "Stark"], "leicht"],
 	# M3.5: 3D-Markierungen an Tankstutzen, MG-Klappen, Schlauch und Kisten (Standard an)
 	["hilfen", "m3_5", "Interaktionshilfen", ["an", "aus"], ["An", "Aus"], "an"],
-	["funk_piep", "m3_5", "Funk-Piep", ["an", "aus"], ["An", "Aus"], "an"],
+	["funk_piep", "m3_5", "Funk-Klang", ["an", "aus"], ["An", "Aus"], "an"],
 	["alarmton", "audio", "Alarmton", ["sirene", "glocke"], ["Sirene", "Glocke"], "sirene"],
 ]
 const VOL := [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]

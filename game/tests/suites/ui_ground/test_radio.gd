@@ -87,6 +87,39 @@ func test_answers_per_channel_and_request() -> Array:
 	return [ok, "Tankwart %s, Munition %s, Anfrage %s, Zeilen Kanal 1 %s" % [fuel_log, ammo_log, req, lines]]
 
 
+## M3.6: Funk-Klang beim Senden (Befehl gewählt) und beim Empfang (Antwort), abschaltbar;
+## die erzeugten Klänge sind nicht leer und nicht übersteuert.
+func test_radio_sounds() -> Array:
+	var a := _spawn(true)
+	var g := _hud(a)
+	await _step(2)
+	var was := RadioPanel.beep_on
+	RadioPanel.beep_on = true
+	g.radio.open()
+	g.radio.choose(1)
+	g.radio.choose(4)                  # Kanal 1, „Status?“ -> Senden
+	await _step(2)
+	g._on_crew_report("Fange an zu tanken.", null, &"fuel")   # Empfang
+	var on: Dictionary = g.radio.sounds.duplicate()
+	RadioPanel.beep_on = false
+	g.radio.open()
+	g.radio.choose(1)
+	g.radio.choose(4)
+	g._on_crew_report("Halb voll.", null, &"fuel")
+	var off: Dictionary = g.radio.sounds.duplicate()
+	RadioPanel.beep_on = was
+	var peaks := []
+	for k in ["senden", "empfang"]:
+		var d := RadioPanel.make_radio_stream(k).data
+		var pk := 0
+		for i in range(0, d.size(), 2):
+			pk = maxi(pk, absi(d.decode_s16(i)))
+		peaks.append(pk)
+	var ok: bool = on.senden >= 1 and on.empfang >= 1 and off == on and peaks.all(func(p): return p > 1000 and p < 32000)
+	g.queue_free()
+	return [ok, "an %s, aus %s, Spitzen %s" % [on, off, peaks]]
+
+
 func test_pad_capture_and_rough_status() -> Array:
 	var a := _spawn(true)
 	var g := _hud(a)
