@@ -105,8 +105,8 @@ void fragment() {
 	vec3 r = reflect(-vw, nw);
 	vec3 sky = mix(sky_horizon, sky_top, smoothstep(0.0, 0.55, r.y));
 	// Uferschaum: schmaler Saum, wandert mit der Strömung
-	float fn = texture(foam_tex, (tpos - o0 * 0.6) / 4.0).r * (1.0 - bl) + texture(foam_tex, (tpos - o1 * 0.6) / 4.0 + 0.5).r * bl;
-	float foam = (1.0 - smoothstep(0.02, 0.22 + 0.25 * fn, depth)) * smoothstep(0.35, 0.65, fn) * (1.0 - far_k);
+	float fn = texture(foam_tex, (tpos - o0 * 0.6) / 1.6).r * (1.0 - bl) + texture(foam_tex, (tpos - o1 * 0.6) / 1.6 + 0.5).r * bl;
+	float foam = (1.0 - smoothstep(0.01, 0.06 + 0.1 * fn, depth)) * smoothstep(0.45, 0.7, fn) * 0.7 * (1.0 - far_k);
 	// Strömungsstreifen in der Mitte (schwach, nur nah)
 	float streak = smoothstep(0.62, 0.8, texture(foam_tex, vec2(tpos.x, tpos.y) / 11.0 - flow * TIME * 0.09).r) * 0.25 * (1.0 - far_k) * dk;
 	foam = clamp(foam + streak * clamp(spd - 0.6, 0.0, 1.0), 0.0, 1.0);
@@ -118,6 +118,6 @@ void fragment() {
 	METALLIC = 0.0;
 	// Rand: weich auslaufen (keine harte Kante am Ufer)
 	float edge = smoothstep(0.0, 0.12, depth);
-	float a = mix(0.45, 0.93, dk);
+	float a = mix(0.5, 0.96, dk);
 	ALPHA = clamp(max(a, fres) + foam * 0.6, 0.0, 1.0) * edge * fade;
 }

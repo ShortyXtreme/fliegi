@@ -37,6 +37,12 @@ func _ready() -> void:
 		DisplayServer.window_set_title("Flugkern %s" % Hud.VERSION)
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_background()
+	# M3.8: Wind der Kulisse nach Einstellung (Windsack, Gras, Bäume bewegen sich passend)
+	var wl := Weather.parse_level(String(GameSettings.get_value("wind")))
+	Weather.setup(wl if wl >= 0 else Weather.Level.NORMAL, randi())
+	var wd := WeatherDriver.new()
+	wd.name = "Weather"
+	add_child(wd)
 	add_child(SoundDirector.new())   # M3.3: Umgebung + Menü-Klänge
 	menu = GameMenu.new()
 	menu.mode = GameMenu.Mode.MAIN

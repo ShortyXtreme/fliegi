@@ -3,6 +3,10 @@
 Prototyp des Luftkampf-Spiels (Godot **4.7.2**, GDScript, Jolt-Physik, 60 Hz mit Physik-Interpolation).
 Ein Tier-I-Jäger („Falke“, 2.500 kg, 700 kW) startet vom **Platz Blau** im neuen 40-km-Gelände. Drei rote KI-Jäger (Stufe „Erfahren“) patrouillieren 6–10 km entfernt Richtung Platz Rot und greifen an. Bewaffnung: 2 × MG 7,92 mm, zusammen 1.000 Schuss, Leuchtspur jeder 5. Schuss.
 
+## M3.8 Flüsse und Wind
+- **Gewässer:** Hauptfluss im Talzug (NW → SO) mit drei Bächen von den Bergen, Brücke Nord (Fachwerk) und Brücke Süd (Steinbogen, beide Gruppe `bridge`). Abfrage `WorldGround.water_level_at(x, z)` / `is_water()`, Netz `TerrainWorld.water_net` (`RiverNet`). Gelände neu erzeugen: `godot --headless --path game --script res://tools/build_terrain.gd` (~45 s).
+- **Wind:** `Weather` (statisch, `core/weather.gd`): `Weather.wind_at(pos)` = Luftbewegung m/s. Flugmodell rechnet relativ zur Luft; Windsäcke, Gras, Bäume, Wasser, Rauch, Fallschirme folgen. Einstellung „Wind“ (`[m3_8] wind = "aus" | "schwach" | "normal" | "stark"`), Startoption `-- --wind=stark --wind_seed=7`. Funk Bodenpersonal › „Wetter?“.
+
 ## M3.4 Feinschliff
 - **Einstellungen:** Beschriftungsspalte links, Regler/Werte rechts; neu `[anzeige] fenster` (vollbild/rahmenlos/fenster), `aufloesung`, `vsync` (beim Start angewendet, `GameSettings.apply_display()`), `[m3_4] kamera_ruetteln` (aus/leicht, Standard aus), `vibration` (aus/leicht/stark, Standard leicht).
 - **Tutorial:** 11 Schritte, zuerst Bodenvorbereitung (Aussteigen, Tanken, Munition, Einsteigen, Vorflug-Check mit Startklappen), dann Start, Fliegen, Zielen, Landung mit Landeklappen, Abstellplatz.

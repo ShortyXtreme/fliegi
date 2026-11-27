@@ -40,7 +40,7 @@ void vertex() {
 	float ws = clamp(wind_state.y / 8.0, 0.0, 1.0);
 	float along = dot(io.xz, wind_state.xz);
 	float g = sin(TIME * (0.9 + 0.5 * ws) - along * 0.045 + ph * 0.3) * 0.5 + 0.5;
-	vec2 sway = wd * h * h * 0.0009 * ws * (0.6 + 0.6 * g + 0.3 * wind_state.w) * wind;
+	vec2 sway = wd * h * h * 0.0018 * ws * (0.6 + 0.6 * g + 0.3 * wind_state.w) * wind;
 	sway += vec2(sin(TIME * 1.1 + ph), cos(TIME * 0.83 + ph * 1.3)) * h * (0.0015 + 0.006 * ws) * wind;
 	// Laub flattert (Laub = grüner als rot), stärker bei Wind
 	float leaf = step(COLOR.r * 1.25, COLOR.g);

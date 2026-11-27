@@ -305,7 +305,7 @@ static func _mat(m: String) -> StandardMaterial3D:
 		return _mats[m]
 	var col: Color = {"stone": Color(0.42, 0.39, 0.34), "stone_light": Color(0.5, 0.47, 0.41),
 		"steel": Color(0.17, 0.2, 0.19), "deck": Color(0.3, 0.28, 0.25), "road": Color(0.22, 0.2, 0.17),
-		"earth": Color(0.2, 0.22, 0.1)}.get(m, Color.GRAY)
+		"earth": Color(0.26, 0.33, 0.13)}.get(m, Color.GRAY)
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = col
 	mat.roughness = 0.55 if m == "steel" else 0.92

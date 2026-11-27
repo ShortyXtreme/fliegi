@@ -253,7 +253,7 @@ void fragment() {
 	// Böschung (steil am Wasser): Lehm statt Gras
 	col = mix(col, soil * 0.9, (1.0 - smoothstep(4.0, 12.0, edge)) * (1.0 - flat_k) * (1.0 - rock));
 	// Flussbett unter Wasser: Schlick und Steine, tiefer dunkler
-	float under = step(0.0, wdepth) * step(edge, 2.0);
+	float under = smoothstep(-0.05, 0.12, wdepth) * step(sr, 250.0);
 	vec3 bed = mix(vec3(0.09, 0.08, 0.06), vec3(0.04, 0.045, 0.035), smoothstep(0.3, 2.5, wdepth));
 	bed *= 0.75 + 0.5 * smoothstep(0.3, 0.7, d2);
 	col = mix(col, bed, under);

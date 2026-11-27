@@ -1,5 +1,21 @@
 # Änderungsprotokoll Flugkern
 
+## M3.8 „Flüsse und Wind“ (27.11.2026)
+
+### Neu / geändert
+- **Fluss und Bäche** (`world/terrain/terrain_generator.gd`, `river_net.gd`): Hauptfluss im Talzug Nordwest → Südost (61 km, Wasserspiegel 73 → 35 m, 56–92 m breit, mäandert, Bett 2,8 m unter dem Spiegel, Ufer steigt auf die Talsohle), drei Bäche (Nord-, West-, Südbach, 10–16 km) von den Bergzügen bergab in den Fluss (Lauf per Priority-Flood auf 100-m-Gitter, quer in die Talsohle gerückt, Spiegel stromabwärts monoton, Bett/Ufer eingeschnitten). Flugplätze samt Roll-/Fahrwegen und 5-km-Schneisen sowie Ziel-Flächen bleiben frei (nächstes Gewässer > 150 m). Daten in `TerrainData.waters` (Mittellinien, Spiegel, Breite) und `shore_png` (Uferabstand/Spiegel je Höhenpunkt).
+- **Wasser-Shader** `world/terrain/water.gdshader` auf Band-Meshes (`RiverWater`): Strömung entlang der Mittellinie (Flowmap mit zwei Phasen), Wellen-Normalen, Kräuselung in Windrichtung, Himmelsspiegelung mit Fresnel, Tiefenfärbung, Uferschaum; Uferlinie je Pixel aus der echten Höhenkarte. Fern leicht angehoben (gröbere Gelände-LODs).
+- **Ufer** im Gelände-Shader: Schlammsaum, stellenweise Kies-/Sandbänke, Lehmböschung, Flussbett unter Wasser; satte Uferwiese. **Ufergehölz** (Pappelreihen, Erlen, Weidengebüsch) lückig entlang der Gewässer; nie im Wasser (Abstand zur Kante ≥ 4 m Bäume / 2 m Büsche), kein Gras im Wasser.
+- **Brücken** (`world/terrain/bridges.gd`, prozedural, Gruppe `bridge`): „Brücke Nord“ stählerne Fachwerkbrücke mit Strompfeiler, „Brücke Süd“ Steinbogenbrücke (4 Bögen), Widerlager und Erddämme, Kollision (Layer WORLD).
+- **Absturz ins Wasser:** Wasserfontäne, Gischt, Ringwellen statt Feuerball/Krater, kein Brand; Wrack versinkt (`Wreck.in_water`). MG-Einschläge im Wasser spritzen weiß.
+- **Wind** (`core/weather.gd`, `world/weather_driver.gd`): Grundwind je Partie aus Seed (Richtung im Nordsektor ±80°, Stärke nach Stufe), dreht langsam, Böen, mit der Höhe stärker (×1,6 ab ~1 km), am Boden schwächer (1 m: ×0,7). Flugmodell rechnet relativ zur Luft (`FlightTelemetry.airspeed` = Fahrt, neu `ground_speed`, `wind`). KI hält Vorhaltewinkel gegen Seitenwind, Gleitweg und Ausrollen über Grund. Fallschirme, Trümmer, Wracks, Rauch, Staub, Gischt treiben mit dem Wind. Geschosse ohne Wind (Schütze und Ziel treiben mit derselben Luftmasse; Restfehler < 0,5 m auf 400 m).
+- **Sichtbar:** Windsäcke zeigen den echten Wind (Richtung, Stärke, Böen), Gras und Bäume wiegen sich in Windrichtung (globaler Shader-Parameter `wind_state`), Wasser kräuselt sich.
+- **Funk:** Kanal Bodenpersonal „Wetter?“ → „Wind aus Südwest, mäßig, böig.“; Meldung kurz nach Spielstart. Keine Zahlen im HUD; Kräfte-Debug (Shift+F3) zeigt Windwerte.
+- **Einstellung** „Wind: Aus / Schwach / Normal / Stark“ (`[m3_8] wind`, Standard Normal), Startoption `--wind=`, `--wind_seed=`. Tutorial höchstens schwach, Selbsttest und Tests ohne Wind.
+
+### Tests
+- Neu `world/test_river.gd`, `physics/test_wind.gd`, `airfield/test_ai_wind.gd` (KI-Start/-Landung bei Wind Stark mit Seitenwind); `test_radio` (4 Befehle Bodenpersonal), `test_airfield_m3_4_dressing` (Windsack folgt dem Wetter).
+
 ## M3.4 „Feinschliff nach Tester-Feedback“ (22.11.2026)
 
 ### Neu / geändert
