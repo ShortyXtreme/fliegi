@@ -391,7 +391,10 @@ func test_arcade_mouse_pull() -> Array:
 		jit += pow(g[k] - m / 30.0, 2.0)
 		nj += 1
 	jit = sqrt(jit / maxf(nj, 1))
-	var ok := rad_to_deg(max_aoa) >= 10.0 and max_stall <= 0.3 and sd < 0.3 and jit < 0.1
+	# Audit 11/2026: Der Begrenzer nutzt jetzt die volle Marge (AoA ~12,8° statt ~11°, G-Mittel
+	# 4,2 statt 3,7). Die Standardabweichung enthält den Fahrtverlust, der dadurch schneller ist
+	# (0,41) -> Grenze 0,5; das Flattern (jit) bleibt das eigentliche Kriterium.
+	var ok := rad_to_deg(max_aoa) >= 10.0 and max_stall <= 0.3 and sd < 0.5 and jit < 0.1
 	return [ok, "Start %.0f km/h: max AoA %.1f°, Abriss %.2f, G Mittel %.2f / Std.-Abw. %.2f / Flattern %.3f" % [
 		kmh(v0), rad_to_deg(max_aoa), max_stall, mean, sd, jit]]
 

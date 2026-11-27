@@ -11,7 +11,7 @@ position = Vector3(1.35, -0.18189031, 0.05)
 rotation_deg = Vector3(2, 0, 5)
 span = 1.5
 chord = 2.15
-aspect_ratio = 7.0
+aspect_ratio = 6.5
 zero_lift_aoa_deg = -2.5
 stall_angle_high_deg = 16.0
 stall_angle_low_deg = -14.0
@@ -26,7 +26,7 @@ position = Vector3(2.9, -0.046282876, 0.05)
 rotation_deg = Vector3(2, 0, 5)
 span = 1.6
 chord = 1.85
-aspect_ratio = 7.0
+aspect_ratio = 6.5
 zero_lift_aoa_deg = -2.5
 stall_angle_high_deg = 16.0
 stall_angle_low_deg = -14.0
@@ -41,13 +41,13 @@ position = Vector3(4.5, 0.093698986, 0.05)
 rotation_deg = Vector3(0.5, 0, 5)
 span = 1.6
 chord = 1.5
-aspect_ratio = 7.0
+aspect_ratio = 6.5
 zero_lift_aoa_deg = -2.5
 stall_angle_high_deg = 16.0
 stall_angle_low_deg = -14.0
 control_axis = 2
 control_sign = -1.0
-max_deflection_deg = 18.0
+max_deflection_deg = 13.0
 is_main_wing = true
 
 [sub_resource type="Resource" id="Resource_ap67j"]
@@ -57,7 +57,7 @@ position = Vector3(-1.35, -0.18189031, 0.05)
 rotation_deg = Vector3(2, 0, -5)
 span = 1.5
 chord = 2.15
-aspect_ratio = 7.0
+aspect_ratio = 6.5
 zero_lift_aoa_deg = -2.5
 stall_angle_high_deg = 16.0
 stall_angle_low_deg = -14.0
@@ -72,7 +72,7 @@ position = Vector3(-2.9, -0.046282876, 0.05)
 rotation_deg = Vector3(2, 0, -5)
 span = 1.6
 chord = 1.85
-aspect_ratio = 7.0
+aspect_ratio = 6.5
 zero_lift_aoa_deg = -2.5
 stall_angle_high_deg = 16.0
 stall_angle_low_deg = -14.0
@@ -87,12 +87,12 @@ position = Vector3(-4.5, 0.093698986, 0.05)
 rotation_deg = Vector3(0.5, 0, -5)
 span = 1.6
 chord = 1.5
-aspect_ratio = 7.0
+aspect_ratio = 6.5
 zero_lift_aoa_deg = -2.5
 stall_angle_high_deg = 16.0
 stall_angle_low_deg = -14.0
 control_axis = 2
-max_deflection_deg = 18.0
+max_deflection_deg = 13.0
 is_main_wing = true
 
 [sub_resource type="Resource" id="Resource_nhwu5"]
@@ -110,6 +110,7 @@ control_axis = 1
 control_sign = -1.0
 max_deflection_deg = 24.0
 downwash_factor = 1.0
+prop_wash = 0.3
 
 [sub_resource type="Resource" id="Resource_yi43n"]
 script = ExtResource("2_46qjq")
@@ -126,6 +127,7 @@ control_axis = 1
 control_sign = -1.0
 max_deflection_deg = 24.0
 downwash_factor = 1.0
+prop_wash = 0.3
 
 [sub_resource type="Resource" id="Resource_gtexy"]
 script = ExtResource("2_46qjq")
@@ -141,6 +143,7 @@ stall_angle_low_deg = -16.0
 flap_fraction = 0.4
 control_axis = 3
 max_deflection_deg = 25.0
+prop_wash = 0.6
 
 [sub_resource type="Resource" id="Resource_ipxhk"]
 script = ExtResource("3_hdkml")
@@ -193,7 +196,7 @@ cockpit_eye = Vector3(0, 0.88, 1.45)
 propeller_position = Vector3(0, -0.06, -2.9)
 elevator_per_aoa = 0.038
 realistic_elevator_ref_speed = 66.66666666666667
-realistic_elevator_exponent = 1.5
+realistic_elevator_exponent = 1.7
 ground_height = 1.655
 ground_pitch_deg = 12.4
 loadout_path = "res://weapons/data/loadout_fighter_t1.tres"

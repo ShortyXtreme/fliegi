@@ -16,8 +16,9 @@ var stall_protection := true
 const STALL_MARGIN := deg_to_rad(1.25)
 ## Begrenzer: Verstärkung auf den AoA-Fehler (Ruder pro rad) und Nickraten-Dämpfung (s).
 const LIMIT_K := 4.0
-const LIMIT_D := 0.35
-const LIMIT_AOA_RATE_D := 0.5
+## Audit 11/2026: −D·q (0,35 s) entfernt (stationäre Unterschreitung ~1,8°), dafür
+## Vorsteuerung elevator_per_qv und stärkere α̇-Dämpfung (0,5 -> 1,0).
+const LIMIT_AOA_RATE_D := 1.0
 ## Nicklage-Begrenzung bei geringer Fahrt: erlaubte Längsneigung bei v = 0 bzw. v = low_speed.
 const LOW_SPEED_PITCH_MIN := deg_to_rad(10.0)
 const LOW_SPEED_PITCH_MAX := deg_to_rad(80.0)
@@ -30,8 +31,16 @@ var _pitch_i := 0.0
 var limiter_amount := 0.0
 
 
+## Rumpf-Anstellwinkel ohne Auftrieb (Hauptflügel), Bezug der g-Grenze.
+var _zero_lift_aoa := deg_to_rad(-4.5)
+
+
 func _init(d: AircraftData) -> void:
 	data = d
+	for s in d.surfaces:
+		if s.is_main_wing:
+			_zero_lift_aoa = deg_to_rad(s.zero_lift_aoa_deg - s.rotation_deg.x)
+			break
 
 
 ## Höhenruder, das im stationären Flug den Rumpf-Anstellwinkel aoa hält (Vorsteuerung).
@@ -45,6 +54,14 @@ func realistic_elevator_scale(v: float) -> float:
 	if v <= vref:
 		return 1.0
 	return pow(vref / v, data.realistic_elevator_exponent)
+
+
+## Realistisch: maximaler Querruder-Anteil abhängig von der Fahrt (Knüppelkraft).
+func realistic_aileron_scale(v: float) -> float:
+	var vref := data.realistic_aileron_ref_speed
+	if v <= vref:
+		return 1.0
+	return pow(vref / v, data.realistic_aileron_exponent)
 
 
 func apply(intent: PilotIntent, t: FlightTelemetry, dt: float) -> ControlCommands:
@@ -63,6 +80,7 @@ func apply(intent: PilotIntent, t: FlightTelemetry, dt: float) -> ControlCommand
 		c.rudder = intent.yaw
 		if intent.assist_mode == Mode.REALISTIC and not t.on_ground:
 			c.elevator = intent.pitch * realistic_elevator_scale(t.airspeed)
+			c.aileron = intent.roll * realistic_aileron_scale(t.airspeed)
 			c.rudder = clampf(intent.yaw + w.y * 0.15, -1.0, 1.0)  # leichter Gierdämpfer
 		_pitch_i = 0.0
 		return c
@@ -93,6 +111,10 @@ func apply(intent: PilotIntent, t: FlightTelemetry, dt: float) -> ControlCommand
 				if pitch_rate_cmd > allowed:
 					pitch_rate_cmd = allowed
 					limiter_amount = maxf(limiter_amount, 0.5)
+	# g-Grenze auch im Wunsch: Nickrate höchstens n_max·g/v (Audit 11/2026), sonst schießt
+	# die Last bei hoher Fahrt über (Kurzzeit-Schwingung schneller als der AoA-Begrenzer).
+	if stall_protection and not t.on_ground:
+		pitch_rate_cmd = minf(pitch_rate_cmd, (data.arcade_g_limit - 0.5) * 9.81 / v)
 	var pitch_rate := w.x
 	var ff_pitch := pitch_rate_cmd / (data.pitch_rate_per_mps * v)
 	var err := pitch_rate_cmd - pitch_rate
@@ -106,8 +128,22 @@ func apply(intent: PilotIntent, t: FlightTelemetry, dt: float) -> ControlCommand
 		var limit := t.stall_aoa - STALL_MARGIN
 		# Bei geringer Fahrt reagiert das Flugzeug träger -> mehr Vorhalt auf α̇.
 		var slow := clampf(60.0 / v, 1.0, 3.0)
-		var max_elev := elevator_trim(limit) + (limit - t.aoa) * LIMIT_K * slow \
-			- w.x * LIMIT_D - maxf(t.aoa_rate, 0.0) * LIMIT_AOA_RATE_D * slow
+		# Audit 11/2026: Im stationären Ziehen braucht das Leitwerk wegen der Nickrate mehr
+		# Höhenruder (Anstellwinkel am Leitwerk q·l/V, Nickdämpfung). Vorher zog der Term
+		# −D·q davon noch ab -> Begrenzer blieb ~1,8° unter seiner Grenze (≈ 8 % Auftrieb).
+		# Jetzt Vorsteuerung +k·q/V, Dämpfung nur noch auf den Anteil über dem stationären Wert.
+		var q_ff := data.elevator_per_qv * w.x / v
+		# g-Grenze (Audit 11/2026): Arcade/KI zogen bei hoher Fahrt bis 16 g. Struktur der Jäger
+		# der 30er ≈ +8 g (Bruch ab ~12 g), Pilot verträgt 5–6 g dauerhaft. Grenz-AoA so senken,
+		# dass der Lastfaktor (Auftrieb/Gewicht) data.arcade_g_limit nicht überschreitet.
+		var n_lift := t.lift / maxf(t.weight_force.length(), 1.0)
+		if n_lift > 1.5 and t.aoa > _zero_lift_aoa:
+			var aoa_g := _zero_lift_aoa + (t.aoa - _zero_lift_aoa) * data.arcade_g_limit / n_lift
+			if aoa_g < limit:
+				limit = aoa_g
+				limiter_amount = maxf(limiter_amount, 0.3)
+		var max_elev := elevator_trim(limit) + q_ff + (limit - t.aoa) * LIMIT_K * slow \
+			- maxf(t.aoa_rate, 0.0) * LIMIT_AOA_RATE_D * slow
 		max_elev = clampf(max_elev, -1.0, 1.0)
 		if elev > max_elev:
 			limiter_amount = maxf(limiter_amount, clampf((elev - max_elev) * 2.0, 0.0, 1.0))
