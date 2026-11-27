@@ -76,3 +76,20 @@ Ergebnis 10 Spielminuten: siehe Abschnitt „Ergebnis Soak“ am Ende.
 - `CrewCharacter.SLOPE_MIN_MUL`, `SLOPE_BLOCK`, `SWIM_DEPTH`, `SWIM_SPEED`
 - `TreeObstacles.enabled`, `CHECK_AGL` (32 m), `PREFETCH_AGL` (300 m), `MAX_CELLS` (160)
 - `ground_rules_*.tres`: pump_lps, truck_fill_lps, crate_speed_mul, crate_kg
+
+## Ergebnis Soak (10 Spielminuten, nach den Korrekturen)
+
+| t (s) | Objekte | Knoten | verwaist | Ressourcen | Speicher MB | Wracks | Jobs | Fallschirme |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 5480 | 1654 | 1 | 552 | 215,1 | 0 | 4 | 0 |
+| 180 | 5574 | 1654 | 1 | 552 | 215,9 | 0 | 3 | 0 |
+| 300 | 5656 | 1726 | 1 | 552 | 216,4 | 1 | 6 | 1 |
+| 480 | 5583 | 1655 | 1 | 552 | 216,2 | 0 | 5 | 1 |
+| 600 | 5588 | 1655 | 1 | 552 | 216,2 | 0 | 8 | 1 |
+
+Die Knoten bleiben nach Wrack und Fallschirm wieder bei 1655, und der Speicher steigt in 10 min um 1 MB (Aufwärmen).
+Nach dem Freigeben der Szene bleiben 1 Knoten und 0 verwaiste übrig. Das Lecken am Ende ist von 47 Objekten auf 4 gesunken:
+Übrig ist nur noch `assets/audio/ambient.ogg` (AudioStreamPlayback beim Beenden noch aktiv, Bereich Audio). Vorschlag: im
+SoundDirector `_exit_tree` → `_ambient.stop()`. Die Hochrechnung auf 1–3 h ergibt kein messbares Wachstum.
+Hinweis: Ein Durchlauf über 30 min wurde aus Zeitgründen abgebrochen (2 Minuten gleichbleibend). Aufruf:
+`godot --headless --path game --fixed-fps 60 --script res://tools/soak.gd -- 60 out.csv`.
