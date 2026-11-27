@@ -529,7 +529,12 @@ func _landing(a: Aircraft, i: PilotIntent, dt: float) -> bool:
 			# M3.8: Gleitweg über Grund (Gegenwind = flacher sinken)
 			var gs_along := maxf(a.linear_velocity.dot(rdir), 20.0)
 			var want_vs := -gs_along * tan(deg_to_rad(GLIDE_DEG)) + clampf((gp - h) * 0.2, -2.5, 2.5)
-			want_vs = clampf(want_vs, -4.0 if t.height_agl > GO_AROUND_CHECK_AGL + 30.0 else -3.3, 2.0)
+			# M3.9: deutlich über dem Gleitweg (Aufwind, Thermik, Böen) steiler sinken dürfen
+			var high := h - gp
+			var vs_min := -4.0 if t.height_agl > GO_AROUND_CHECK_AGL + 30.0 else -3.3
+			if high > 10.0:
+				vs_min -= 1.5 if t.height_agl > GO_AROUND_CHECK_AGL + 30.0 else 0.2
+			want_vs = clampf(want_vs, vs_min, 2.0)
 			i.throttle = clampf(0.3 + (APPROACH_SPEED - t.airspeed) * 0.06, 0.0, 1.0)
 			i.pitch = clampf((want_vs - t.climb_rate) * 0.12, -1.0, 1.0)
 			var aim := layout.runway_start + rdir * (along + clampf(to_td * 0.2, 120.0, 500.0))
@@ -549,6 +554,9 @@ func _landing(a: Aircraft, i: PilotIntent, dt: float) -> bool:
 			i.flaps = 1.0
 			i.throttle = 0.0
 			var want_vs := -0.7 if t.height_agl > 1.0 else -0.3
+			# M3.9: Böen tragen im Abfangen; weit hinter dem Aufsetzpunkt bestimmter hinsetzen
+			if to_td < -120.0:
+				want_vs -= clampf((-120.0 - to_td) * 0.006, 0.0, 0.8)
 			i.pitch = clampf((want_vs - t.climb_rate) * 0.15, -1.0, 1.0)
 			var aim := layout.runway_start + rdir * (along + 300.0)
 			_level_turn(a, i, Vector3(aim.x - p.x, 0, aim.z - p.z), 4.0)

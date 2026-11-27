@@ -83,3 +83,26 @@ func test_ai_landing_wind_5_seeds() -> Array:
 			fails.append("%s: %s" % [w, r[2]])
 	return [good >= 4, "%d/5 Landungen bei Wind Stark bis zum Abstellplatz, Durchstarten %d (%s). %s" % [
 		good, gas.size(), ",".join(gas), " | ".join(fails)]]
+
+
+## M3.9: Wind Normal mit dem vollen Modell (Turbulenz, Thermik, Gelände, Richtung aus dem Seed):
+## Starts und Landungen ohne Schaden, keine Häufung von Durchstarten.
+func test_ai_normal_turbulence_5_seeds() -> Array:
+	var good := 0
+	var fails := []
+	var gas := []
+	for s in 5:
+		Weather.setup(Weather.Level.NORMAL, 40 + s)
+		Weather.time = 0.0
+		var w := Weather.describe()
+		if s == 0:
+			_tick_weather(world)
+		var r1: Array = await _to._run_takeoff(500 + s, s % 6)
+		var r2: Array = await _ld._run_landing(600 + s, (s + 2) % 6)
+		gas.append_array(r2[3])
+		if r1[0] and r2[0]:
+			good += 1
+		else:
+			fails.append("%s: %s / %s" % [w, r1[2], r2[2]])
+	return [good >= 5 and gas.size() <= 2, "%d/5 Start+Landung bei Wind Normal (volles Modell), Durchstarten %d (%s). %s" % [
+		good, gas.size(), ",".join(gas), " | ".join(fails)]]

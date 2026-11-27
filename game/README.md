@@ -5,7 +5,7 @@ Ein Tier-I-Jäger („Falke“, 2.500 kg, 700 kW) startet vom **Platz Blau** im 
 
 ## M3.8 Flüsse und Wind
 - **Gewässer:** Hauptfluss im Talzug (NW → SO) mit drei Bächen von den Bergen, Brücke Nord (Fachwerk) und Brücke Süd (Steinbogen, beide Gruppe `bridge`). Abfrage `WorldGround.water_level_at(x, z)` / `is_water()`, Netz `TerrainWorld.water_net` (`RiverNet`). Gelände neu erzeugen: `godot --headless --path game --script res://tools/build_terrain.gd` (~45 s).
-- **Wind:** `Weather` (statisch, `core/weather.gd`): `Weather.wind_at(pos)` = Luftbewegung m/s. Flugmodell rechnet relativ zur Luft; Windsäcke, Gras, Bäume, Wasser, Rauch, Fallschirme folgen. Einstellung „Wind“ (`[m3_8] wind = "aus" | "schwach" | "normal" | "stark"`), Startoption `-- --wind=stark --wind_seed=7`. Funk Bodenpersonal › „Wetter?“.
+- **Wind:** `Weather` (statisch, `core/weather.gd`): `Weather.wind_at(pos)` = Luftbewegung m/s. Flugmodell rechnet relativ zur Luft; Windsäcke, Gras, Bäume, Wasser, Rauch, Fallschirme folgen. Einstellung „Wind“ (`[m3_8] wind = "aus" | "schwach" | "normal" | "stark"`), Startoption `-- --wind=stark --wind_seed=7`. Funk Bodenpersonal › „Wetter?“. M3.9: realistisches Modell (Grenzschicht-Profil mit Rauigkeit, Ekman-Drehung, Dryden-Turbulenzfeld, Rollböe, Gelände-Windgitter `core/wind_terrain.gd`, Thermik, Front), Abfrage mit Anteilen `Weather.sample(WindSample, pos, agl, rechts, spannweite)`, siehe `docs/recherche_windphysik.md`.
 
 ## M3.4 Feinschliff
 - **Einstellungen:** Beschriftungsspalte links, Regler/Werte rechts; neu `[anzeige] fenster` (vollbild/rahmenlos/fenster), `aufloesung`, `vsync` (beim Start angewendet, `GameSettings.apply_display()`), `[m3_4] kamera_ruetteln` (aus/leicht, Standard aus), `vibration` (aus/leicht/stark, Standard leicht).
