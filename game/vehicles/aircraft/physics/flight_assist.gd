@@ -33,6 +33,7 @@ var limiter_amount := 0.0
 
 ## Rumpf-Anstellwinkel ohne Auftrieb (Hauptflügel), Bezug der g-Grenze.
 var _zero_lift_aoa := deg_to_rad(-4.5)
+const LIMIT_K_REF_SPEED := 90.0
 
 
 func _init(d: AircraftData) -> void:
@@ -118,8 +119,11 @@ func apply(intent: PilotIntent, t: FlightTelemetry, dt: float) -> ControlCommand
 	var pitch_rate := w.x
 	var ff_pitch := pitch_rate_cmd / (data.pitch_rate_per_mps * v)
 	var err := pitch_rate_cmd - pitch_rate
-	_pitch_i = clampf(_pitch_i + err * dt * 0.8, -0.4, 0.4)
-	var elev := ff_pitch + err * 1.6 + _pitch_i
+	# Audit 11/2026: Ruderwirkung auf die Nickrate wächst ∝ v -> Verstärkung über 90 m/s
+	# zurücknehmen (sonst Nickschwingung 1–7 g beim Abfangen mit g-Grenze, ~1,5 Hz).
+	var gs := clampf(LIMIT_K_REF_SPEED / v, 0.35, 1.0)
+	_pitch_i = clampf(_pitch_i + err * dt * 2.0, -0.4, 0.4)
+	var elev := ff_pitch + err * 1.6 * gs + _pitch_i
 	if t.on_ground:
 		_pitch_i = 0.0
 	# Stall-Schutz: stetige Begrenzung relativ zur Trimmung am Grenz-Anstellwinkel.
@@ -133,22 +137,16 @@ func apply(intent: PilotIntent, t: FlightTelemetry, dt: float) -> ControlCommand
 		# −D·q davon noch ab -> Begrenzer blieb ~1,8° unter seiner Grenze (≈ 8 % Auftrieb).
 		# Jetzt Vorsteuerung +k·q/V, Dämpfung nur noch auf den Anteil über dem stationären Wert.
 		var q_ff := data.elevator_per_qv * w.x / v
-		# g-Grenze (Audit 11/2026): Arcade/KI zogen bei hoher Fahrt bis 16 g. Struktur der Jäger
-		# der 30er ≈ +8 g (Bruch ab ~12 g), Pilot verträgt 5–6 g dauerhaft. Grenz-AoA so senken,
-		# dass der Lastfaktor (Auftrieb/Gewicht) data.arcade_g_limit nicht überschreitet.
-		var n_lift := t.lift / maxf(t.weight_force.length(), 1.0)
-		if n_lift > 1.5 and t.aoa > _zero_lift_aoa:
-			var aoa_g := _zero_lift_aoa + (t.aoa - _zero_lift_aoa) * data.arcade_g_limit / n_lift
-			if aoa_g < limit:
-				limit = aoa_g
-				limiter_amount = maxf(limiter_amount, 0.3)
-		var max_elev := elevator_trim(limit) + q_ff + (limit - t.aoa) * LIMIT_K * slow \
+		# Die g-Grenze wirkt nur über den Nickraten-Wunsch (oben). Eine zusätzliche Begrenzung
+		# über einen g-Grenz-AoA schwang bei hoher Fahrt (1 g ↔ 7 g sind dort nur ~4° AoA).
+		var k_q := clampf(pow(LIMIT_K_REF_SPEED / v, 2.0), 0.25, 1.0)
+		var max_elev := elevator_trim(limit) + q_ff + (limit - t.aoa) * LIMIT_K * slow * k_q \
 			- maxf(t.aoa_rate, 0.0) * LIMIT_AOA_RATE_D * slow
 		max_elev = clampf(max_elev, -1.0, 1.0)
 		if elev > max_elev:
 			limiter_amount = maxf(limiter_amount, clampf((elev - max_elev) * 2.0, 0.0, 1.0))
 			elev = max_elev
-			_pitch_i = minf(_pitch_i, maxf(max_elev - ff_pitch - err * 1.6, -0.4))
+			_pitch_i = minf(_pitch_i, maxf(max_elev - ff_pitch - err * 1.6 * gs, -0.4))
 	c.elevator = clampf(elev, -1.0, 1.0)
 
 	# Gieren: Spieler-Seitenruder + Schiebewinkel-Ausgleich (koordinierte Kurve).

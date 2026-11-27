@@ -355,7 +355,13 @@ func _ground_recovery(a: Aircraft, i: PilotIntent) -> PilotIntent:
 	var b := a.global_transform.basis
 	i.throttle = 1.0
 	i.yaw = 0.0
-	if b.y.y < 0.25:
+	# Audit Flugphysik 11/2026: Steiler Sturz mit waagerechten Flügeln (Hochachse zeigt zum
+	# Horizont, Querachse waagerecht): direkt voll abfangen. Vorher griff hier der Zweig
+	# „aufrichten“ mit Knüppel 0,3 (~3 g) -> Bodenberührung aus 650 m bei 600 km/h.
+	if b.y.y >= 0.0 and b.z.y > 0.6 and absf(b.x.y) < 0.35:
+		i.roll = clampf(b.x.y * 3.0, -1.0, 1.0)
+		i.pitch = 1.0
+	elif b.y.y < 0.25:
 		# Kopfüber/steil seitlich: erst aufrichten, nicht in den Boden ziehen
 		i.roll = 1.0 if b.x.y > 0.0 else -1.0
 		i.pitch = 0.0 if b.y.y < 0.0 else 0.3

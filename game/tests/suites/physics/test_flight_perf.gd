@@ -370,3 +370,22 @@ func test_perf_cruise() -> Array:
 		i.throttle = 0.6)
 	await _step(60 * 90)
 	return [true, "Reisefahrt 60 %% Gas, 4.000 m: %.0f km/h TAS" % kmh(a.telemetry().airspeed)]
+
+
+## Abfangen aus steilem Sturz (Arcade voll gezogen), 600 km/h in 600 m.
+func test_perf_dive_pullout() -> Array:
+	var a := _spawn(false, 600.0, 166.0, 1.0)
+	var b := Basis.looking_at((TestWorld.RUNWAY_DIR * 0.34 + Vector3.DOWN * 0.94).normalized(), Vector3.UP)
+	a.place(Transform3D(b, Vector3(0, 600, 0)), 166.0, 1.0, false)
+	_seat(a, func(_ac: Aircraft, i: PilotIntent, _dt: float) -> void:
+		i.assist_mode = FlightAssist.Mode.ARCADE
+		i.gear_down = false
+		i.throttle = 1.0
+		i.pitch = 1.0)
+	var txt := ""
+	for f in 60 * 4:
+		await get_tree().physics_frame
+		var t := a.telemetry()
+		if f % 20 == 0:
+			txt += "%.1fs g%.1f aoa%.1f lim%.2f el%.2f h%.0f | " % [f / 60.0, t.g_load, rad_to_deg(t.aoa), a.assist.limiter_amount, t.commands.elevator, a.global_position.y]
+	return [true, txt]
