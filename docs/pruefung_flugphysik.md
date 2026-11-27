@@ -14,7 +14,9 @@ Damit liegt er zwischen MS.406 (2.540 kg, 16 m², 830 PS) und Bf 109 E (2.610 kg
 | Atmosphäre: Dichte als Exponentialfunktion (H = 8.500 m), keine Temperatur, keine Schallgeschwindigkeit | ρ(4 km) 0,765, ρ(6 km) 0,604 (−7 … −9 %) | ISA: 0,819 / 0,660 kg/m³ (ICAO-Normatmosphäre) | Fehler | **umgesetzt:** ISA mit T, ρ, a; Test `test_isa_atmosphere` |
 | Keine Kompressibilität, kein Mach | Sturz unbegrenzt, M 0,67 ohne jede Wirkung, im senkrechten Sturz deutlich mehr | dicke Profile der 30er: M_krit ≈ 0,62–0,68, Sturzgrenzen 610–850 km/h IAS (Hurricane 380 mph, Spitfire I 450 mph, Bf 109 E 750–850 km/h) | Fehler | **umgesetzt:** Wellenwiderstand ab M 0,64 (`mach_critical`), steiler Anstieg bis M ≈ 0,74. Senkrechter Sturz Vollgas aus 6.000 m: max M 0,67, 775 km/h |
 | Stall-Schutz (Arcade/KI) zieht stationär nicht bis zur eigenen Grenze | Dauerkurve AoA 11,0° statt 12,75° (Grenze = Abriss − 1,25°), ≈ 8 % Auftrieb verschenkt. Ursache: Dämpfungsterm −0,35·q wirkt im stationären Ziehen als Dauer-Abzug, und die Nickrate braucht zusätzlich Höhenruder | Begrenzer soll ≥ 90 % CL_max nutzen (eigene Recherche M1.1) | Fehler | **umgesetzt:** Vorsteuerung `elevator_per_qv`·q/V statt −D·q, α̇-Dämpfung 0,5 → 1,0. Jetzt AoA 12,7–13,2°, kein Abriss (Test `test_stall`: Arcade 0,00) |
-| Keine g-Grenze | Arcade 16 g bei 230 m/s, Realistisch 10–11 g (Meldung Waffen-Agent) | Struktur +8 g (Bruch ~11–12 g: IL-2 Bf 109 E 11 g, I-16 12 g), Pilot 5–6 g dauerhaft | Fehler | **umgesetzt:** Arcade/KI: Lastgrenze 7,5 g (`arcade_g_limit`) über Grenz-AoA und Nickraten-Wunsch, gemessen max 7,9 g bei 830 km/h. Realistisch: Knüppelkraft-Exponent 1,5 → 1,7, max 9,6 g bei 830 km/h (Stil B: intakter Flügel bricht nicht) |
+| Keine g-Grenze | Arcade 16 g bei 230 m/s, Realistisch 10–11 g (Meldung Waffen-Agent) | Struktur +8 g (Bruch ~11–12 g: IL-2 Bf 109 E 11 g, I-16 12 g), Pilot 5–6 g dauerhaft | Fehler | **umgesetzt:** Arcade/KI: Lastgrenze 7,5 g (`arcade_g_limit`) über den Nickraten-Wunsch ((n−0,5)·g/v), gemessen max 7,2 g bei 830 km/h, 6,4 g bei 575 km/h. Realistisch: Knüppelkraft-Exponent 1,5 → 1,7, max 9,4 g bei 830 km/h (Stil B: intakter Flügel bricht nicht). Eine zusätzliche Begrenzung über einen g-Grenz-AoA schwang bei hoher Fahrt (Grenzzyklus 1–7 g) und wurde verworfen |
+| Arcade-Nickregler: feste Verstärkung | Sobald die Nickrate bei hoher Fahrt geregelt statt gesättigt wird (g-Grenze), entsteht eine Nickschwingung 1–7 g mit ~1,5 Hz. Mittelwert ~3 g, die KI fängt aus 650 m nicht mehr ab | Ruderwirkung auf die Nickrate wächst ∝ v | Fehler | **umgesetzt:** P-Anteil ab 90 m/s ∝ 90/v (min. 0,35), Integrator 0,8 → 2,0. Abfangen aus 70°-Sturz mit 600 km/h: stetig 4 → 7,8 g (`test_perf_dive_pullout`) |
+| KI-Bodenschutz: steiler Sturz mit waagerechten Flügeln | Zweig „aufrichten“ (Hochachse < 0,25) gibt nur Knüppel 0,3 → ~3 g, Bodenberührung in Seed 1001 | – | Fehler (KI, physiknah) | **umgesetzt** in `ai_pilot_brain.gd::_ground_recovery`: Nase tief und Flügel waagerecht → voll ziehen |
 | Rollrate zu hoch | Realistisch voll: 96 / 122 / 151 / 183 °/s bei 200/300/400/500 km/h, pb/2V ≈ 0,13–0,16 | pb/2V 0,08–0,09 bei vollem Ausschlag, Forderung 0,07; bei 300 mph nur halber Ausschlag (NACA ACR L-334, Spitfire V) | Ungenau | **umgesetzt:** Querruder 18° → 13°, Realistisch ab 340 km/h Knüppelkraft (v_ref/v)^1,5. Jetzt 55 / 96 / 93 / 82 °/s (200/300/400/500). Arcade-Obergrenze 126 °/s unverändert |
 | Kein Propellerstrahl am Leitwerk | Seitenruder im Stand/Startlauf nur mit Fahrtwind; Ausbrechen bei 8 m/s Seitenwind mit Heck oben (offen aus M3.9) | Strahltheorie v_w = √(v² + 2T/(ρA)), im Stand ≈ 50 m/s | Fehler | **umgesetzt:** `prop_wash` je Fläche (Seitenleitwerk 0,6, Höhenleitwerk 0,3), `prop_diameter` 3,1 m. Test `test_crosswind_takeoff_tail_up` |
 | Streckung im Datensatz 7,0 | geometrisch 10,6² / 17,2 = 6,5 | – | Ungenau | **umgesetzt:** 6,5 (induzierter Widerstand +7 %) |
@@ -41,8 +43,17 @@ Damit liegt er zwischen MS.406 (2.540 kg, 16 m², 830 PS) und Bf 109 E (2.610 kg
 | Seitenkraft Rumpf am Schwerpunkt (kein destabilisierendes Giermoment) | – | – | Ungenau | offen, gering |
 
 ## Duell-Patt (`test_duels_flat`)
-Vorher 6/10 Abschüsse (Seeds 1000, 1002, 1004, 1009 ohne). Der Verlauf von Seed 1000 zeigt 180 s lang wiederholte Begegnungen mit Aspekt 120–160° und anschließendem Zwei-Kreis-Kampf bei 3–5 g mit 280–430 km/h, ohne einen Schuss. Seeds 1002 und 1009 enden mit 8 bzw. 23 Treffern ohne Abschuss.
-Physikalischer Anteil: Der Stall-Schutz hat ~8 % Auftrieb verschenkt und die KI flog mit bis zu 16 g ohne Lastgrenze. Beides ist behoben, wirkt aber auf beide Seiten gleich. Der Patt kommt aus der vollständigen Symmetrie (gleiches Flugzeug, gleiche KI) und aus der Schadensschwelle (20–33 Treffer). Messwerte nach der Korrektur: siehe Abschnitt „Ergebnisse“.
+Vorher (main): flach 6/10 Abschüsse (Seeds 1000, 1002, 1004, 1009 ohne), Hügel 8/10. Der Verlauf von Seed 1000 zeigt 180 s lang wiederholte Begegnungen mit Aspekt 120–160° und anschließendem Zwei-Kreis-Kampf bei 3–5 g mit 280–430 km/h, ohne einen Schuss.
+Physikalische Ursachen: Der Stall-Schutz verschenkte ~8 % Auftrieb. Wer bei gleicher Fahrt enger dreht, gewinnt Winkel, und das ging so nicht. Dazu kamen die fehlende g-Grenze und die Nickschwingung beim Abfangen. Der Rest ist Symmetrie (gleiches Flugzeug, gleiche KI) und die Schadensschwelle (20–33 Treffer).
+
+| Duell-Suite (slow) | main 7a170bc | audit-flug |
+|---|---|---|
+| Flach: Abschüsse / Ø Dauer / Treffer je Schuss / Boden | 6/10 / 130 s / 19,2 % / 0 | **10/10 / 78 s / 23,1 % / 0 (grün)** |
+| Hügel: Abschüsse / Boden | 8/10 / 0 | 6/10 / 1 (5 %, Seed 1008) – **rot** |
+| Veteran gegen Rekrut | 8 : 0 | 7 : 2 (grün) |
+| Hash reproduzierbar | ja | ja |
+
+Hügel: Die Seeds 1003 und 1009 bleiben ohne Schuss im Patt. Seed 1008 endet mit einer Bodenberührung. Die Bodenschutz-Vorschau der KI rechnet mit 2,5 g und gerader Bahn und sieht Hänge in Kurven zu spät. Das ist KI-Logik und bleibt offen. Die Fahrt-Verstärkungsanpassung des Arcade-Reglers macht die Nickantwort bei hoher Fahrt etwas weicher.
 
 ## Priorisierte Korrekturliste
 1. Stall-Schutz-Bias und g-Grenze (KI und Arcade) – erledigt
@@ -54,9 +65,17 @@ Physikalischer Anteil: Der Stall-Schutz hat ~8 % Auftrieb verschenkt und die KI 
 7. Drehmoment, P-Faktor, Drall (abschaltbar, Stil B) – offen
 8. Verbrauch an die abgegebene Leistung koppeln (Aufruf in `damage_model.gd`) – offen, fremder Bereich
 9. Fahrtmesser auf IAS umstellen (`telemetry.ias`) – HUD-Bereich
+10. Munitionsmasse koppeln: Hook `ammo_mass_kg()` liegt auf Branch audit-waffen, nach dem Merge in `aircraft.gd::_update_fuel` zur Masse addieren – offen
+11. KI-Bodenschutz im Gelände (Hügel-Duell Seed 1008) – KI-Bereich
+12. Pilot-Blackout: Telemetrie hat `g_load`, Effekt (Bild/Steuerung) fehlt – offen
 
 ## Stellschrauben
-`AircraftData.arcade_g_limit` (7,5), `elevator_per_qv` (25), `mach_critical` (0,64), `prop_diameter` (3,1), `realistic_aileron_ref_speed`/`_exponent` (340 km/h, 1,5), `realistic_elevator_exponent` (1,7), `AeroSurfaceDef.prop_wash` (Seitenleitwerk 0,6, Höhenleitwerk 0,3), `FlightAssist.LIMIT_AOA_RATE_D` (1,0), `FlightModel.WAVE_K`/`WAVE_SPAN`.
+`AircraftData.arcade_g_limit` (7,5), `FlightAssist.LIMIT_K_REF_SPEED` (90 m/s), `elevator_per_qv` (25), `mach_critical` (0,64), `prop_diameter` (3,1), `realistic_aileron_ref_speed`/`_exponent` (340 km/h, 1,5), `realistic_elevator_exponent` (1,7), `AeroSurfaceDef.prop_wash` (Seitenleitwerk 0,6, Höhenleitwerk 0,3), `FlightAssist.LIMIT_AOA_RATE_D` (1,0), `FlightModel.WAVE_K`/`WAVE_SPAN`.
+
+## Ergebnisse (Stand Ende Audit)
+- Fast-Suite 284/287. Rot sind nur `test_service_markers_positions` (Marker/Art, kein Physikbezug), `test_query_cost` (Wind-Zeitmessung 55,9 µs statt < 50 µs) und `test_perf_1000_shots_8_targets` (5,5 ms/Tick). Die beiden letzten sind Zeitmessungen auf der geteilten, ausgelasteten Maschine.
+- Flugtests `--file=flight_` (M1-Tests, Audit-Tests, perf) 39/39, airfield 17/17, ai_ground 29/29 (vor der letzten Regleränderung; airfield danach erneut gestartet).
+- Duelle: siehe Tabelle oben.
 
 ## Angepasste Tests
 - `test_arcade_mouse_pull`: Grenze für die Standardabweichung der G-Last 0,3 → 0,5. Der Begrenzer nutzt jetzt die volle Marge (G-Mittel 4,1 statt 3,7). Die Standardabweichung enthält den Fahrtverlust, der dadurch schneller wird. Das Flattern (0,031) bleibt unter 0,1.
