@@ -1,5 +1,16 @@
 # Änderungsprotokoll Flugkern
 
+## M3.9 „Windphysik“ (Entwurf, Branch m3-9-windphysik)
+
+- **Recherche** `docs/recherche_windphysik.md`: Grenzschicht (Log-Profil, Rauigkeit, Ekman-Drehung, Tagesgang), Dryden/von Kármán (MIL-F-8785C), Böenfaktor, Hang/Lee/Tal/Thermik, Fronten, wie IL-2/DCS/MSFS/JSBSim es machen, Wirkung auf Spornrad-Jäger, priorisierte Empfehlung.
+- **Windmodell** (`core/weather.gd`, neu `core/wind_sample.gd`, `core/wind_terrain.gd`): Log-Profil mit örtlicher Rauigkeit (Wasser, Wiese, Felder, Wald mit Verdrängungshöhe, Fels) unter 60 m, darüber bis 1.100 m auf das 1,7-fache, Rechtsdrehung 25° mit der Höhe. Turbulenz als eingefrorenes, mit dem Wind treibendes Feld aus vier FastNoiseLite-Bändern mit Dryden-Längenskalen je Höhe und Stärke aus u* (σu = 2,4 u*, σw = 1,25 u*) plus Nachmittags-Konvektion, Böen in Schüben; deterministisch aus Seed, Ort, Zeit (Multiplayer-fähig), räumlich kohärent (Windsack = Flugzeug, Rotte spürt dieselbe Böe). Rollböe aus der Vertikalwind-Differenz an den Flügelspitzen (Flugmodell je Fläche).
+- **Gelände-Windgitter** (312 m, beim Laden ~140 ms): Hangauf-/abwind, Lee hinter Kämmen (schwächer, turbulenter), Kanalisierung im Flusstal, Waldrand im Luv macht böig, Thermikzellen über Feldern/Fels (treiben mit dem Wind, leben ~18 min), Absinken über Wasser.
+- **Wetterentwicklung**: Großwetter dreht langsam und schwankt über Minuten, Trend ±30 % über 1,5 h, Kaltfront in ~35 % der Partien (Normal/Stark, Rechtsdrehung 25–55°, frischt auf, böig); Richtung bleibt im Pistensektor. Funk „Bodenpersonal: Front zieht durch, Wind dreht auf West, frischt auf, böig.“
+- **Stufen**: Schwach 1–3, Normal 3–6, Stark 6–9 m/s (10 m, Gras); Böenfaktor gemessen 1,43 (Literatur über Gras 1,43–1,55).
+- **Boden**: Reifen-Seitenführung nach Schräglaufwinkel (im schnellen Rollen weicher, langsam wie bisher) – Wetterhahn bei Seitenwind, mit gezogenem Knüppel und Seitenruder beherrschbar. KI-Endanflug darf über dem Gleitweg (ausgerichtet, über 90 m) steiler sinken.
+- **Debug** (Shift+F3): mittlerer Wind, Böe, Hang, Thermik, Rollböe, σ, z0, Lee, Tal.
+- **Tests**: neu `physics/test_wind_model` (Profil, Rauigkeit, Drehung, Dryden-Statistik, Determinismus, Kohärenz, Böenfaktor, Rollböe, Front/Funk, Wetterhahn), `physics/test_wind_terrain` (Gitter, Geländeeffekte, Thermik, Kosten ~30 µs je Abfrage), `airfield/test_ai_wind::test_ai_normal_turbulence_5_seeds`. Diagramm `docs/screens_m3/m3_9_wind_profil.png` (`tools/wind_dump.gd`, `tools/plot_wind.py`). Fast-Suite 279/279, airfield (all) 17/17, ai_ground (all) 29/29.
+
 ## M3.8 „Flüsse und Wind“ (27.11.2026)
 
 ### Neu / geändert

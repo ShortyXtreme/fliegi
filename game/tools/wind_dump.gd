@@ -64,12 +64,26 @@ func _run() -> void:
 	var k := FileAccess.open(prefix + "_flug.csv", FileAccess.WRITE)
 	k.store_line("t,u30,w30,u300,w300,thermik300")
 	var s2 := WindSample.new()
+	# Bahn so legen, dass sie in 300 m eine Thermik kreuzt (Mitte nach 15 s)
+	var best := 0.0
+	var bx := 0.0
+	var bz := 0.0
+	Weather.time = 515.0
+	for zi in 40:
+		for xi in 400:
+			var x := -20000.0 + xi * 100.0
+			var z := -10000.0 + zi * 500.0
+			Weather.sample(s2, Vector3(x, 300.0, z), 300.0)
+			if s2.thermal > best:
+				best = s2.thermal
+				bx = x
+				bz = z
 	t = 0.0
 	while t < 30.0:
 		Weather.time = 500.0 + t
 		var row := [t]
 		for alt in [30.0, 300.0]:
-			Weather.sample(s2, Vector3(-1500.0 + t * 100.0, alt, 0.0), alt)
+			Weather.sample(s2, Vector3(bx - 1500.0 + t * 100.0, alt, bz), alt)
 			row.append(s2.turb.z)
 			row.append(s2.turb.y)
 		row.append(s2.thermal)
