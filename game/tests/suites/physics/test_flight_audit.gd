@@ -159,3 +159,48 @@ func test_sustained_turn_band() -> Array:
 	var dh := a.global_position.y - 1000.0
 	return [t360 >= 17.0 and t360 <= 22.0 and absf(dh) < 150.0,
 		"Dauerkurve 1.000 m: 360° in %.1f s, %.0f km/h, Höhe %+.0f m" % [t360, kmh(a.telemetry().airspeed), dh]]
+
+
+## Offener Punkt aus M3.9: Startlauf bei 8 m/s Seitenwind, Vollgas, Heck oben (Knüppel vorn),
+## einfacher Seitenruder-Regler. Mit Propellerstrahl am Seitenleitwerk bleibt die Richtung
+## beherrschbar; Vergleich ohne Strahl (gleiche Maschine, prop_wash = 0).
+func test_crosswind_takeoff_tail_up() -> Array:
+	var res := []
+	for wash in [true, false]:
+		Weather.set_steady(90.0, 8.0)
+		var d: AircraftData = load(FIGHTER).duplicate(true)
+		if not wash:
+			for s in d.surfaces:
+				s.prop_wash = 0.0
+		var a := Aircraft.create(d, false)
+		world.add_child(a)
+		a.place_on_ground(world.runway_spawn(), TestWorld.RUNWAY_DIR)
+		var h0 := a.global_transform.basis.z
+		var maxdev := [0.0]
+		var p0 := a.global_position
+		_seat(a, func(_v, i: PilotIntent, _dt):
+			var t := a.telemetry()
+			i.assist_mode = FlightAssist.Mode.REALISTIC
+			i.throttle = 1.0
+			i.flaps = 0.5
+			i.pitch = -0.3 if t.airspeed < 33.0 else 0.35
+			var hz := a.global_transform.basis.z
+			var err := atan2(h0.cross(hz).y, h0.dot(hz))          # + = Nase links
+			var r := -t.angular_velocity_local.y                  # + = nach rechts
+			i.yaw = clampf(err * 3.0 - r * 1.2, -1.0, 1.0)
+			if t.wheels_in_contact > 0:
+				maxdev[0] = maxf(maxdev[0], absf(rad_to_deg(err))))
+		var lifted := false
+		for f in 60 * 30:
+			await get_tree().physics_frame
+			if f > 60 and a.telemetry().wheels_in_contact == 0:
+				lifted = true
+				break
+		var side := absf((a.global_position - p0).x)
+		res.append([maxdev[0], side, lifted])
+		a.queue_free()
+		await _step(1)
+	Weather.reset()
+	var ok: bool = res[0][2] and res[0][0] < 10.0 and res[0][1] < 20.0
+	return [ok, "Seitenwind 8 m/s, Heck oben: mit Strahl max. Kursabweichung %.1f°, seitlich %.0f m, abgehoben %s | ohne Strahl %.1f°, %.0f m, abgehoben %s" % [
+		res[0][0], res[0][1], res[0][2], res[1][0], res[1][1], res[1][2]]]
