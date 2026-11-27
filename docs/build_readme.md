@@ -1,11 +1,20 @@
-# Flugkern M3.8 – Testversion „Flüsse und Wind“
+# Flugkern M3.9 – Testversion „Windphysik“
 
 ## Installation
 1. Die vorhandene **Flugkern.exe** (Godot 4.7.2) bleibt unverändert.
 2. **Alle vier .pck-Dateien** in denselben Ordner wie Flugkern.exe kopieren (alte Flugkern.pck überschreiben):
    `Flugkern.pck`, `Flugkern_modelle.pck`, `Flugkern_karte.pck`, `Flugkern_audio.pck`.
    Fehlt Modelle oder Karte, zeigt das Spiel eine Meldung; fehlt Audio, läuft es ohne Ton.
-3. Flugkern.exe starten. Der Fenstertitel muss „Flugkern M3.8“ zeigen.
+3. Flugkern.exe starten. Der Fenstertitel muss „Flugkern M3.9“ zeigen.
+
+## Neu in M3.9
+
+- Realistischerer Wind: in Bodennähe schwächer (über Wald stärker gebremst als über Wasser), in der Höhe stärker und nach rechts gedreht.
+- Böen und Turbulenz wie in echten Flugsimulatoren. Böen auf einen Flügel lassen das Flugzeug leicht rollen.
+- Gelände: Auf- und Abwind an Hängen, Unruhe hinter Hügeln, Wind im Flusstal, Thermik über Feldern und Fels, ruhigere Luft über Wasser.
+- Das Wetter ändert sich über die Partie. In manchen Partien zieht eine Kaltfront durch, der Funk meldet z. B. „Front zieht durch, Wind dreht auf West, frischt auf“.
+- Am Boden dreht das Flugzeug bei Seitenwind in den Wind und muss mit Seitenruder gehalten werden.
+- Stufe „Stark“ jetzt 6–9 m/s.
 
 ## Neu in M3.8
 
