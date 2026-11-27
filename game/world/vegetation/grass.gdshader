@@ -106,6 +106,8 @@ void vertex() {
 	float bend = wspd * (0.55 + 0.25 * wind_state.w) + gust * (0.12 + 0.6 * wspd);
 	v.xz += wdir * bend * up * up * 0.32 * blade_h * s * wind;
 	v.xz += vec2(-wdir.y, wdir.x) * sin(TIME * 2.3 + h.x * 6.28) * up * 0.025 * blade_h * s * wind;
+	// M3.8: ausgeblendete Büschel ganz zusammenfalten (lagen sonst flach am Boden – unter Wasser sichtbar)
+	v *= step(0.0001, s);
 	vec3 world = vec3(wxz.x, ground(t) + terrain_origin.y, wxz.y) + v;
 	VERTEX = world - base;
 	NORMAL = normalize(mix(NORMAL, vec3(0.0, 1.0, 0.0), 0.65));

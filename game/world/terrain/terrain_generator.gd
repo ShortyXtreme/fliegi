@@ -592,5 +592,6 @@ func _build_mask(hs: PackedFloat32Array, sp: float) -> Image:
 			var fields := (1.0 - smoothstep(0.08, 0.2, slope)) * (1.0 - smoothstep(380.0, 520.0, h))
 			fields *= (1.0 - forest) * (1.0 - near_pad) * smoothstep(-0.35, -0.1, m)
 			fields *= 1.0 - water
+			fields *= smoothstep(12.0, 45.0, ed)   # M3.8: Uferstreifen (Wiese) statt Acker bis ans Wasser
 			img.set_pixel(i, j, Color(forest, cleared, maxf(water, wet * (1.0 - forest)), fields))
 	return img
