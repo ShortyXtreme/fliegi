@@ -104,3 +104,6 @@ Hinweis: Ein Durchlauf über 30 min wurde aus Zeitgründen abgebrochen (2 Minute
 - Angepasste Tests mit Begründung: test_follows_slope (Hangabtrieb: 10 % nur mit Vollgas, vorher 60 % Gas ohne Hang),
   test_speed_brake_reverse (Bremsweg < 12 m statt < 10 m wegen Bremse 4,5 m/s²), test_walk_on_terrain (Soll mit
   Tobler-Faktor), test_jobs/test_contract_m3 (Pumpe Authentisch).
+- Abfertigungszeiten (test_turnaround_totals, Grenze Richtzeit × 1,1): Standard/0 135 → 149 s (Kiste jetzt ×0,8 wie die
+  Figur), Authentisch/0 267 → 310 s, Authentisch/2 134 → 176 s (Richtzeit 165, Grenze 181,5 – knapp). Wird die Pumpe
+  langsamer gestellt, muss `Turnaround.REFERENCE` für Authentisch mit (etwa [360, 190]).
