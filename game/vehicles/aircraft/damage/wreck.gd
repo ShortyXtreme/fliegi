@@ -22,7 +22,11 @@ var cause: int = CombatEvents.Cause.UNKNOWN
 var burning := false
 ## true = liegt am Boden (Aufschlag erfolgt oder als liegendes Wrack erzeugt).
 var landed := false
-var drag_k := 4.0
+## Luftreibung F = drag_k·v² (trudelndes Wrack, Endgeschwindigkeit ≈ √(m·g/k) ≈ 70 m/s bei 2.500 kg).
+var drag_k := 5.0
+## Prüfung Waffen: Bremsverzögerung durch Luftreibung höchstens so viel (m/s²). Vorher bremste
+## ein Wrack aus 150 m/s Sturzflug schlagartig mit ≈ 5 g ab (Sprung bei der Übergabe).
+const MAX_DRAG_DECEL := 2.0 * 9.81
 ## M3.8: im Fluss/Bach aufgeschlagen: versinkt statt liegen zu bleiben
 const SINK_TIME := 9.0
 const SINK_DEPTH := 6.0
@@ -105,6 +109,9 @@ static func spawn_from_aircraft(a: Node3D, life: float, is_burning := false) -> 
 		vel = Vector3.ZERO
 		ang = Vector3.ZERO
 	var w := spawn_at(a.get_parent(), a.global_transform, life, is_burning, vel, ang, model)
+	if a is RigidBody3D and (a as RigidBody3D).mass > 1.0:
+		w.mass = (a as RigidBody3D).mass   # Prüfung Waffen: Masse des Flugzeugs statt fest 1.800 kg
+		w.drag_k = 5.0 * w.mass / 2500.0
 	if d is DamageModel:
 		w.cause = (d as DamageModel).destroy_cause
 	return w
@@ -235,7 +242,7 @@ func _physics_process(dt: float) -> void:
 		var v := linear_velocity - Weather.wind_at(global_position)   # M3.8: relativ zur Luft
 		var s := v.length()
 		if s > 0.1:
-			apply_central_force(-v * s * drag_k)
+			apply_central_force(-v / s * minf(drag_k * s * s, mass * MAX_DRAG_DECEL))
 		# M3.8: ins Wasser gestürzt (Fluss/Bach): Spritzer statt Krater, Wrack versinkt
 		var wl := WorldGround.water_level_at(global_position.x, global_position.z)
 		if not is_nan(wl) and global_position.y < wl + 1.0:

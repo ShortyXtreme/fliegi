@@ -64,10 +64,16 @@ func _run() -> void:
 		"schräg 45°": Vector3(0.7, 0.1, 0.7).normalized(),
 		"frontal": Vector3(0, 0.02, -1).normalized(),
 		"von oben": Vector3(0.0, 1, 0.2).normalized(),
+		"gezielt Cockpit seitl.": [Vector3(1, 0.05, 0).normalized(), Vector3(0, 0.55, 1.2), 0.5],
+		"gezielt Motor seitl.": [Vector3(1, 0.05, 0).normalized(), Vector3(0, 0.05, -1.8), 0.5],
+		"gezielt Motor frontal": [Vector3(0, 0.02, -1).normalized(), Vector3(0, 0.05, -1.8), 0.4],
 	}
 	var sigma_m := 1.0   # Streukreis am Ziel (m, je Achse): Streuung + Zielfehler
 	for key in aspects:
-		var from: Vector3 = aspects[key]
+		var spec = aspects[key]
+		var from: Vector3 = spec[0] if spec is Array else spec
+		var aim: Vector3 = spec[1] if spec is Array else Vector3.ZERO
+		var sig: float = spec[2] if spec is Array else sigma_m
 		var kills := []
 		var causes := {}
 		var zone_hits := PackedInt32Array()
@@ -83,9 +89,9 @@ func _run() -> void:
 			var up := Vector3.UP if absf(from.y) < 0.9 else Vector3.RIGHT
 			var r := from.cross(up).normalized()
 			var u := r.cross(from).normalized()
-			while not a.damage.is_destroyed and shots < 4000:
+			while not a.damage.is_destroyed and not a.damage.modifiers.engine_failed and shots < 4000:
 				shots += 1
-				var off := r * rng.randfn(0.0, sigma_m) + u * rng.randfn(0.0, sigma_m)
+				var off := aim + r * rng.randfn(0.0, sig) + u * rng.randfn(0.0, sig)
 				var p0 := from * 30.0 + off
 				var p1 := -from * 30.0 + off
 				var h := hb.intersect_segment(p0, p1)
@@ -93,9 +99,10 @@ func _run() -> void:
 					continue
 				hits += 1
 				zone_hits[h.zone] += 1
-				a.damage.apply_hit(h.zone, w.damage * float(h.get("damage_mul", 1.0)) if "--mul" in OS.get_cmdline_user_args() else w.damage, null)
+				a.damage.apply_hit(h.zone, w.damage * float(h.get("damage_mul", 1.0)), null)
 			kills.append(hits)
-			causes[a.damage.destroy_cause] = causes.get(a.damage.destroy_cause, 0) + 1
+			var cz = "Motor aus" if a.damage.modifiers.engine_failed and not a.damage.is_destroyed else a.damage.destroy_cause
+			causes[cz] = causes.get(cz, 0) + 1
 			shots_total += shots
 			hits_total += hits
 		kills.sort()

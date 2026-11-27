@@ -93,7 +93,10 @@ func tick(intent: PilotIntent, dt: float) -> void:
 	var server := Authority.is_server()
 	for gi in ms.size():
 		var m: GunMountDef = ms[gi]
-		var c := cooldown[gi] - dt
+		# Prüfung Waffen: Eine ruhende Waffe (cooldown 0) schießt jetzt (late = 0). Vorher galt
+		# der erste Schuss als einen Tick früher abgegeben (vor dem Abzug) – der HitValidator
+		# lehnte bei 1.150/min Folgeschüsse als CADENCE ab.
+		var c := cooldown[gi] - dt if cooldown[gi] > 0.0 else 0.0
 		var h := heat[gi]
 		h.cool(dt)
 		if trigger[m.group] and server and m.weapon != null:
@@ -121,7 +124,9 @@ func _fire(gi: int, m: GunMountDef, late: float) -> void:
 	dir = Ballistics.disperse(dir.normalized(), sigma, ProjectileSystem.id_of(aircraft), gi, shot_id)
 	var pos := xf * m.position
 	var vel := dir * w.muzzle_velocity + base_v
-	pos += vel * late
+	# Schuss liegt `late` s zurück: Der Schütze war damals um base_v·late weiter hinten,
+	# das Geschoss ist seitdem mit vel geflogen -> Versatz nur v0·dir·late.
+	pos += dir * (w.muzzle_velocity * late)
 	var ps := ProjectileSystem.current
 	if ps != null:
 		ps.spawn(aircraft, gi, shot_id, pos, vel, w)
@@ -192,6 +197,16 @@ func ammo_max(group: int = Group.PRIMARY) -> int:
 		if ms[i].group == group:
 			n += magazines[i].capacity
 	return n
+
+
+## Masse der geladenen Munition (kg), Hook für die Massenkopplung (aircraft.gd, Flugphysik).
+func ammo_mass_kg() -> float:
+	var kg := 0.0
+	var ms := mounts()
+	for i in ms.size():
+		if ms[i].weapon != null:
+			kg += magazines[i].count * ms[i].weapon.round_mass
+	return kg
 
 
 ## Mündungsgeschwindigkeit der Gruppe (m/s), für Vorhalt (HUD/KI).

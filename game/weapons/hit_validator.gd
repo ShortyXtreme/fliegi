@@ -39,6 +39,8 @@ class Shot:
 	var pos := Vector3.ZERO
 	var vel := Vector3.ZERO
 	var weapon: WeaponDef
+	## Widerstandsfaktor beim Abschuss (Ballistics.k_at, wie im ProjectileSystem).
+	var k := 0.0
 	var used := false
 
 
@@ -94,6 +96,7 @@ func record_shot(shooter: Node, gun: int, shot_id: int, tick: int, pos: Vector3,
 	s.pos = pos
 	s.vel = vel
 	s.weapon = weapon
+	s.k = Ballistics.k_at(weapon.ballistic_k, pos.y) if weapon != null else 0.0
 	per[shot_id] = s
 	if per.size() > 512 and shot_id % 64 == 0:
 		_prune(per, tick)
@@ -161,8 +164,8 @@ func _check(r: HitReport, now: int) -> int:
 	if r.local_point.length() > br + tolerance:
 		return Result.OUTSIDE_TARGET
 	# Bahn nachrechnen: Segment des Ticks r.tick
-	var a := Ballistics.advance(s.pos, s.vel, s.weapon.ballistic_k, _dt, n - 1)
-	var b := Ballistics.advance(a[0], a[1], s.weapon.ballistic_k, _dt, 1)
+	var a := Ballistics.advance(s.pos, s.vel, s.k, _dt, n - 1)
+	var b := Ballistics.advance(a[0], a[1], s.k, _dt, 1)
 	var lp0: Vector3 = (x0 as Transform3D).affine_inverse() * (a[0] as Vector3)
 	var lp1: Vector3 = (x1 as Transform3D).affine_inverse() * (b[0] as Vector3)
 	var tspeed := (x1 as Transform3D).origin.distance_to((x0 as Transform3D).origin) / _dt

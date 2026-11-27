@@ -32,7 +32,9 @@ func test_markers_from_glb() -> Array:
 func test_fallback_hitboxes() -> Array:
 	var d: AircraftData = load(FIGHTER)
 	var h := HitboxSet.from_markers(AircraftMarkers.fallback_from_data(d), d)
-	var hit := 0
+	# Prüfung Waffen: Das Leitwerk besteht aus zwei Platten (Höhenleitwerk, Flosse) – gezählt
+	# werden die getroffenen Zonen, nicht die Boxen.
+	var hit_zones := {}
 	var bad := []
 	for k in h.box_count():
 		if h.damage_mul[k] < 1.0:
@@ -40,10 +42,11 @@ func test_fallback_hitboxes() -> Array:
 		var c := h.centers[k]
 		var r := h.intersect_segment(c + Vector3(0, 5, 0), c - Vector3(0, 5, 0))
 		if not r.is_empty() and (r.zone == h.zones[k] or h.zones[k] in [DamageModel.Zone.WING_L, DamageModel.Zone.WING_R]):
-			hit += 1
+			hit_zones[h.zones[k]] = true
 		else:
 			bad.append(DamageModel.ZONE_NAMES[h.zones[k]])
-	var ok := h.is_fallback and hit == 7 and h.bounding_radius > 5.0 and h.bounding_radius < 8.0
+	var hit := hit_zones.size()
+	var ok := h.is_fallback and hit == 7 and bad.is_empty() and h.bounding_radius > 5.0 and h.bounding_radius < 8.0
 	return [ok, "Ersatz-Hitboxen: %d/7 Zonen getroffen %s, Radius %.2f m" % [hit, bad, h.bounding_radius]]
 
 
@@ -74,3 +77,29 @@ func test_aircraft_uses_markers() -> Array:
 		and mid.zone == DamageModel.Zone.TAIL and mid.damage_mul < 1.0
 	return [ok, "Marker geladen=%s, %d Boxen, Radius %.2f m, Heckrumpf -> tail ×%.1f" % [
 		not h.is_fallback, h.box_count(), h.bounding_radius, mid.get("damage_mul", 0.0)]]
+
+
+## Prüfung Waffen: Leitwerk als Platten statt Block, Durchschlag durch den Heckrumpf bis ins
+## Cockpit mit Rückenpanzer, seitlich ohne Panzer.
+func test_tail_plates_and_rear_armor() -> Array:
+	var a := _spawn(false, 800.0, 80.0, 0.5)
+	var h := a.damage.hitboxes
+	# 0,6 m über dem Höhenleitwerk, seitlich neben der Flosse: früher Block-Treffer, jetzt vorbei
+	var above := h.intersect_segment(Vector3(1.2, 0.8, 20), Vector3(1.2, 0.8, -0.5))
+	var stab := h.intersect_segment(Vector3(1.2, 0.14, 20), Vector3(1.2, 0.14, 4.0))
+	var fin := h.intersect_segment(Vector3(0, 1.2, 20), Vector3(0, 1.2, 4.0))
+	# von 6 Uhr durch den Heckrumpf ins Cockpit (Rückenpanzer)
+	var rear := h.intersect_segment(Vector3(0, 0.3, 20), Vector3(0, 0.3, -5))
+	# von der Seite ins Cockpit (kein Panzer)
+	var side := h.intersect_segment(Vector3(5, 0.55, 1.2), Vector3(-5, 0.55, 1.2))
+	var ok: bool = above.is_empty() and stab.get("zone", -1) == DamageModel.Zone.TAIL \
+		and fin.get("zone", -1) == DamageModel.Zone.TAIL \
+		and rear.get("zone", -1) == DamageModel.Zone.COCKPIT and rear.get("armor", false) \
+		and is_equal_approx(float(rear.damage_mul), HitboxSet.REAR_ARMOR_MUL) \
+		and side.get("zone", -1) == DamageModel.Zone.COCKPIT and not side.get("armor", true) \
+		and is_equal_approx(float(side.damage_mul), 1.0)
+	return [ok, "über Höhenleitwerk: %s, Höhenleitwerk/Flosse: %s/%s, 6 Uhr -> %s ×%.2f, seitlich -> %s ×%.2f" % [
+		"vorbei" if above.is_empty() else DamageModel.ZONE_NAMES[above.zone],
+		DamageModel.ZONE_NAMES[stab.get("zone", 0)], DamageModel.ZONE_NAMES[fin.get("zone", 0)],
+		DamageModel.ZONE_NAMES[rear.get("zone", 0)], rear.get("damage_mul", 0.0),
+		DamageModel.ZONE_NAMES[side.get("zone", 0)], side.get("damage_mul", 0.0)]]

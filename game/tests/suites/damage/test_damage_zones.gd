@@ -214,3 +214,32 @@ func test_damaged_flight_effect() -> Array:
 	var bank := a.global_transform.basis.x.y   # >0: rechte Fläche oben = Rollen nach links
 	var ok := absf(bank) > 0.05 and not a.damage.is_destroyed
 	return [ok, "1 s nach Flügeltreffer: Querlage-Komponente %.2f, Rollrate %.2f rad/s" % [bank, roll_rate]]
+
+
+## Prüfung Waffen: beschädigter Flügel bricht unter g-Last, intakter nicht.
+func test_wing_overload_break() -> Array:
+	var a := _ac()
+	var e := _ac(Nations.RED)
+	var d := a.damage
+	var t = a.flight.telemetry
+	# intakt: 16 g brechen nichts
+	t.g_load = 16.0
+	_tick(a, 1.0)
+	var intact_ok := not d.is_destroyed and d.hp[Z.WING_L] > 0.0
+	# links 40 % HP -> Grenze 5 + 7 × 0,4/0,75 ≈ 8,7 g
+	t.g_load = 1.0
+	d.apply_hit(Z.WING_L, 120.0, e)
+	var lim := d.wing_break_g(Z.WING_L)
+	t.g_load = lim - 0.3
+	_tick(a, 1.0)
+	var below_ok := not d.is_destroyed
+	t.g_load = lim + 0.3
+	_tick(a, 0.05)
+	var short_ok := not d.is_destroyed          # kurze Spitze (< 0,1 s) hält
+	_tick(a, 0.1)
+	var ok := intact_ok and below_ok and short_ok and d.is_destroyed and d.hp[Z.WING_L] <= 0.0 \
+		and d.destroy_cause == CombatEvents.Cause.WING_BROKEN and d.killer == e \
+		and absf(lim - (5.0 + 7.0 * 0.4 / 0.75)) < 0.01
+	t.g_load = 1.0
+	return [ok, "intakt 16 g hält: %s, 40 %% bricht ab %.1f g (darunter hält: %s, Spitze < 0,1 s hält: %s), gebrochen: %s, Kredit: %s" % [
+		intact_ok, lim, below_ok, short_ok, d.is_destroyed, d.killer == e]]

@@ -7,7 +7,7 @@
 [sub_resource type="Resource" id="gun_L"]
 script = ExtResource("2")
 marker_name = "gun_L"
-position = Vector3(-1.9, -0.3, -0.9)
+position = Vector3(-2.35, -0.068, -0.89)
 group = 0
 weapon = ExtResource("3")
 ammo = 500
@@ -15,7 +15,7 @@ ammo = 500
 [sub_resource type="Resource" id="gun_R"]
 script = ExtResource("2")
 marker_name = "gun_R"
-position = Vector3(1.9, -0.3, -0.9)
+position = Vector3(2.35, -0.068, -0.89)
 group = 0
 weapon = ExtResource("3")
 ammo = 500

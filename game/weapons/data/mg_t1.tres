@@ -6,7 +6,7 @@
 script = ExtResource("1")
 display_name = "MG 7,92 mm"
 caliber_mm = 7.92
-rpm = 600.0
+rpm = 1150.0
 muzzle_velocity = 800.0
 projectile_mass = 0.0128
 ballistic_k = 0.0007

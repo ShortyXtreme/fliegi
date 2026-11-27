@@ -5,12 +5,15 @@ extends Resource
 @export var display_name := "MG"
 @export var caliber_mm := 7.92
 ## Kadenz (Schuss/min) je Waffe.
-@export var rpm := 600.0
+@export var rpm := 1150.0
 ## Mündungsgeschwindigkeit (m/s) relativ zum Schützen.
 @export var muzzle_velocity := 800.0
 ## Geschossmasse (kg).
 @export var projectile_mass := 0.0128
-## Luftwiderstands-Faktor k = ½·ρ·Cd·A/m (1/m); a = g − k·|v|·v.
+## Masse je Schuss im Gurt (kg: Patrone + Gurtglied; 7,92 × 57: 35,5 g + ≈ 4 g).
+@export var round_mass := 0.040
+## Luftwiderstands-Faktor k = ½·ρ·Cd·A/m (1/m) bei Meereshöhe; a = g − k·|v|·v.
+## In der Höhe skaliert Ballistics.k_at() mit der Luftdichte.
 @export var ballistic_k := 7.0e-4
 ## Streuung (Standardabweichung je Achse, mrad).
 @export var dispersion_mrad := 1.5
