@@ -70,11 +70,21 @@ func _on_pickup(id: StringName, character: Node) -> void:
 		character.call("pick_up", self)
 
 
-## Last nach Realismus-Stufe (Authentisch: Kiste 25 kg, -35 %).
+## Last nach Realismus-Stufe aus GroundRules (crate_speed_mul, crate_kg > 0). Prüfung Boden:
+## vorher fest im Code (Authentisch 25 kg, ×0,65), während das Sim-LOD der KI die Regeln las
+## (Standard dort ×1,0 statt ×0,8 der Figur).
 func apply_realism(r: int) -> void:
-	if kind == CRATE and r == MatchRules.GroundRealism.AUTHENTISCH:
-		speed_mul = AUTHENTIC_CRATE_MUL
-		mass_kg = 25.0
+	if kind != CRATE:
+		return
+	var g := GroundRules.for_realism(r)
+	if g == null:
+		if r == MatchRules.GroundRealism.AUTHENTISCH:
+			speed_mul = AUTHENTIC_CRATE_MUL
+			mass_kg = 25.0
+		return
+	speed_mul = g.crate_speed_mul
+	if g.crate_kg > 0.0:
+		mass_kg = g.crate_kg
 
 
 ## Position der Figur begrenzen (Schlauch); sonst unverändert.

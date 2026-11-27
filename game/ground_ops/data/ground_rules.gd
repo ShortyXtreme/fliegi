@@ -28,8 +28,8 @@ extends Resource
 @export var belt_s := 5.0
 @export var charge_in_cockpit := false    # Durchladen
 @export var charge_s := 0.0
-@export var crate_kg := 0.0
-@export var crate_speed_mul := 1.0
+@export var crate_kg := 18.0              # Prüfung Boden: 500 Schuss 7,92 mm ≈ 13 kg + Gurt + Kasten
+@export var crate_speed_mul := 0.8
 @export_group("Reparatur")
 @export var repair_hps := 6.0
 @export var repair_needs_toolbox := false
@@ -85,7 +85,7 @@ static func defaults_for(r: int) -> GroundRules:
 			g.spark_fire_chance = 0.05
 			g.cap_and_valve = true
 			g.cap_valve_s = 3.0
-			g.pump_lps = 4.0
+			g.pump_lps = 2.5          # Prüfung Boden: 150 l/min (RAF-Tankwagen 1939: 20 gal/min = 91 l/min)
 			g.pump_watch = true
 			g.charge_in_cockpit = true
 			g.charge_s = 2.0

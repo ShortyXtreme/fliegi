@@ -11,7 +11,9 @@ extends GroundVehicle
 signal tank_changed
 
 const TANK_CAPACITY := 2000.0
-const HOSE_LENGTH := 12.0
+const HOSE_LENGTH := FuelHose.HOSE_LENGTH
+## Rückfall; maßgeblich ist GroundRules.truck_fill_lps (wie bei der KI, Prüfung Boden: vorher
+## zwei getrennte Werte).
 const FILL_RATE := 20.0
 const FILL_RANGE := 12.5          # M3.1: Wagen hält 8,5 m vor dem Lager (Gebäude mit Kollision)
 
@@ -78,7 +80,7 @@ func fill_from(source: FuelSource, grade: StringName, dt: float) -> float:
 	if not in_fill_range(source) or absf(speed) >= Seat.MAX_SWITCH_SPEED or hose.is_coupled():
 		return 0.0
 	var room := tank.capacity(grade) - tank.available(grade)
-	var want := minf(FILL_RATE * dt, room)
+	var want := minf(fill_rate() * dt, room)
 	if want <= 0.0:
 		return 0.0
 	var got := source.draw(grade, want)
@@ -86,6 +88,12 @@ func fill_from(source: FuelSource, grade: StringName, dt: float) -> float:
 	if got - put > 0.0:
 		source.deposit(grade, got - put)
 	return put
+
+
+## Befüllrate am Lager (l/s) nach Realismus-Stufe.
+static func fill_rate() -> float:
+	var r := GroundRules.for_realism()
+	return r.truck_fill_lps if r != null else FILL_RATE
 
 
 func _can_fill_here(_c: Node) -> bool:
