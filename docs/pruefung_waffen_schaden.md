@@ -150,6 +150,19 @@ Spielgefühl: Die Feuerdauer sinkt von 50 auf 26 s, die Feuerrate je Flugzeug st
 
 **Stellschrauben:** `HitboxSet.REAR_ARMOR_MUL`/`PENETRATION_FUSELAGE`/`FILLER_MUL`, `DamageProfile.structure_hp`, `wing_weak_below`/`wing_break_g_min|max`, `WeaponDef.rpm`/`damage`.
 
-**Teststand:** Weapons 17/17 und Damage 34/34 grün (einzeln). Die Fast-Suite lief 284/287, rot waren nur zwei Leistungstests unter Last der geteilten Maschine (`test_perf_1000_shots_8_targets` ist einzeln grün mit 3,3 ms, `test_query_cost` gehört zum Wetter-Bereich) und der inzwischen angepasste Boxenzähler. Nicht gelaufen (Zeitbudget): slow/KI-Duelle, airfield, ai_ground, Selbsttest nachher.
+**Teststand:**
+- Weapons 17/17 und Damage 34/34 grün (einzeln).
+- Fast-Suite 284/287. Rot waren der angepasste Boxenzähler (inzwischen grün) und zwei Leistungstests unter Last der geteilten Maschine: `test_perf_1000_shots_8_targets` ist einzeln grün mit 3,3 ms, `test_query_cost` gehört zum Wetter-Bereich.
+- airfield (all) 17/17, ai_ground (all) 29/29.
+- KI-Tests (all) 11/13, die beiden Duell-Tests sind rot. Zum Vergleich gleicher Rechner, Code von main 7a170bc:
+
+| Duelle (10 Seeds, 180 s, Ziel ≥ 8) | main | audit-waffen |
+|---|---|---|
+| flach | 6 (rot) | 7 (rot) |
+| Hügel | 8 | 7 (rot) |
+| Treffer/Schuss flach | 19,2 % | 19,6 % |
+| Veteran : Rekrut | – | 9 : 0 (grün) |
+
+Insgesamt gibt es 14 Abschüsse wie vorher. Der Flach-Test war schon auf main rot, im Hügel-Test fehlt jetzt ein Abschuss. Ursache ist die höhere TTK von 6 Uhr (12 → 37 Treffer); die doppelte Kadenz gleicht das nur zum Teil aus. Stellschraube ohne Bruch der Belege: `structure_hp` 280 → 250 (6 Uhr Median 34, dann bricht öfter die Zelle). Der Rückenpanzer 0,3 → 0,5 brachte fast nichts (35). Der Selbsttest wurde nach den Änderungen nicht mehr ausgeführt.
 
 **Offen:** KI-Duelle (slow) mit neuer TTK und Kadenz nachmessen; g-Limit/Strukturschutz in der Flugphysik (16 g in Arcade); Munitionsmasse in `aircraft.gd` koppeln; Flügel-Hitbox dünner; Kühler als eigene Zone; Rückstoß erst bei Kanonen.
