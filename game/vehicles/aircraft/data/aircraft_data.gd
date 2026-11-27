@@ -15,6 +15,8 @@ extends Resource
 @export var static_thrust_n: float = 12000.0
 @export var prop_efficiency: float = 0.8
 @export var engine_position: Vector3 = Vector3(0, 0, -2.6)
+## Propellerdurchmesser (m), Strahlfläche für den Propellerstrahl am Leitwerk.
+@export var prop_diameter: float = 3.1
 ## Wie schnell der Motor dem Gashebel folgt (pro Sekunde).
 @export var throttle_response: float = 1.5
 ## Volldruckhöhe des Laders (m): bis hier volle Leistung, darüber Leistung ∝ Luftdichte.
@@ -42,6 +44,9 @@ extends Resource
 @export var pitch_damping_cmq: float = -6.0
 ## Mittlere Flügeltiefe (m), Bezugslänge für die Nickdämpfung.
 @export var mean_chord: float = 1.85
+## Kritische Machzahl (Audit 11/2026): darüber steigt der Widerstand steil an
+## (dicke Profile der 30er ≈ 0,62–0,68, Widerstandsmauer ≈ M_crit + 0,1).
+@export var mach_critical: float = 0.64
 
 @export_group("Fahrwerk")
 @export var wheels: Array[WheelDef] = []
@@ -84,14 +89,24 @@ extends Resource
 @export var arcade_max_pitch_rate: float = 0.9
 ## Höhenruder-Trimmung pro Grad Rumpf-Anstellwinkel (gemessen, für den Stall-Schutz).
 @export var elevator_per_aoa: float = 0.04
+## Zusätzliches Höhenruder je (Nickrate/Fahrt) in rad/s ÷ m/s für stationäres Ziehen
+## (Leitwerks-Anstellwinkel q·l_t/V plus Nickdämpfung; Vorsteuerung des Stall-Schutzes).
+@export var elevator_per_qv: float = 25.0
 ## Rumpf-Anstellwinkel (Grad), bei dem das Höhenruder in Neutralstellung trimmt.
 @export var elevator_zero_aoa_deg: float = -0.5
+## Arcade/KI: höchster Lastfaktor (Auftrieb/Gewicht), den der Stall-Schutz zulässt
+## (Struktur der 30er-Jäger ≈ +8 g, Stil B: etwas darunter).
+@export var arcade_g_limit: float = 7.5
 ## Unterhalb dieser Fahrt (m/s) begrenzt Arcade die Längsneigung (gegen Abkippen über das Heck).
 @export var arcade_low_speed: float = 150.0 / 3.6
 ## Realistisch: oberhalb dieser Fahrt (m/s) wird der Höhenruder-Ausschlag mit (v_ref/v)^k
 ## begrenzt (simulierte Knüppelkraft).
 @export var realistic_elevator_ref_speed: float = 260.0 / 3.6
 @export var realistic_elevator_exponent: float = 1.0
+## Realistisch: Querruder oberhalb dieser Fahrt (m/s) mit (v_ref/v)^k abgeschwächt
+## (Knüppelkraft ~ 30–40 lb, NACA ACR L-334: Spitfire bei 300 mph nur halber Ausschlag).
+@export var realistic_aileron_ref_speed: float = 340.0 / 3.6
+@export var realistic_aileron_exponent: float = 1.5
 
 @export_group("Kampf (M2)")
 ## Bewaffnung (Agent A: Ressource mit GunMountDef-Liste). Fehlt die Datei: unbewaffnet.

@@ -30,6 +30,8 @@ enum ControlAxis { NONE, PITCH, ROLL, YAW, FLAPS }
 @export var max_deflection_deg: float = 20.0
 ## Anteil des Flügel-Abwinds, den diese Fläche sieht (1 = Höhenleitwerk, 0 = keiner).
 @export var downwash_factor: float = 0.0
+## Anteil der Fläche im Propellerstrahl (0 = keiner, 1 = ganz; Audit 11/2026).
+@export var prop_wash: float = 0.0
 ## Gehört zum Haupt-Flügel (für Strömungsabriss-Anzeige).
 @export var is_main_wing: bool = false
 

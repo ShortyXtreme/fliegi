@@ -3,6 +3,9 @@ extends RefCounted
 ## Messwerte des Flugmodells pro Tick (für HUD, Steuerhilfen, KI, Tests).
 
 var airspeed: float = 0.0          # m/s (wahre Fahrt gegenüber der Luft; M3.8: mit Wind ≠ Geschwindigkeit über Grund)
+var ias: float = 0.0               # m/s, angezeigte Fahrt (Audit 11/2026, ISA-Dichte, ohne Instrumentenfehler)
+var mach: float = 0.0              # Machzahl (ISA-Schallgeschwindigkeit)
+var wave_drag_coef: float = 0.0    # Kompressibilitäts-Widerstandsbeiwert (0 unter M_crit)
 var ground_speed: float = 0.0      # m/s über Grund (M3.8)
 var wind: Vector3 = Vector3.ZERO   # m/s, Wind am Flugzeug (M3.8)
 var wind_info: WindSample = null   # M3.9: Anteile (mittel, Böe, Hang, Thermik, Rollböe)
@@ -14,6 +17,7 @@ var stall_amount: float = 0.0      # 0..1, Abriss am Hauptflügel
 var stall_aoa: float = 0.26        # rad, Abriss-Anstellwinkel (Rumpf, aktuelle Klappen)
 var stall_aoa_base: float = 0.26   # rad, Abriss-Anstellwinkel ohne Klappen
 var aoa_rate: float = 0.0          # rad/s
+var prop_wash: float = 0.0         # m/s, Geschwindigkeitszuwachs im Propellerstrahl (Audit 11/2026)
 var downwash: float = 0.0          # rad, Abwind am Höhenleitwerk
 ## Treibstoff-Füllstand 0..1 (setzt Aircraft aus damage.fuel, Paket 14).
 var fuel_fraction: float = 1.0

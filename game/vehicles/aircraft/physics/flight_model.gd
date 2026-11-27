@@ -8,7 +8,19 @@ extends RefCounted
 ## später durch ein anderes Modell ersetzt werden, ohne Sitz/Controller zu ändern.
 
 const SEA_LEVEL_RHO := 1.225
-const SCALE_HEIGHT := 8500.0
+## Audit 11/2026: ISA (ICAO-Normatmosphäre) statt Exponentialmodell (H = 8.500 m lag in
+## 4–8 km 7–9 % zu niedrig). Troposphäre bis 11 km, darüber isotherm.
+const ISA_T0 := 288.15            # K
+const ISA_LAPSE := 0.0065         # K/m
+const ISA_R := 287.053            # J/(kg K)
+const ISA_GAMMA := 1.4
+const ISA_EXP := 5.25588          # g/(R·L)
+const ISA_TROPOPAUSE := 11000.0
+const ISA_H_STRAT := 6341.6       # m, Skalenhöhe über der Tropopause (R·T11/g)
+## Kompressibilität: Widerstandsanstieg ab der kritischen Machzahl (dicke Profile der 30er,
+## t/c 14–18 %). ΔCD = WAVE_K · ((M − M_crit) / WAVE_SPAN)³, bezogen auf die Flügelfläche.
+const WAVE_SPAN := 0.1
+const WAVE_K := 0.1
 ## Vorwarnung (Buffet) beginnt so viele Grad vor dem Abriss-Anstellwinkel.
 ## Vorwarnung (Rütteln/Ton/HUD) ab so vielen Grad vor dem Abriss (Tester M1.1: 3° war zu früh).
 const BUFFET_ONSET := deg_to_rad(1.5)
@@ -71,8 +83,35 @@ func _init(d: AircraftData) -> void:
 	telemetry.stall_aoa_base = telemetry.stall_aoa
 
 
+## Temperatur (K) der Normatmosphäre.
+static func air_temperature(altitude: float) -> float:
+	return ISA_T0 - ISA_LAPSE * clampf(altitude, -500.0, ISA_TROPOPAUSE)
+
+
 static func air_density(altitude: float) -> float:
-	return SEA_LEVEL_RHO * exp(-maxf(altitude, 0.0) / SCALE_HEIGHT)
+	var h := maxf(altitude, -500.0)
+	if h <= ISA_TROPOPAUSE:
+		return SEA_LEVEL_RHO * pow(air_temperature(h) / ISA_T0, ISA_EXP - 1.0)
+	var rho11 := SEA_LEVEL_RHO * pow(air_temperature(ISA_TROPOPAUSE) / ISA_T0, ISA_EXP - 1.0)
+	return rho11 * exp(-(h - ISA_TROPOPAUSE) / ISA_H_STRAT)
+
+
+## Schallgeschwindigkeit (m/s) der Normatmosphäre.
+static func speed_of_sound(altitude: float) -> float:
+	return sqrt(ISA_GAMMA * ISA_R * air_temperature(altitude))
+
+
+## Angezeigte Fahrt (≈ EAS/IAS, ohne Einbau- und Kompressibilitätsfehler) aus der wahren Fahrt.
+static func indicated_airspeed(tas: float, altitude: float) -> float:
+	return tas * sqrt(air_density(altitude) / SEA_LEVEL_RHO)
+
+
+## Zusätzlicher Widerstandsbeiwert durch Kompressibilität (auf die Flügelfläche bezogen).
+static func wave_drag_coef(mach: float, mach_crit: float) -> float:
+	if mach <= mach_crit:
+		return 0.0
+	var u := (mach - mach_crit) / WAVE_SPAN
+	return WAVE_K * u * u * u
 
 
 ## Leistungsfaktor des Motors (Lader): bis zur Volldruckhöhe 1, darüber ∝ Luftdichte.
@@ -121,6 +160,12 @@ func integrate(state: PhysicsDirectBodyState3D, cmd: ControlCommands, exclude: A
 
 	# --- Aerodynamik je Fläche (Flügel zuerst, dann Leitwerk im Abwind) ---
 	var aero_total := Vector3.ZERO
+	# Propellerstrahl (Audit 11/2026, Strahltheorie): Fernstrahl v_w = √(v² + 2T/(ρA)).
+	# Leitwerk im Strahl sieht zusätzlich Δv entlang der Längsachse (Anteil prop_wash der
+	# Fläche) -> Seitenruder wirkt im Stand und beim Rollen mit Gas (Seitenwind, Heck oben).
+	var v_ax := maxf(-v_local.z, 0.0)
+	var disk := PI * 0.25 * data.prop_diameter * data.prop_diameter
+	var wash_dv := sqrt(v_ax * v_ax + 2.0 * maxf(engine.last_thrust, 0.0) / (rho * maxf(disk, 0.1))) - v_ax
 	var stall_sum := 0.0
 	var stall_n := 0
 	var wing_cl := 0.0
@@ -142,7 +187,10 @@ func integrate(state: PhysicsDirectBodyState3D, cmd: ControlCommands, exclude: A
 			eps = _downwash * s.def.downwash_factor
 		var m := modifiers
 		var c_eff := m.control_command(s.index, cmd.axis_value(s.def.control_axis))
-		var f := s.compute(-v_point, b, rho, c_eff, eps, m.lift_mul(s.index), m.drag_add(s.index))
+		var air := -v_point
+		if s.def.prop_wash > 0.0:
+			air += b.z * (wash_dv * s.def.prop_wash)
+		var f := s.compute(air, b, rho, c_eff, eps, m.lift_mul(s.index), m.drag_add(s.index))
 		state.apply_force(f, r)
 		aero_total += f
 		if s.def.is_main_wing:
@@ -168,6 +216,11 @@ func integrate(state: PhysicsDirectBodyState3D, cmd: ControlCommands, exclude: A
 		-v_local.y * absf(v_local.y) * q * data.fuselage_side_area * 0.5,
 		-v_local.z * absf(v_local.z) * q * drag_area)
 	var fus := b * fus_local
+	# Kompressibilität (Audit 11/2026): Wellenwiderstand ab M_crit, wirkt entlang der Bahn.
+	var mach := speed / speed_of_sound(xf.origin.y)
+	var cd_wave := wave_drag_coef(mach, data.mach_critical)
+	if cd_wave > 0.0:
+		fus -= vel / speed * (q_dyn * _wing_area * cd_wave)
 	state.apply_central_force(fus)
 	aero_total += fus
 
@@ -186,6 +239,9 @@ func integrate(state: PhysicsDirectBodyState3D, cmd: ControlCommands, exclude: A
 	# --- Telemetrie ---
 	var t := telemetry
 	t.airspeed = speed
+	t.ias = indicated_airspeed(speed, xf.origin.y)
+	t.mach = mach
+	t.wave_drag_coef = cd_wave
 	t.altitude = xf.origin.y
 	t.aoa = atan2(-v_local.y, -v_local.z) if speed > 1.0 else 0.0
 	t.aoa_rate = (t.aoa - _prev_aoa) / dt if speed > 10.0 else 0.0
@@ -194,6 +250,7 @@ func integrate(state: PhysicsDirectBodyState3D, cmd: ControlCommands, exclude: A
 	t.stall_amount = stall_sum / maxf(stall_n, 1)
 	t.stall_aoa = effective_stall_aoa(cmd.flaps)
 	t.downwash = _downwash
+	t.prop_wash = wash_dv
 	t.thrust = thrust
 	t.throttle_actual = engine.throttle_actual
 	t.wheels_in_contact = contacts
