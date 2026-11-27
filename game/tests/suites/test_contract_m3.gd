@@ -325,7 +325,7 @@ func test_stub_classes() -> Array:
 		and GroundCrewBrain.COMMAND_LABELS.size() >= 6 \
 		and GroundRules.for_realism(MatchRules.GroundRealism.EINFACH).pump_lps == 30.0 \
 		and GroundRules.for_realism().pump_lps == 6.0 \
-		and GroundRules.for_realism(MatchRules.GroundRealism.AUTHENTISCH).pump_lps == 4.0
+		and GroundRules.for_realism(MatchRules.GroundRealism.AUTHENTISCH).pump_lps == 2.5   # Prüfung Boden: vorher 4,0
 	return [ok, "Jobs %s, blockiert %s, Client abgelehnt %s, Piste exklusiv %s, Sitze %s" % [
 		ids, blocked, not client_ok, rw, seats_ok]]
 

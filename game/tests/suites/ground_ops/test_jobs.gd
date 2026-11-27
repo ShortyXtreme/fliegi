@@ -16,7 +16,7 @@ func test_times_per_stage() -> Array:
 		var depot := FuelDepot.new()
 		var bunker := AmmoBunker.new()
 		var l := a.damage.fuel.space()
-		var exp_fuel: float = [1.0 + l / 30.0, 2.0 + l / 6.0 + 2.0, 3.0 + 2.0 + l / 4.0 + 2.0][r]
+		var exp_fuel: float = [1.0 + l / 30.0, 2.0 + l / 6.0 + 2.0, 3.0 + 2.0 + l / 2.5 + 2.0][r]   # Prüfung Boden: Authentisch 2,5 l/s (vorher 4)
 		var exp_mg: float = [3.0, 1.5 + 5.0 + 1.5, 1.5 + 5.0 + 1.5 + 2.0][r]
 		var ids := board.plan_service(a, depot, bunker, {"repair": false})
 		var tf := U.run_job(board, board.get_job(ids[0]))
@@ -106,7 +106,7 @@ func test_overflow_authentisch() -> Array:
 			if j.current_step() != s:
 				break
 			board.request_step(1, j.id, s, 0.1)
-	for k in 300:                                       # 30 s pumpen ohne Aufsicht
+	for k in 450:                                       # 45 s pumpen ohne Aufsicht (Prüfung Boden: 2,5 l/s statt 4)
 		board.tick(0.1)
 	var sum1 := depot.total() + a.damage.fuel.total() + j.spilled
 	var ok: bool = j.current_step() == &"pump" and j.spilled > 50.0 and absf(sum1 - sum0) <= sum0 * 0.001 \
