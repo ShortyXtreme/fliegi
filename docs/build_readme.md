@@ -1,11 +1,19 @@
-# Flugkern M3.7 – Testversion „Lebendige Welt“
+# Flugkern M3.8 – Testversion „Flüsse und Wind“
 
 ## Installation
 1. Die vorhandene **Flugkern.exe** (Godot 4.7.2) bleibt unverändert.
 2. **Alle vier .pck-Dateien** in denselben Ordner wie Flugkern.exe kopieren (alte Flugkern.pck überschreiben):
    `Flugkern.pck`, `Flugkern_modelle.pck`, `Flugkern_karte.pck`, `Flugkern_audio.pck`.
    Fehlt Modelle oder Karte, zeigt das Spiel eine Meldung; fehlt Audio, läuft es ohne Ton.
-3. Flugkern.exe starten. Der Fenstertitel muss „Flugkern M3.7“ zeigen.
+3. Flugkern.exe starten. Der Fenstertitel muss „Flugkern M3.8“ zeigen.
+
+## Neu in M3.8
+
+- Ein großer Fluss (61 km) im Tal und drei Bäche, mit Ufern, Ufergehölz und zwei Brücken (Stahlfachwerk und Steinbogen).
+- Absturz ins Wasser: Fontäne statt Krater, das Wrack versinkt.
+- Wind: Das Flugzeug fliegt relativ zur Luft, also mit Seitenwind, Abdrift und Böen. Windsäcke an beiden Plätzen; Gras, Bäume, Wasser und Rauch gehen mit dem Wind.
+- Funk an das Bodenpersonal: „Wetter?“ meldet den Wind grob, z. B. „Wind aus Südwest, mäßig, böig“.
+- Einstellung „Wind“ (Aus/Schwach/Normal/Stark), Standard Normal. Im Tutorial weht höchstens schwacher Wind.
 
 ## Neu in M3.7
 
