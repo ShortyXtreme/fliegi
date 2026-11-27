@@ -11,6 +11,16 @@ const TABLE_STEP := 25.0
 const TABLE_RANGE := 2500.0
 
 static var _tables := {}
+## Prüfung Waffen: Bezugsdichte von WeaponDef.ballistic_k (Meereshöhe) und Skalenhöhe wie
+## FlightModel.air_density().
+const RHO_0 := 1.225
+const SCALE_HEIGHT := 8500.0
+
+
+## Widerstandsfaktor in der Höhe altitude (m): k ∝ ρ(h). Abgefeuerte Geschosse behalten den
+## Wert ihrer Abschusshöhe (Bahnen ≤ 1,5 km, Dichteänderung längs der Bahn vernachlässigbar).
+static func k_at(k0: float, altitude: float) -> float:
+	return k0 * exp(-maxf(altitude, 0.0) / SCALE_HEIGHT)
 
 
 ## Ein Tick (dt) für ein Geschoss. Gibt [pos, vel] zurück.

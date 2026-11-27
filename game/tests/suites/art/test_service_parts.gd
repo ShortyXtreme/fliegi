@@ -60,5 +60,6 @@ func test_service_markers_positions() -> Array:
 	# Tankstutzen: linke Rumpfseite (x < -0.4) vor dem Cockpit (z < -0.5), nicht oben drauf (y < 0.3)
 	var cap_ok := cap.x < -0.4 and cap.z < -0.5 and cap.y < 0.3
 	var hatch_ok := hl.x < -2.0 and hr.x > 2.0 and absf(hl.x + hr.x) < 0.01 and absf(hl.z - hr.z) < 0.01
-	return [cap_ok and hatch_ok and zones == 7 and hb == 9,
+	# Prüfung Waffen: 7 Zonen + Leitwerksflosse + Heckkonus + 2 Rumpf-Füllboxen = 11 (vorher 9)
+	return [cap_ok and hatch_ok and zones == 7 and hb == 11,
 		"Tank %s, Klappen %s/%s, Marker-Zonen %d, Boxen %d" % [cap, hl, hr, zones, hb]]

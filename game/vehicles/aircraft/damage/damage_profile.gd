@@ -35,12 +35,22 @@ extends Resource
 @export var broken_outer_lift := 0.0
 @export var broken_root_lift := 0.4
 
+## Prüfung Waffen: Bruchlast beschädigter Flügel. Unter wing_weak_below HP-Quote bricht der
+## Flügel, wenn die g-Last wing_overload_time s über der Grenze liegt; die Grenze fällt linear
+## von wing_break_g_max (an der Schwelle) auf wing_break_g_min (bei 0 HP). Intakte Flügel
+## brechen nicht (Stil B; ein g-Limit gehört zur Flugphysik). Negative g zählen doppelt.
+## Bezug: Spitfire F.7/30 Lastvielfaches 9, übliche Bruchlast der Jäger ≈ 12–13 g.
+@export var wing_weak_below := 0.75
+@export var wing_break_g_max := 12.0
+@export var wing_break_g_min := 5.0
+@export var wing_overload_time := 0.1
+
 @export_group("Leitwerk")
 ## Ruderwirksamkeit bei 0 HP.
 @export var tail_control_min := 0.3
 ## Gesamtschaden (Summe aller Zonen), ab dem die Zelle zerbricht (Paket 14: TTK 15–40
 ## Treffer auch bei verteilten Treffern; 10 Schaden je MG-Treffer).
-@export var structure_hp := 320.0
+@export var structure_hp := 280.0
 ## Chance je Treffer (× Schadensquote), dass ein Ruder klemmt.
 @export var tail_stuck_chance := 0.25
 ## Unter dieser HP-Quote gilt das Leitwerk als kritisch (Notausstieg erlaubt).

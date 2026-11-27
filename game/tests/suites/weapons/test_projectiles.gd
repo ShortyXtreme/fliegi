@@ -67,9 +67,13 @@ func test_cadence_and_ammo() -> Array:
 	await _step(10)
 	var n1: int = shots[0]
 	var ammo := a.weapons.ammo()
-	# 600/min = 10/s je Waffe, 2 Waffen, 1 s Abzug → 20 (±1 Schuss je Waffe durch Tick-Raster)
-	if n1 < 20 or n1 > 22:
-		return [false, "Schüsse in 1 s: %d (erwartet 20–22)" % n1]
+	# Kadenz aus den Daten (Prüfung Waffen: 1.150/min ≈ 19,2/s je Waffe), 2 Waffen, 1 s Abzug
+	# (±1 Schuss je Waffe durch Tick-Raster)
+	var per_gun := 1.0 / _mg().shot_interval()
+	var lo := int(floor(per_gun)) * 2
+	var hi := (int(floor(per_gun)) + 1) * 2
+	if n1 < lo or n1 > hi:
+		return [false, "Schüsse in 1 s: %d (erwartet %d–%d)" % [n1, lo, hi]]
 	if ammo != mx - n1:
 		return [false, "Zähler %d ≠ %d − %d" % [ammo, mx, n1]]
 	# leeres Magazin feuert nicht
@@ -133,8 +137,9 @@ func test_hit_moving_box_high_speed() -> Array:
 		var vel := Vector3(0, 0, -800)
 		# Ort des Geschosses zur Zeit hit_at (gleiche Integration wie das System)
 		var n := int(hit_at / DT)
-		var r := Ballistics.advance(shot_from, vel, w.ballistic_k, DT, n)
-		var r2 := Ballistics.advance(r[0], r[1], w.ballistic_k, DT, 1)
+		var kb := Ballistics.k_at(w.ballistic_k, shot_from.y)   # wie ProjectileSystem.spawn
+		var r := Ballistics.advance(shot_from, vel, kb, DT, n)
+		var r2 := Ballistics.advance(r[0], r[1], kb, DT, 1)
 		var meet: Vector3 = (r[0] as Vector3).lerp(r2[0], (hit_at - n * DT) / DT)
 		var b0 := meet - bv * hit_at
 		var before := b.hits
@@ -183,7 +188,7 @@ func test_aircraft_fires_on_box() -> Array:
 	await _step(40)
 	var fired := a.weapons.ammo_max() - a.weapons.ammo()
 	return [b.hits >= fired - 1 and fired >= 8 and confirmed[0] == b.hits,
-			"%d Schuss, %d Treffer auf 250 m" % [fired, b.hits]]
+			"%d Schuss, %d Treffer auf 250 m (abgelehnt %d %s)" % [fired, b.hits, projectiles.hits_rejected, projectiles.validator.reasons]]
 
 
 func test_perf_1000_shots_8_targets() -> Array:
@@ -230,3 +235,38 @@ func test_read_interface() -> Array:
 	var ok: bool = act.size() == 10 and tr.size() == 2 and projectiles.position(s).z < projectiles.prev_position(s).z \
 			and projectiles.weapon_of(s) == w and projectiles.age(s) > 0.0
 	return [ok, "aktiv %d, Leuchtspur %d" % [act.size(), tr.size()]]
+
+
+## Prüfung Waffen: Schadensfaktor der Trefferbox (Füllbox/Panzer) kommt im Schaden an, und
+## Geschosse in der Höhe werden mit der dortigen Luftdichte gebremst.
+func test_damage_mul_and_density() -> Array:
+	projectiles.set_physics_process(false)
+	var w := _mg()
+	var tgt := _spawn(false, 1500.0, 0.0, 0.0)
+	tgt.freeze = true
+	tgt.set_physics_process(false)
+	var tick := Engine.get_physics_frames() + 1
+	projectiles.step(DT, tick)
+	tick += 1
+	var xf := tgt.global_transform
+	# quer durch den Heckrumpf (Füllbox Leitwerk ×0,4), außerhalb der Leitwerksplatten
+	var from := xf * Vector3(30, 0.1, 3.5)
+	var vel := xf.basis * Vector3(-800, 0, 0)
+	var before := tgt.damage.hp[DamageModel.Zone.TAIL]
+	projectiles.spawn(null, 0, 1, from, vel, w)
+	for s in 10:
+		projectiles.step(DT, tick)
+		tick += 1
+	var dealt := before - tgt.damage.hp[DamageModel.Zone.TAIL]
+	# Dichte: Geschoss in 3.000 m vs. Meereshöhe, je 0,5 s
+	projectiles.clear()
+	var i_hi := projectiles.spawn(null, 0, 2, Vector3(0, 3000, 5000), Vector3(0, 0, -800), w)
+	var i_lo := projectiles.spawn(null, 0, 3, Vector3(50, 10, 5000), Vector3(0, 0, -800), w)
+	for s in 30:
+		projectiles.step(DT, tick)
+		tick += 1
+	var v_hi := projectiles.velocity(i_hi).length()
+	var v_lo := projectiles.velocity(i_lo).length()
+	var ok := is_equal_approx(dealt, w.damage * HitboxSet.FILLER_MUL) and v_hi > v_lo + 10.0
+	return [ok, "Heckrumpf-Treffer %.1f Schaden (Soll %.1f), v nach 0,5 s: 3.000 m %.0f m/s, Boden %.0f m/s" % [
+		dealt, w.damage * HitboxSet.FILLER_MUL, v_hi, v_lo]]

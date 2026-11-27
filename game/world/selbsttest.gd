@@ -176,7 +176,7 @@ func _diag_lines() -> bool:
 	for a: Aircraft in [game.player_aircraft] + game.ai_aircrafts:
 		var n: int = a.damage.hitboxes.zones.size() if a.damage != null and a.damage.hitboxes != null else 0
 		zones.append(n)
-		ok = ok and n == 9
+		ok = ok and n >= 9   # Prüfung Waffen: mit Leitwerksplatten 11 Boxen
 	_log("Diagnose Hitbox-Zonen: %s" % str(zones))
 	ok = ok and game.airfields.size() >= 2
 	for i in game.airfields:

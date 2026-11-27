@@ -215,7 +215,7 @@ func spawn(shooter: Node3D, gun_index: int, shot_id: int, pos: Vector3,
 	_vel[i] = vel
 	_age[i] = 0.0
 	_life[i] = _weapon_life[wi]
-	_k[i] = w.ballistic_k
+	_k[i] = Ballistics.k_at(w.ballistic_k, pos.y)
 	_owner_id[i] = id_of(shooter)
 	_owner[i] = shooter
 	_shot[i] = shot_id
@@ -446,7 +446,8 @@ func _hit_target(i: int, t: Target, hit: Dictionary, world_point: Vector3, serve
 			_end(i, world_point, Impact.TARGET, t.node, zone)
 			return
 	var w := _weapons[_wi[i]]
-	var dmg := w.damage
+	# Prüfung Waffen: Schadensfaktor der Trefferbox (Rumpf-Füllbox 0,4, Rückenpanzer 0,3)
+	var dmg := w.damage * float(hit.get("damage_mul", 1.0))
 	var tn = t.node.get("nation_id")
 	var sn = shooter.get("nation_id") if shooter != null else null
 	if tn is int and sn is int and not Nations.is_hostile(sn, tn) \

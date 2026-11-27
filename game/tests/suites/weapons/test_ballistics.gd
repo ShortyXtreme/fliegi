@@ -73,11 +73,13 @@ func test_lead_crossing_target() -> Array:
 	var tv := Vector3(-110, 5, -60)
 	var r := LeadSolver.solve(sp, sv, tp, tv, w.muzzle_velocity, w.ballistic_k)
 	# Geschoss und Ziel tickweise laufen lassen, kleinsten Abstand (Segment) messen.
+	# Widerstand in Schützenhöhe wie ProjectileSystem (Ballistics.k_at).
+	var kh := Ballistics.k_at(w.ballistic_k, sp.y)
 	var p := sp
 	var v: Vector3 = sv + r.dir * w.muzzle_velocity
 	var best := INF
 	for i in 120:
-		var s := Ballistics.advance(p, v, w.ballistic_k, DT, 1)
+		var s := Ballistics.advance(p, v, kh, DT, 1)
 		var t0 := tp + tv * (i * DT)
 		var t1 := tp + tv * ((i + 1) * DT)
 		# Relativbewegung im Tick: Abstand Segment (Geschoss − Ziel) zum Ursprung.

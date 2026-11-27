@@ -67,6 +67,8 @@ var rng := RandomNumberGenerator.new()
 var parachute: Node = null
 
 var _wound_noise := Vector3.ZERO
+## Zeit über der Bruchlast je Flügel (s), Index 0 = links, 1 = rechts.
+var _overload := PackedFloat32Array([0.0, 0.0])
 var _fire_acc: PackedFloat32Array = []
 var _surf_wing := {Zone.WING_L: [], Zone.WING_R: []}   # [index, ist_aussen, ist_querruder]
 var _surf_tail: Array[int] = []
@@ -130,6 +132,7 @@ func reset() -> void:
 	engine_dead = false
 	contributors.clear()
 	_wound_noise = Vector3.ZERO
+	_overload.fill(0.0)
 	parachute = null
 	var eid = aircraft.get("entity_id")
 	rng.seed = hash([eid if eid is int else 0, _resets])
@@ -295,7 +298,11 @@ func tick(dt: float) -> void:
 	if is_burning():
 		_tick_fire(dt, t)
 	if pilot_state == PilotState.WOUNDED:
-		_wound_noise = _wound_noise * 0.95 + Vector3(rng.randf_range(-1, 1), rng.randf_range(-1, 1), rng.randf_range(-1, 1)) * 0.05
+		# Tiefpass zeitbasiert (τ ≈ 0,33 s; bei 60 Hz wie vorher 0,95/0,05)
+		var al := 1.0 - exp(-dt / 0.325)
+		_wound_noise = _wound_noise * (1.0 - al) + Vector3(rng.randf_range(-1, 1), rng.randf_range(-1, 1), rng.randf_range(-1, 1)) * al
+	if t != null and not is_destroyed:
+		_tick_overload(dt, float(t.g_load))
 	if _dirty:
 		_apply_modifiers()
 		_check_destroyed()
@@ -338,6 +345,31 @@ func _tick_fire(dt: float, t) -> void:
 			if z == Zone.FUEL_L or z == Zone.FUEL_R:
 				fuel.liters[z - Zone.FUEL_L] = 0.0
 			fire_time[z] = -1.0
+
+
+## Bruchlast beschädigter Flügel (Prüfung Waffen, Werte im DamageProfile).
+func _tick_overload(dt: float, g: float) -> void:
+	var ge := g if g >= 0.0 else -2.0 * g
+	for k in 2:
+		var z := Zone.WING_L + k
+		var lim := wing_break_g(z)
+		if lim > 0.0 and ge > lim:
+			_overload[k] += dt
+			if _overload[k] >= profile.wing_overload_time:
+				_damage_zone(z, hp[z])
+				_apply_modifiers()
+				_check_destroyed()
+				return
+		else:
+			_overload[k] = 0.0
+
+
+## g-Last, bei der der Flügel bricht (0 = kein Bruch, intakt oder schon ab).
+func wing_break_g(zone: int) -> float:
+	var f := hp_fraction(zone)
+	if hp[zone] <= 0.0 or f >= profile.wing_weak_below or profile.wing_weak_below <= 0.0:
+		return 0.0
+	return lerpf(profile.wing_break_g_min, profile.wing_break_g_max, f / profile.wing_weak_below)
 
 
 ## Wirkung aller Zonen auf die FlightModifiers (vollständig neu berechnet, nur geklemmte

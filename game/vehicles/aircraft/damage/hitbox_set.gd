@@ -25,6 +25,18 @@ const INNER := [0, 1, 2, 6]   # ENGINE, FUEL_L, FUEL_R, COCKPIT
 const FILLER_MUL := 0.4
 ## Eindringtiefe (m), bis zu der eine innere Zone hinter der Außenhaut noch zählt.
 const PENETRATION := 1.0
+## Prüfung Waffen (27.11.2026): Beginnt der Treffer in einer Rumpf-Füllbox (leerer Heckrumpf,
+## Monocoque/Stoff), durchschlägt das Geschoss bis zu PENETRATION_FUSELAGE m bis zur
+## Panzerplatte hinter dem Piloten. Vorher war das Cockpit von hinten unerreichbar, jeder
+## Abschuss von 6 Uhr ging übers Leitwerk.
+const PENETRATION_FUSELAGE := 4.5
+## Rückenpanzer (Bf 109 E: 8 mm + 10 mm Kopfplatte, Spitfire 1940: 4,5/6,5 mm): Cockpit-Treffer
+## aus dem hinteren Kegel (Flugrichtung des Geschosses innerhalb REAR_ARMOR_COS zu -Z) zählen
+## nur mit REAR_ARMOR_MUL (Rest = Treffer an der Platte vorbei oder durch sie hindurch).
+const REAR_ARMOR_MUL := 0.3
+const REAR_ARMOR_COS := 0.6
+## Halbe Dicke der Leitwerksplatten (m), ≈ 10–12 % Profildicke plus Ruderspalt.
+const TAIL_PLATE_HALF := 0.08
 
 
 static func from_aircraft_data(d: Resource) -> HitboxSet:
@@ -41,6 +53,7 @@ static func from_markers(m: AircraftMarkers, d: Resource = null) -> HitboxSet:
 			push_warning("HitboxSet: unbekannte Zone %s" % m.zone_names[k])
 			continue
 		h.add_box(z, m.zone_centers[k], m.zone_half_extents[k], 1.0)
+	h._refine_tail(d)
 	h._add_fuselage_fillers(d)
 	h._update_radius()
 	return h
@@ -51,6 +64,55 @@ func add_box(zone: int, center: Vector3, he: Vector3, mul := 1.0) -> void:
 	centers.append(center)
 	half_extents.append(he.abs())
 	damage_mul.append(mul)
+
+
+## Prüfung Waffen: Das Leitwerk aus den Markern ist ein massiver Block um Flosse und
+## Höhenleitwerk (3,7 × 1,8 × 1,5 m, 6,7 m² Stirnfläche). Mit den Leitwerksflächen aus
+## AircraftData (htail_*, vtail) wird es durch zwei dünne Platten ersetzt; der Heckkonus
+## dazwischen ist eine Füllbox (Steuerseile/Rumpf, FILLER_MUL). Ohne Flächen bleibt der Block.
+func _refine_tail(d: Resource) -> void:
+	var surfaces = d.get("surfaces") if d != null else null
+	if not (surfaces is Array):
+		return
+	var k := -1
+	for i in zones.size():
+		if zones[i] == DamageModel.Zone.TAIL and damage_mul[i] >= 1.0:
+			k = i
+			break
+	if k < 0:
+		return
+	var h_x := 0.0
+	var h_y := 0.0
+	var h_z := 0.0
+	var h_c := 0.0
+	var nh := 0
+	var fin: Resource = null
+	for s in surfaces:
+		var nm: String = s.name
+		if nm.begins_with("htail"):
+			h_x = maxf(h_x, absf(s.position.x) + s.span * 0.5)
+			h_y += s.position.y
+			h_z += s.position.z
+			h_c = maxf(h_c, s.chord)
+			nh += 1
+		elif nm.begins_with("vtail"):
+			fin = s
+	if nh == 0 or fin == null:
+		return
+	var box_c := centers[k]
+	var box_h := half_extents[k]
+	# Höhenleitwerk (ersetzt den Block)
+	centers[k] = Vector3(0.0, h_y / nh, h_z / nh)
+	half_extents[k] = Vector3(h_x, TAIL_PLATE_HALF, h_c * 0.5)
+	# Seitenflosse
+	add_box(DamageModel.Zone.TAIL, fin.position, Vector3(TAIL_PLATE_HALF, fin.span * 0.5, fin.chord * 0.5), 1.0)
+	# Heckkonus (Rumpfende unter dem Leitwerk)
+	var fs := Vector3(1.0, 1.1, 8.2)
+	var fc := Vector3(0, 0, 0.6)
+	if d.get("fuselage_box_size") is Vector3:
+		fs = d.fuselage_box_size
+		fc = d.fuselage_box_center
+	add_box(DamageModel.Zone.TAIL, Vector3(0.0, fc.y, box_c.z), Vector3(fs.x * 0.3, fs.y * 0.3, box_h.z), FILLER_MUL)
 
 
 ## Rumpf zwischen Motor/Cockpit/Leitwerk ohne eigene Zone auffüllen.
@@ -120,11 +182,17 @@ func intersect_segment(p0: Vector3, p1: Vector3) -> Dictionary:
 		return {}
 	var best := first
 	var seg_len := maxf(d.length(), 1e-6)
-	if inner >= 0 and (inner_t - first_t) * seg_len <= PENETRATION:
+	var pen := PENETRATION_FUSELAGE if damage_mul[first] < 1.0 else PENETRATION
+	if inner >= 0 and (inner_t - first_t) * seg_len <= pen:
 		best = inner
 	var bt := first_t if best == first else inner_t
+	var mul := damage_mul[best]
+	var armor := false
+	if zones[best] == DamageModel.Zone.COCKPIT and -d.z / seg_len > REAR_ARMOR_COS:
+		mul *= REAR_ARMOR_MUL
+		armor = true
 	return {"zone": zones[best], "t": bt, "point": p0 + d * bt,
-		"damage_mul": damage_mul[best], "box": best}
+		"damage_mul": mul, "box": best, "armor": armor}
 
 
 ## Eintritts-Parameter t (0..1) des Segments in die achsparallele Box, -1 = kein Treffer.

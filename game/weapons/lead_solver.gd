@@ -10,6 +10,7 @@ extends RefCounted
 static func solve(shooter_pos: Vector3, shooter_vel: Vector3, target_pos: Vector3,
 		target_vel: Vector3, v0: float, k: float, target_acc := Vector3.ZERO,
 		max_range := 1500.0, iterations := 5, dt := 1.0 / 60.0) -> Dictionary:
+	k = Ballistics.k_at(k, shooter_pos.y)   # k = Meereshöhe (WeaponDef), wie ProjectileSystem
 	var t := Ballistics.time_of_flight(shooter_pos.distance_to(target_pos), v0, k)
 	var intercept := target_pos
 	var dir := (target_pos - shooter_pos).normalized()
@@ -35,6 +36,7 @@ static func solve(shooter_pos: Vector3, shooter_vel: Vector3, target_pos: Vector
 ## Schnelle Näherung ohne Bahnsimulation (nur Tabellen), z. B. für viele Ziele im HUD.
 static func quick(shooter_pos: Vector3, shooter_vel: Vector3, target_pos: Vector3,
 		target_vel: Vector3, v0: float, k: float) -> Dictionary:
+	k = Ballistics.k_at(k, shooter_pos.y)
 	var rel_v := target_vel - shooter_vel
 	var t := Ballistics.time_of_flight(shooter_pos.distance_to(target_pos), v0, k)
 	var p := target_pos

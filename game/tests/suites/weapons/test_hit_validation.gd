@@ -125,6 +125,12 @@ func test_tolerance() -> Array:
 	_seat(a, func(_a, i: PilotIntent, _dt): i.fire_primary = fire[0])
 	var ticks := {}
 	CombatEvents.bus().hit_confirmed.connect(func(s, _t, _z, _d): ticks[ticks.size()] = Engine.get_physics_frames())
+	# Prüfung Waffen: Trefferpunkt des ersten Treffers von Schuss 0 (lokal) – vorher wurde der
+	# Segment-Anfang genommen, der bis zu 13 m vor dem Ziel liegen kann (zufällig im Rahmen).
+	var lps := {}
+	projectiles.impact.connect(func(slot, _p, _v, kind, _t, _z):
+		if kind == ProjectileSystem.Impact.TARGET and projectiles.shot_id_of(slot) == 0 and not lps.has(0):
+			lps[0] = [Engine.get_physics_frames(), _p])
 	await _step(3)
 	fire[0] = false
 	await _step(30)
@@ -137,11 +143,11 @@ func test_tolerance() -> Array:
 	r.shot_id = 0
 	r.target_id = ProjectileSystem.id_of(b)
 	r.zone = 0
-	r.tick = ticks[0]
-	var x0: Transform3D = ProjectileSystem.target_by_id(r.target_id).history.at(r.tick - 1)
-	var n := r.tick - s0.tick
-	var p := Ballistics.advance(s0.pos, s0.vel, s0.weapon.ballistic_k, 1.0 / 60.0, n - 1)
-	r.local_point = x0.affine_inverse() * (p[0] as Vector3) + Vector3(0, 2, 0)
+	if lps.is_empty():
+		return [false, "Schuss 0 hat nicht getroffen"]
+	r.tick = lps[0][0]
+	var x1: Transform3D = ProjectileSystem.target_by_id(r.target_id).history.at(r.tick)
+	r.local_point = x1.affine_inverse() * (lps[0][1] as Vector3) + Vector3(0, 2, 0)
 	var far := r.duplicate_report()
 	far.local_point += Vector3(0, -2, 8)
 	var res_far := v.validate(far, Engine.get_physics_frames())
