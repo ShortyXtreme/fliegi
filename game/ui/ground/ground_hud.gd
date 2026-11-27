@@ -104,6 +104,8 @@ func _ready() -> void:
 		ch.receiver = func(cmd: int, t: Node, cid: StringName) -> int:
 			if cmd == GroundCrewBrain.Command.STATUS:
 				return radio_status(cid, t)
+			if cmd == GroundCrewBrain.Command.WEATHER:
+				return radio_weather(cid)
 			return issue_command(cmd, t)
 	radio = RadioPanel.new()
 	radio.channels = channels
@@ -305,6 +307,15 @@ func radio_status(cid: StringName, t: Node) -> int:
 	if dispatch != null and is_instance_valid(dispatch) and dispatch.has_method("status_text"):
 		txt = dispatch.status_text(cid, t)
 	ch.answer("%s: %s" % [ch.speaker, txt])
+	return 1
+
+
+## M3.8: „Wetter?“: grobe Windmeldung („Wind aus Südwest, mäßig, böig.“), keine Zahlen.
+func radio_weather(cid: StringName) -> int:
+	var ch := channel_by_id(cid)
+	if ch == null:
+		return 0
+	ch.answer("%s: %s." % [ch.speaker, Weather.report()])
 	return 1
 
 

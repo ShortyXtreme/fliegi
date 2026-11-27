@@ -21,3 +21,17 @@ static func height_at(x: float, z: float) -> float:
 	if provider != null and is_instance_valid(provider):
 		return provider.height_at(x, z)
 	return 0.0
+
+
+## M3.8: Wasserspiegel an (x, z), wenn dort Wasser steht (Fluss/Bach), sonst NAN.
+## Provider ohne water_level_at (TestWorld): nirgends Wasser.
+static func water_level_at(x: float, z: float) -> float:
+	if provider != null and is_instance_valid(provider) and provider.has_method("water_level_at"):
+		return provider.water_level_at(x, z)
+	return NAN
+
+
+## M3.8: Steht an (x, z) Wasser und liegt y höchstens tol Meter darüber?
+static func is_water(x: float, z: float, y := -INF, tol := 3.0) -> bool:
+	var lv := water_level_at(x, z)
+	return not is_nan(lv) and (y == -INF or y <= lv + tol)

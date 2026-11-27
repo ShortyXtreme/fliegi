@@ -1,26 +1,26 @@
 class_name Windsock
 extends Node3D
 ## M3.4: Windsack (Mast + Sack aus drei Ringen orange/weiß/orange), richtet sich nach dem Wind aus
-## und hängt bei Flaute schlaff herab. Wind (nur Optik): aus Norden (Pistenrichtung -Z = gegen den
-## Wind starten), 2–8 m/s mit Böen, Richtung ±20° pendelnd.
+## und hängt bei Flaute schlaff herab. M3.8: zeigt den echten Wind (Weather, Höhe des Sacks über
+## Grund, mit Böen): Sack zeigt wohin der Wind weht, ab 7,5 m/s (~15 kn) waagerecht.
 
 const MAST_H := 7.0
 const SOCK_LEN := 3.6
 
-## Windrichtung „woher“ in Grad (0 = Nord = -Z), mittlere Stärke m/s.
-static var wind_from_deg := 0.0
-static var wind_speed := 5.0
-
 var _pivot: Node3D
 var _t := 0.0
+var _yaw := 0.0
+## Zuletzt angezeigter Wind (m/s, waagerecht) – für Tests
+var shown_wind := Vector3.ZERO
 
 
-## Wind zur Zeit t: [Richtung „wohin“ (waagerechter Einheitsvektor), Stärke m/s].
-static func wind_at(t: float) -> Array:
-	var deg := wind_from_deg + 20.0 * sin(t * 0.05) + 6.0 * sin(t * 0.31 + 1.0)
-	var spd := clampf(wind_speed * (1.0 + 0.35 * sin(t * 0.21) + 0.2 * sin(t * 1.3 + 0.4)), 0.0, 12.0)
-	var from := Vector3(sin(deg_to_rad(deg)), 0, -cos(deg_to_rad(deg)))
-	return [-from, spd]
+## Wind am Sack (waagerecht, m/s): [Richtung „wohin“ (Einheitsvektor), Stärke m/s].
+func wind_here() -> Array:
+	var p := global_position + Vector3(0, MAST_H, 0) if is_inside_tree() else Vector3(0, MAST_H, 0)
+	var w := Weather.wind_at_agl(p, MAST_H)
+	w.y = 0.0
+	var spd := w.length()
+	return [w / spd if spd > 0.01 else Vector3.ZERO, spd]
 
 
 ## Hängewinkel des Sacks unter der Waagerechten (Grad): 0 m/s = 75°, ab 7,5 m/s waagerecht.
@@ -73,9 +73,18 @@ func _process(dt: float) -> void:
 
 func _update(dt: float) -> void:
 	_t += dt
-	var w := wind_at(Time.get_ticks_msec() / 1000.0)
+	var w := wind_here()
 	var dir: Vector3 = w[0]
 	var spd: float = w[1]
-	var yaw := atan2(-dir.x, -dir.z)   # -Z des Pivots zeigt mit dem Wind
-	var flutter := sin(_t * (6.0 + spd)) * (1.5 + spd * 0.3)
-	_pivot.rotation = Vector3(deg_to_rad(-droop_deg(spd) + flutter * 0.4), yaw + deg_to_rad(flutter), 0.0)
+	shown_wind = dir * spd
+	if spd > 0.05:
+		_yaw = lerp_angle(_yaw, atan2(-dir.x, -dir.z), clampf(dt * 2.5, 0.0, 1.0) if dt > 0.0 else 1.0)   # -Z des Pivots zeigt mit dem Wind
+	var flutter := sin(_t * (6.0 + spd)) * (0.3 + spd * 0.3)
+	_pivot.rotation = Vector3(deg_to_rad(-droop_deg(spd) + flutter * 0.4), _yaw + deg_to_rad(flutter), 0.0)
+
+
+## Richtung, in die der Sack zeigt (waagerecht, Welt) – für Tests.
+func sock_direction() -> Vector3:
+	var f := -_pivot.global_transform.basis.z
+	f.y = 0.0
+	return f.normalized()

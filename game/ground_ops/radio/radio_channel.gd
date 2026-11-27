@@ -67,7 +67,9 @@ static func default_channels() -> Array:
 		make(&"crew", 4, "Bodenpersonal", &"ground_crew", "Bodenpersonal", "3,525", [
 			R.call(&"full", "Kompletter Ablauf", C.FULL_SERVICE, "Tanken, Munition, Reparatur, danach alles zurück"),
 			R.call(&"all_home", "Alle wegschicken", C.ALL_HOME, "Wagen zurück, alle zum Stellplatz"),
-			R.call(&"status", "Status?", C.STATUS, "grobe Lage der Abfertigung")]),
+			R.call(&"status", "Status?", C.STATUS, "grobe Lage der Abfertigung"),
+			# M3.8: Wind am Platz (grob, wie ein Blick auf den Windsack)
+			R.call(&"weather", "Wetter?", C.WEATHER, "Wind am Platz: Richtung und Stärke")]),
 	]
 
 

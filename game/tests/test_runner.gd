@@ -118,6 +118,8 @@ func _reset_globals() -> void:
 	WorldGround.clear_provider()
 	ProjectileSystem.reset_targets()
 	GroundEvents.reset()     # M3
+	Weather.reset()          # M3.8: ohne Wind (Tests schalten ihn selbst ein)
+	Game.wind_override = "aus"
 	Authority.reset()        # M3: simulate_client aus
 
 

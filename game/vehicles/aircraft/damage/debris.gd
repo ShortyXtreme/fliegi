@@ -99,7 +99,8 @@ func _physics_process(dt: float) -> void:
 		return
 	if freeze:
 		return
-	var v := linear_velocity
+	# M3.8: Luftreibung relativ zur Luft (Trümmer treiben mit dem Wind)
+	var v := linear_velocity - Weather.wind_at(global_position)
 	var s := v.length()
 	if s > 0.1:
 		apply_central_force(-v * s * drag_k)

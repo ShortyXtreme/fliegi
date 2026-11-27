@@ -36,6 +36,11 @@ var _light_src: Array = []        # [shooter, lokale Position]
 var _light_next := 0
 var _spark_next := 0
 var _dust_next := 0
+## M3.8: Wasserspritzer (Einschläge im Fluss)
+const SPLASH_POOL := 8
+var splashes: Array[GPUParticles3D] = []
+var _splash_next := 0
+var splashes_started := 0
 var _spark_follow: Array = []     # [Ziel, lokaler Punkt, Restzeit] je Funken-Emitter
 var _bus: CombatEvents
 var _ps_connected: ProjectileSystem
@@ -60,6 +65,25 @@ func build() -> void:
 		_spark_follow.append([null, Vector3.ZERO, 0.0])
 	for i in DUST_POOL:
 		dust.append(_make_emitter(false))
+		WindDrift.attach(dust[i], 0.6)   # M3.8: Staub treibt mit dem Wind
+	# M3.8: Wasserspritzer bei Einschlägen in Fluss/Bach (weiß, höher, fallen zurück)
+	for i in SPLASH_POOL:
+		var sp := _make_emitter(false)
+		var pm := sp.process_material as ParticleProcessMaterial
+		pm.initial_velocity_min = 6.0
+		pm.initial_velocity_max = 13.0
+		pm.spread = 12.0
+		pm.gravity = Vector3(0, -9.8, 0)
+		pm.scale_min = 1.5
+		pm.scale_max = 3.0
+		var g := Gradient.new()
+		g.set_color(0, Color(0.95, 0.97, 0.98, 0.95))
+		g.set_color(1, Color(0.85, 0.9, 0.92, 0.0))
+		var gt := GradientTexture1D.new()
+		gt.gradient = g
+		pm.color_ramp = gt
+		sp.lifetime = 1.0
+		splashes.append(sp)
 
 
 func _ps() -> ProjectileSystem:
@@ -367,6 +391,15 @@ func on_impact(_slot: int, pos: Vector3, vel: Vector3, kind: int, target: Node, 
 		p.restart()
 		impacts_started += 1
 	elif kind == ProjectileSystem.Impact.GROUND or kind == ProjectileSystem.Impact.WORLD:
+		var wl := WorldGround.water_level_at(pos.x, pos.z)
+		if not is_nan(wl) and pos.y < wl + 0.5 and not splashes.is_empty():
+			var sp := splashes[_splash_next]
+			_splash_next = (_splash_next + 1) % SPLASH_POOL
+			sp.global_transform = Transform3D(Basis(), Vector3(pos.x, wl + 0.1, pos.z))
+			sp.restart()
+			impacts_started += 1
+			splashes_started += 1
+			return
 		var p := dust[_dust_next]
 		_dust_next = (_dust_next + 1) % DUST_POOL
 		p.global_transform = Transform3D(Basis(), pos + Vector3.UP * 0.2)

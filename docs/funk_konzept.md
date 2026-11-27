@@ -20,7 +20,7 @@ Stand: 22.11.2026 · Code: `game/ground_ops/radio/` (Daten), `game/ui/ground/rad
 | 1 Tankwart (3,150 MHz) | `fuel` | Tankwagen rufen (nur heranfahren) · Tankwagen wegschicken · Volltanken (danach aufräumen, zurück) · Status? |
 | 2 Munition (3,275 MHz) | `ammo` | Munitionswagen rufen · Munitionswagen wegschicken · Aufmunitionieren (danach aufräumen, zurück) · Status? |
 | 3 Reparatur (3,400 MHz) | `repair` | Mechaniker rufen · Mechaniker wegschicken · Reparieren (danach zurück) · Status? |
-| 4 Bodenpersonal (3,525 MHz) | `ground_crew` | Kompletter Ablauf (Tanken, Munition, Reparatur, alles zurück) · Alle wegschicken · Status? |
+| 4 Bodenpersonal (3,525 MHz) | `ground_crew` | Kompletter Ablauf (Tanken, Munition, Reparatur, alles zurück) · Alle wegschicken · Status? · Wetter? (M3.8: „Wind aus Südwest, mäßig, böig.“) |
 
 Die Zuteilung an Mechaniker erfolgt automatisch (`GroundCrewDispatch.free_crews`): ein freier Mechaniker (kein Auftrag, kein Job), sonst der nächste; „Kompletter Ablauf“ geht an alle freien. Ein Befehl an eine Maschine schaltet deren Automatik aus (Handbetrieb, Jobs für den Spieler reserviert); die Automatik gilt wieder nach dem nächsten Start der Maschine.
 

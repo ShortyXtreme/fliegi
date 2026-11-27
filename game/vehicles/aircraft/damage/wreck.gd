@@ -23,6 +23,12 @@ var burning := false
 ## true = liegt am Boden (Aufschlag erfolgt oder als liegendes Wrack erzeugt).
 var landed := false
 var drag_k := 4.0
+## M3.8: im Fluss/Bach aufgeschlagen: versinkt statt liegen zu bleiben
+const SINK_TIME := 9.0
+const SINK_DEPTH := 6.0
+var in_water := false
+var water_level := 0.0
+var sunk := false
 var _fade := -1.0
 var _settle := -1.0
 var _trail: GPUParticles3D
@@ -60,6 +66,12 @@ static func spawn_at(parent: Node, xf: Transform3D, life: float, is_burning := f
 	w.global_transform = xf
 	var agl := xf.origin.y - WorldGround.height_at(xf.origin.x, xf.origin.z)
 	w.landed = agl < AIRBORNE_AGL and vel.length() < 15.0
+	# M3.8: liegt im Fluss/Bach (Flugzeug ist ins Wasser gestürzt): geht unter
+	var wl := WorldGround.water_level_at(xf.origin.x, xf.origin.z)
+	if w.landed and not is_nan(wl) and xf.origin.y < wl + 3.0:
+		w.in_water = true
+		w.water_level = wl
+		w.burning = false
 	if w.landed:
 		w.freeze = true
 	else:
@@ -172,6 +184,12 @@ func _on_body_entered(_b: Node) -> void:
 func _land() -> void:
 	landed = true
 	var pos := global_position
+	# M3.8: im Wasser kein Brand, das Wrack geht unter
+	var wl := WorldGround.water_level_at(pos.x, pos.z)
+	if not is_nan(wl) and pos.y < wl + 3.0:
+		in_water = true
+		water_level = wl
+		burning = false
 	CrashFx.impact(get_parent(), pos, burning, maxf(lifetime - age, 5.0))
 	impacted.emit(pos)
 	linear_damp = 3.0
@@ -181,6 +199,9 @@ func _land() -> void:
 		_trail.emitting = false
 	if _flame != null:
 		_flame.emitting = false
+	if in_water:
+		set_deferred("freeze", true)
+		return
 	if DisplayServer.get_name() != "headless":
 		_char()
 
@@ -193,6 +214,17 @@ func _physics_process(dt: float) -> void:
 		if _fade >= FADE_TIME:
 			queue_free()
 		return
+	if in_water:
+		# M3.8: versinkt in ~SINK_TIME s unter den Wasserspiegel und bleibt dort (unsichtbar)
+		if global_position.y > water_level - SINK_DEPTH:
+			global_position.y -= dt * SINK_DEPTH / SINK_TIME
+			rotation.x = lerpf(rotation.x, 0.35, dt * 0.2)
+		elif not sunk:
+			sunk = true
+			visible = false
+		if age >= lifetime:
+			queue_free()
+		return
 	if age >= lifetime - FADE_TIME:
 		start_fade()
 		return
@@ -200,10 +232,15 @@ func _physics_process(dt: float) -> void:
 		return
 	var h := WorldGround.height_at(global_position.x, global_position.z)
 	if not landed:
-		var v := linear_velocity
+		var v := linear_velocity - Weather.wind_at(global_position)   # M3.8: relativ zur Luft
 		var s := v.length()
 		if s > 0.1:
 			apply_central_force(-v * s * drag_k)
+		# M3.8: ins Wasser gestürzt (Fluss/Bach): Spritzer statt Krater, Wrack versinkt
+		var wl := WorldGround.water_level_at(global_position.x, global_position.z)
+		if not is_nan(wl) and global_position.y < wl + 1.0:
+			_land()
+			return
 		# Sicherung: Bodenhöhe ohne Kollisionskachel
 		if global_position.y - h < 1.8 and linear_velocity.y <= 0.0:
 			_land()

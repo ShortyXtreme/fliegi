@@ -14,6 +14,9 @@ uniform sampler2D noise_tex : filter_linear_mipmap, repeat_enable;
 uniform sampler2D detail_tex : filter_linear_mipmap_anisotropic, repeat_enable;   // feines fBm
 uniform sampler2D cell_tex : filter_linear_mipmap_anisotropic, repeat_enable;     // Zellen (Schollen, Steine, Risse)
 uniform sampler2D detail_nrm : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
+// M3.8: Uferabstand (R: 64 + 2 · m, < 64 im Wasser, 255 = kein Gewässer), Wasserspiegel (G/B 16 bit · 1/64 m),
+// A = 1 am Bach. Je Höhenpunkt (samples²), siehe TerrainGenerator._build_shore.
+uniform sampler2D shore_tex : filter_linear, repeat_disable;
 // M3.7: Felder (Schläge, Flurstücke) – gemeinsam mit dem Gras-Shader, auf der CPU nachgerechnet
 #include "res://world/terrain/fields.gdshaderinc"
 uniform float spacing = 19.53125;
@@ -222,18 +225,43 @@ void fragment() {
 	rockc = mix(rockc, vec3(0.05, 0.065, 0.03), (1.0 - smoothstep(0.03, 0.15, rc)) * 0.4 * near);
 	col = mix(col, rockc, rock);
 
-	// Sand/Kies am Ufer (flache Ränder der Wasserflächen)
-	float shore = smoothstep(0.66, 0.78, m.b + (n4 - 0.5) * 0.08) * (1.0 - smoothstep(0.12, 0.25, slope));
-	vec3 sand = mix(vec3(0.20, 0.175, 0.12), vec3(0.15, 0.135, 0.10), smoothstep(0.2, 0.6, d2)) * (0.85 + 0.3 * d1);
-	col = mix(col, sand, shore * (1.0 - rock));
-
-	// Wasser
-	float water = smoothstep(0.8, 0.95, m.b);
-	col = mix(col, vec3(0.02, 0.04, 0.045), water);
+	// M3.8: Ufer und Flussbett aus dem Gewässernetz (Wasser selbst: water.gdshader)
+	vec2 suv = (tpos + half_size) / spacing;
+	float sr = texture(shore_tex, (suv + 0.5) / float(samples)).r * 255.0;
+	float edge = (sr - 64.0) * 0.5;               // m zur Wasserkante, < 0 im Lauf
+	ivec2 si = clamp(ivec2(round(suv)), ivec2(0), ivec2(samples - 1));
+	vec4 sx = texelFetch(shore_tex, si, 0);
+	float wlevel = (sx.g * 255.0 * 256.0 + sx.b * 255.0) / 64.0;
+	float is_stream = sx.a;
+	float wdepth = sr < 254.0 ? wlevel - th : -10.0;
+	float n_sh = (n4 - 0.5) * 2.0 + (d1 - 0.5) * close;
+	float flat_k = 1.0 - smoothstep(0.10, 0.28, slope);
+	// nasser Schlamm direkt an der Kante, Kies-/Sandbänke auf flachem Ufer, sonst Lehm
+	vec3 mud = mix(vec3(0.055, 0.045, 0.032), vec3(0.075, 0.062, 0.042), d1) * (0.85 + 0.3 * n3);
+	vec3 gravel = mix(vec3(0.17, 0.155, 0.125), vec3(0.12, 0.11, 0.09), smoothstep(0.25, 0.65, d2)) * (0.8 + 0.4 * d1);
+	vec3 sand = mix(vec3(0.21, 0.185, 0.13), vec3(0.16, 0.14, 0.10), smoothstep(0.2, 0.6, d2)) * (0.85 + 0.3 * d1);
+	vec3 bank = mix(gravel, sand, smoothstep(0.35, 0.65, nz(tpos / 140.0 + 0.3)) * (1.0 - is_stream));
+	float bank_w = mix(7.0, 3.5, is_stream) + 3.0 * n_sh;
+	// Kies-/Sandbänke nur stellenweise (sonst Wiese bis ans Wasser)
+	float bars = smoothstep(0.55, 0.68, nz(tpos / 210.0 + 0.71) + (n2 - 0.5) * 0.3);
+	float bank_k = (1.0 - smoothstep(bank_w, bank_w + 3.0, edge)) * flat_k * (1.0 - rock) * mix(bars, 0.7, is_stream);
+	col = mix(col, bank, bank_k);
+	float mud_k = (1.0 - smoothstep(0.3 + 0.8 * n_sh, 1.6 + 1.2 * n_sh, edge)) * (1.0 - rock * 0.6) * (1.0 - bank_k * 0.7);
+	// Uferwiese satter/dunkler (Röhricht, Hochstauden)
+	col = mix(col, col * vec3(0.8, 1.0, 0.75), (1.0 - smoothstep(3.0, 18.0, edge)) * (1.0 - bank_k) * (1.0 - rock));
+	col = mix(col, mud, mud_k);
+	// Böschung (steil am Wasser): Lehm statt Gras
+	col = mix(col, soil * 0.9, (1.0 - smoothstep(4.0, 12.0, edge)) * (1.0 - flat_k) * (1.0 - rock));
+	// Flussbett unter Wasser: Schlick und Steine, tiefer dunkler
+	float under = step(0.0, wdepth) * step(edge, 2.0);
+	vec3 bed = mix(vec3(0.09, 0.08, 0.06), vec3(0.04, 0.045, 0.035), smoothstep(0.3, 2.5, wdepth));
+	bed *= 0.75 + 0.5 * smoothstep(0.3, 0.7, d2);
+	col = mix(col, bed, under);
+	float water = under * smoothstep(0.2, 1.5, wdepth);
 
 	ALBEDO = col * albedo_gain;
-	ROUGHNESS = mix(0.95, 0.12, water);
-	SPECULAR = mix(0.3, 0.6, water);
+	ROUGHNESS = mix(0.95, 0.35, max(water, mud_k * 0.7));
+	SPECULAR = mix(0.3, 0.5, max(water, mud_k * 0.5));
 	// Normal-Detail nah (Fels stärker), auf Wasser keines
 	NORMAL_MAP = texture(detail_nrm, tpos / 3.1).rgb;
 	NORMAL_MAP_DEPTH = close * mix(0.6, 1.6, max(rock, bare)) * (1.0 - water);

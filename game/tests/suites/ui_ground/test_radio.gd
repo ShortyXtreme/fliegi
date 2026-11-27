@@ -25,7 +25,7 @@ func test_channels_as_data() -> Array:
 	var names: Array = chs.map(func(c): return c.name)
 	var counts: Array = chs.map(func(c): return c.commands.size())
 	var labels: Array = (chs[0] as RadioChannel).commands.map(func(c): return c.label)
-	var ok: bool = names == ["Tankwart", "Munition", "Reparatur", "Bodenpersonal"] and counts == [4, 4, 4, 3] \
+	var ok: bool = names == ["Tankwart", "Munition", "Reparatur", "Bodenpersonal"] and counts == [4, 4, 4, 4] \
 		and labels == ["Tankwagen rufen", "Tankwagen wegschicken", "Volltanken", "Status?"] \
 		and chs.all(func(c): return c.number >= 1 and c.freq != "" and c.role != &"")
 	return [ok, "Kanäle %s, Befehle %s, Kanal 1 %s" % [names, counts, labels]]

@@ -18,6 +18,11 @@ static var tutorial_mode := false
 var tutorial: Tutorial
 ## M3.3: Geräusche
 var sound: SoundDirector
+## M3.8: Wind-Stufe erzwingen ("aus"/"schwach"/"normal"/"stark"; leer = Einstellung). Der
+## Testläufer setzt "aus", Screenshots setzen ihre Stufe. Startoption `--wind=stark`,
+## `--wind_seed=123`.
+static var wind_override := ""
+var weather: WeatherDriver
 
 var world: Node3D
 var player_aircraft: Aircraft
@@ -65,6 +70,7 @@ func _ready() -> void:
 	GameAudio.setup()
 	MatchRules.load_ground_config()
 	ProjectileSystem.reset_targets()
+	_setup_weather()
 	var terrain := use_terrain and not "--testwelt" in OS.get_cmdline_user_args() \
 			and ResourceLoader.exists(TERRAIN_SCENE)
 	if terrain:
@@ -156,6 +162,7 @@ func _ready() -> void:
 	cam.target = player_aircraft
 	cam.player = player
 	add_child(cam)
+	weather.focus = cam
 
 	hud = Hud.new()
 	hud.aircraft = player_aircraft
@@ -198,9 +205,40 @@ func _ready() -> void:
 		st.name = "Selbsttest"
 		st.game = self
 		add_child(st)
+	# M3.8: Windmeldung des Bodenpersonals kurz nach dem Start (grob, ohne Zahlen)
+	if Weather.enabled() and DisplayServer.get_name() != "headless":
+		get_tree().create_timer(4.0).timeout.connect(func():
+			if hud != null and is_instance_valid(hud) and hud.combat != null:
+				hud.combat.kill_feed.add_text(null, "Bodenpersonal: %s." % Weather.report(), player_aircraft))
 	if scenario != null:
 		print("Flugkern %s: Luftkampf 1 gegen %d, KI-Stufe %s" % [Hud.VERSION,
 				scenario.enemy_count, scenario.difficulty_name()])
+
+
+## M3.8: Wind der Partie (Stufe aus Einstellung/Startoption, Seed zufällig oder --wind_seed).
+## Tutorial höchstens schwach, Selbsttest ohne Wind.
+func _setup_weather() -> void:
+	var lvl := Weather.parse_level(String(GameSettings.get_value("wind")))
+	var seed_v := randi()
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--wind="):
+			lvl = Weather.parse_level(a.substr(7))
+		elif a.begins_with("--wind_seed="):
+			seed_v = int(a.substr(12))
+	if wind_override != "":
+		lvl = Weather.parse_level(wind_override)
+	if lvl < 0:
+		lvl = Weather.Level.NORMAL
+	if is_tutorial():
+		lvl = mini(lvl, Weather.Level.SCHWACH)
+	if Selbsttest.requested():
+		lvl = Weather.Level.AUS
+	Weather.setup(lvl, seed_v)
+	Weather.time = 0.0
+	weather = WeatherDriver.new()
+	weather.name = "Weather"
+	add_child(weather)
+	print("Diagnose " + Weather.describe())
 
 
 func is_tutorial() -> bool:
@@ -468,6 +506,7 @@ static func _anim_count(c: CrewCharacter) -> int:
 
 
 func _exit_tree() -> void:
+	Weather.reset()
 	if GroundCrewBrain.player_probe.is_valid() and GroundCrewBrain.player_probe.get_object() == self:
 		GroundCrewBrain.player_probe = Callable()
 

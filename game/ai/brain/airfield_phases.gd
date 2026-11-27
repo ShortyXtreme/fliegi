@@ -526,7 +526,9 @@ func _landing(a: Aircraft, i: PilotIntent, dt: float) -> bool:
 				return _go_around(a, i, "Piste belegt")
 			i.flaps = 1.0 if t.airspeed < 210.0 / 3.6 else 0.5
 			var gp := maxf(to_td * tan(deg_to_rad(GLIDE_DEG)), 0.0) + 2.0
-			var want_vs := -t.airspeed * tan(deg_to_rad(GLIDE_DEG)) + clampf((gp - h) * 0.2, -2.5, 2.5)
+			# M3.8: Gleitweg über Grund (Gegenwind = flacher sinken)
+			var gs_along := maxf(a.linear_velocity.dot(rdir), 20.0)
+			var want_vs := -gs_along * tan(deg_to_rad(GLIDE_DEG)) + clampf((gp - h) * 0.2, -2.5, 2.5)
 			want_vs = clampf(want_vs, -4.0 if t.height_agl > GO_AROUND_CHECK_AGL + 30.0 else -3.3, 2.0)
 			i.throttle = clampf(0.3 + (APPROACH_SPEED - t.airspeed) * 0.06, 0.0, 1.0)
 			i.pitch = clampf((want_vs - t.climb_rate) * 0.12, -1.0, 1.0)
@@ -563,8 +565,9 @@ func _landing(a: Aircraft, i: PilotIntent, dt: float) -> bool:
 			i.yaw = _roll_yaw(a, layout.to_scene(aim) - a.global_position)
 			i.roll = clampf(b.x.y * 2.5, -1.0, 1.0)
 			var herr := absf(rad_to_deg(_flat(-b.z).angle_to(rdir)))
-			i.brakes = clampf((25.0 - t.airspeed) * 0.08, 0.0, 0.6) if herr < 8.0 else 0.0
-			if t.airspeed < 6.0:
+			# M3.8: Bremsen/Stillstand nach der Fahrt über Grund (Gegenwind hält die Fahrt sonst hoch)
+			i.brakes = clampf((25.0 - t.ground_speed) * 0.08, 0.0, 0.6) if herr < 8.0 else 0.0
+			if t.ground_speed < 6.0:
 				set_phase(Phase.TAXI_IN)
 	i.clamp_values()
 	return true
@@ -629,11 +632,22 @@ func _roll_yaw(a: Aircraft, to: Vector3) -> float:
 	return clampf(-err * lerpf(4.0, YAW_KP_FAST, u) - r * lerpf(1.2, YAW_KD_FAST, u), -1.0, 1.0)
 
 
+## M3.8: Vorhaltewinkel (Grad, + = Nase links von dir), damit die Bahn über Grund entlang dir
+## führt: Seitenwind-Anteil / Fahrt. Ohne Wind oder am Boden 0.
+static func wind_crab_deg(t: FlightTelemetry, dir: Vector3) -> float:
+	if t.wind == Vector3.ZERO or t.airspeed < 20.0 or t.on_ground:
+		return 0.0
+	var d := Vector3(dir.x, 0.0, dir.z).normalized()
+	var right := d.cross(Vector3.UP)
+	return rad_to_deg(asin(clampf(t.wind.dot(right) / t.airspeed, -0.4, 0.4)))
+
+
 ## Kurs dir mit begrenzter Querlage (max_bank Grad) fliegen (ARCADE: Knüppel = Rollrate).
 func _level_turn(a: Aircraft, i: PilotIntent, dir: Vector3, max_bank: float) -> void:
 	var b := a.global_transform.basis
 	var t := a.telemetry()
 	var herr := rad_to_deg(_flat(-b.z).signed_angle_to(_flat(dir), Vector3.UP))  # + = links
+	herr += wind_crab_deg(t, dir)   # M3.8: Vorhaltewinkel gegen Seitenwind (ohne Wind 0)
 	var bank := rad_to_deg(atan2(-b.x.y, b.y.y))                                   # + = rechts
 	var bank_want := clampf(-herr * 1.5, -max_bank, max_bank)
 	i.roll = clampf((bank_want - bank) * 0.05 + t.angular_velocity_local.z * 0.2, -1.0, 1.0)

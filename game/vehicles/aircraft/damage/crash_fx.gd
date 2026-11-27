@@ -4,6 +4,8 @@ extends Node3D
 ## Krater-Decal und Rauchsäule; Ton „explosion“ + „crash“ (SoundDirector). Bleibt lifetime
 ## Sekunden, dann verschwindet sie (Rauch klingt vorher aus). Höchstens MAX_ACTIVE Stellen.
 ## Headless nur der Knoten (Zählung/Lebensdauer), keine Effekte.
+## M3.8: Aufschlag im Fluss/Bach: Wasserfontäne und Gischt statt Feuerball/Krater, kein Brand,
+## nur kurzer Dampf; Rauch/Gischt treiben mit dem Wind (WindDrift).
 
 const MAX_ACTIVE := 8
 const DEFAULT_LIFE := 75.0
@@ -12,6 +14,8 @@ static var _crater_tex: GradientTexture2D
 
 var lifetime := DEFAULT_LIFE
 var age := 0.0
+## M3.8: Aufschlag im Wasser
+var in_water := false
 var _column: GPUParticles3D
 var _flash: OmniLight3D
 var _fire_snd: AudioStreamPlayer3D
@@ -27,10 +31,21 @@ static func impact(parent: Node, pos: Vector3, burning := true, life := DEFAULT_
 	parent.add_child(c)
 	var g := WorldGround.height_at(pos.x, pos.z)
 	c.global_position = Vector3(pos.x, g if absf(pos.y - g) < 8.0 else pos.y, pos.z)
+	var wl := WorldGround.water_level_at(pos.x, pos.z)
+	if not is_nan(wl) and pos.y < wl + 8.0:
+		c.in_water = true
+		c.global_position.y = wl
+		c.lifetime = minf(life, 25.0)
 	if DisplayServer.get_name() != "headless":
-		c._build(burning)
+		if c.in_water:
+			c._build_water()
+		else:
+			c._build(burning)
 	var sd := SoundDirector.instance if SoundDirector.instance != null and is_instance_valid(SoundDirector.instance) else null
-	if sd != null:
+	if sd != null and c.in_water:
+		sd.play_3d("crash", pos, "Motor", 2.0, 0.55, 30.0)
+		sd.play_3d("explosion", pos, "Waffen", -4.0, 0.5, 60.0)
+	elif sd != null:
 		sd.play_3d("explosion", pos, "Waffen", 6.0, randf_range(0.7, 0.85), 60.0)
 		sd.play_3d("crash", pos, "Motor", 2.0, 0.8, 30.0)
 	active.append(c)
@@ -80,10 +95,12 @@ func _build(burning: bool) -> void:
 	add_child(_flash)
 	# Rauchsäule (lang, steigt hoch)
 	var col := Color(0.04, 0.04, 0.04, 0.8) if burning else Color(0.3, 0.29, 0.27, 0.6)
-	_column = DamageFx._particles(120, 9.0, col, 5.0, Vector2(2.0, 4.0), Vector3(0.6, 2.2, 0.0), 4.0)
+	_column = DamageFx._particles(120, 9.0, col, 5.0, Vector2(2.0, 4.0), Vector3(0.0, 2.2, 0.0), 4.0)
 	(_column.process_material as ParticleProcessMaterial).spread = 12.0
 	_column.emitting = true
 	add_child(_column)
+	# M3.8: Rauchsäule treibt mit dem Wind (ohne Wind leicht nach Osten wie bisher)
+	WindDrift.attach(_column, 0.3, Vector3(0.6, 0.0, 0.0))
 	_column.position = Vector3(0, 1.0, 0)
 	if burning:
 		var fl := DamageFx.make_flame()
@@ -104,6 +121,51 @@ func _build(burning: bool) -> void:
 			_fire_snd.play()
 
 
+## M3.8: Wasserfontäne (hoch, weiß, fällt zurück), Gischt-Ring, Dampf/Sprühnebel (treibt mit dem Wind).
+func _build_water() -> void:
+	var column := DamageFx._particles(70, 2.4, Color(0.92, 0.94, 0.95, 0.9), 2.2, Vector2(14.0, 26.0),
+		Vector3(0, -9.8, 0), 2.5)
+	(column.process_material as ParticleProcessMaterial).spread = 14.0
+	column.one_shot = true
+	column.explosiveness = 0.85
+	column.emitting = true
+	add_child(column)
+	column.position = Vector3(0, 0.3, 0)
+	var ring := DamageFx._particles(60, 1.6, Color(0.85, 0.88, 0.88, 0.8), 1.6, Vector2(6.0, 12.0),
+		Vector3(0, -9.8, 0), 2.0)
+	var rm := ring.process_material as ParticleProcessMaterial
+	rm.spread = 80.0
+	rm.direction = Vector3(0, 0.35, 0)
+	ring.one_shot = true
+	ring.explosiveness = 0.95
+	ring.emitting = true
+	add_child(ring)
+	ring.position = Vector3(0, 0.2, 0)
+	# Sprühnebel/Dampf: hell, steigt kaum, treibt mit dem Wind
+	_column = DamageFx._particles(40, 6.0, Color(0.8, 0.82, 0.84, 0.45), 4.0, Vector2(1.0, 3.0), Vector3(0, 0.6, 0), 3.0)
+	(_column.process_material as ParticleProcessMaterial).spread = 40.0
+	_column.emitting = true
+	add_child(_column)
+	_column.position = Vector3(0, 0.5, 0)
+	WindDrift.attach(_column, 0.35)
+	# Ringwellen auf dem Wasser (flache Scheibe, wächst und verblasst)
+	var mi := MeshInstance3D.new()
+	mi.name = "Ripple"
+	var cm := CylinderMesh.new()
+	cm.top_radius = 1.0
+	cm.bottom_radius = 1.0
+	cm.height = 0.02
+	cm.radial_segments = 32
+	mi.mesh = cm
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.85, 0.88, 0.88, 0.5)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mi.material_override = mat
+	mi.position = Vector3(0, 0.05, 0)
+	add_child(mi)
+
+
 static func _crater() -> GradientTexture2D:
 	if _crater_tex == null:
 		var g := Gradient.new()
@@ -122,6 +184,13 @@ static func _crater() -> GradientTexture2D:
 
 func _process(dt: float) -> void:
 	age += dt
+	var rp := get_node_or_null("Ripple") as MeshInstance3D
+	if rp != null:
+		var r := 1.0 + age * 7.0
+		rp.scale = Vector3(r, 1.0, r)
+		(rp.material_override as StandardMaterial3D).albedo_color.a = maxf(0.0, 0.5 * (1.0 - age / 6.0))
+		if age > 6.0:
+			rp.queue_free()
 	if _flash != null:
 		_flash.light_energy = maxf(0.0, 12.0 * (1.0 - age / 0.8))
 		if age > 0.8:

@@ -583,7 +583,7 @@ func _chk_gear_down() -> bool:
 
 func _chk_landed() -> bool:
 	var t := _tel()
-	return t != null and t.on_ground and t.airspeed * 3.6 < 60.0
+	return t != null and t.on_ground and t.ground_speed * 3.6 < 60.0
 
 
 func _chk_parked() -> bool:

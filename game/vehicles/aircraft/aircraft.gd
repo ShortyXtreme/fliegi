@@ -195,6 +195,9 @@ func place(xf: Transform3D, speed: float = 0.0, throttle: float = 0.0,
 	mass = data.mass
 	global_transform = xf
 	linear_velocity = -xf.basis.z * speed
+	# M3.8: in der Luft gesetzt: speed ist die Fahrt gegenüber der Luft (mit dem Wind treiben)
+	if speed > 0.0:
+		linear_velocity += Weather.wind_at(xf.origin)
 	angular_velocity = Vector3.ZERO
 	flight.reset(gear_down)
 	if refill:

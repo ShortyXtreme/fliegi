@@ -11,6 +11,9 @@ uniform sampler2D heightmap : filter_nearest, repeat_disable;
 uniform sampler2D mask_tex : filter_linear, repeat_disable;
 uniform sampler2D af_mask : filter_linear, repeat_disable;
 uniform sampler2D noise_tex : filter_linear_mipmap, repeat_enable;
+// M3.8: Uferabstand (R: 64 + 2 · m, siehe terrain.gdshader) – kein Gras im Wasser und am Ufersaum
+uniform sampler2D shore_tex : filter_linear, repeat_disable;
+global uniform vec4 wind_state;   // x, z Richtung „wohin“, y Stärke m/s, w Böe 0..1
 #include "res://world/terrain/fields.gdshaderinc"
 uniform float spacing = 19.53125;
 uniform float half_size = 20000.0;
@@ -60,6 +63,8 @@ void vertex() {
 	float d = length(wxz - cam.xz);
 	vec4 m = textureLod(mask_tex, (t + half_size) / (2.0 * half_size), 0.0);
 	float dens = (1.0 - smoothstep(0.35, 0.55, m.r)) * (1.0 - smoothstep(0.55, 0.75, m.b));
+	float sh_edge = (textureLod(shore_tex, ((t + half_size) / spacing + 0.5) / float(samples), 0.0).r * 255.0 - 64.0) * 0.5;
+	dens *= smoothstep(0.8, 2.5, sh_edge);
 	// Äcker (wie im Gelände-Shader): auf Getreide, Stoppeln, Saat, Rüben, Pflug, Senf kein Gras;
 	// Klee/Heu kürzer, Weiden normal
 	if (m.a > 0.3 && m.g < 0.3) {
@@ -92,9 +97,15 @@ void vertex() {
 	float up = UV.y;   // 0 unten, 1 Spitze
 	v = vec3(c * v.x + sn * v.z, v.y * blade_h * s, -sn * v.x + c * v.z);
 	v.xz *= mix(0.6, 1.0, s);
-	// Wind: Böen wandern übers Feld, Spitzen biegen am stärksten
-	float gust = sin(TIME * 1.7 + wxz.x * 0.11 + wxz.y * 0.07) * 0.6 + sin(TIME * 3.1 + wxz.x * 0.5) * 0.25;
-	v.xz += vec2(0.8, 0.5) * gust * up * up * 0.16 * blade_h * s * wind;
+	// Wind (M3.8: echte Richtung/Stärke aus dem Wetter): Grundneigung mit dem Wind, Böen wandern
+	// in Windrichtung übers Feld, Spitzen biegen am stärksten; bei Flaute nur leichtes Zittern
+	vec2 wdir = wind_state.xz;
+	float wspd = clamp(wind_state.y / 8.0, 0.0, 1.0);
+	float along = dot(wxz, wdir);
+	float gust = sin(TIME * (1.3 + 1.6 * wspd) - along * 0.09 + wxz.x * 0.013) * 0.6 + sin(TIME * 3.1 - along * 0.35) * 0.25;
+	float bend = wspd * (0.55 + 0.25 * wind_state.w) + gust * (0.12 + 0.6 * wspd);
+	v.xz += wdir * bend * up * up * 0.32 * blade_h * s * wind;
+	v.xz += vec2(-wdir.y, wdir.x) * sin(TIME * 2.3 + h.x * 6.28) * up * 0.025 * blade_h * s * wind;
 	vec3 world = vec3(wxz.x, ground(t) + terrain_origin.y, wxz.y) + v;
 	VERTEX = world - base;
 	NORMAL = normalize(mix(NORMAL, vec3(0.0, 1.0, 0.0), 0.65));

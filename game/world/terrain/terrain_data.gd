@@ -20,6 +20,10 @@ extends Resource
 @export var targets: Array[Dictionary] = []
 ## Talzug/Flusslauf als Mittellinie (x, z), von Nordwest nach Südost.
 @export var river := PackedVector2Array()
+## M3.8: Gewässernetz (Hauptfluss + Bäche), Format siehe RiverNet.
+@export var waters: Array[Dictionary] = []
+## M3.8: Uferabstand/Wasserspiegel je Höhenpunkt (samples², RGBA8-PNG, siehe TerrainGenerator._build_shore).
+@export var shore_png := PackedByteArray()
 
 
 func spacing() -> float:
@@ -33,4 +37,11 @@ func decode_heights() -> PackedFloat32Array:
 func decode_mask() -> Image:
 	var img := Image.new()
 	img.load_png_from_buffer(mask_png)
+	return img
+
+
+func decode_shore() -> Image:
+	var img := Image.new()
+	if not shore_png.is_empty():
+		img.load_png_from_buffer(shore_png)
 	return img

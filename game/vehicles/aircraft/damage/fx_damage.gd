@@ -134,8 +134,10 @@ static func _soft_dot() -> GradientTexture2D:
 ## Rauch: dark = Brand (schwarz), sonst Öl (grau).
 static func make_smoke(dark: bool) -> GPUParticles3D:
 	var c := Color(0.05, 0.05, 0.05, 0.85) if dark else Color(0.5, 0.5, 0.5, 0.55)
-	return _particles(96 if dark else 64, 4.0 if dark else 3.0, c, 1.6, Vector2(0.5, 2.0),
+	var p := _particles(96 if dark else 64, 4.0 if dark else 3.0, c, 1.6, Vector2(0.5, 2.0),
 		Vector3(0, 0.8, 0), 4.0 if dark else 3.0)
+	WindDrift.attach(p, 0.35)   # M3.8: Rauch treibt mit dem Wind
+	return p
 
 
 static func make_flame() -> GPUParticles3D:

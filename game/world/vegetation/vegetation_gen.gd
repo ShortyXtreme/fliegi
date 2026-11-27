@@ -29,6 +29,12 @@ var warp_mid := PackedByteArray()
 var wl_res := 24
 var wm_res := 64
 var airfields: Array = []   # Vector3 Mitte (Gelände)
+## M3.8: Gewässer (nichts im Wasser, Ufergehölz) und Brücken (Rampen frei)
+var net: RiverNet
+var bridges: Array = []     # Vector2 Mitte (Gelände)
+## Mindestabstand zur Wasserkante: Bäume, Büsche
+const WATER_GAP_TREE := 4.0
+const WATER_GAP_BUSH := 2.0
 
 
 static func create(tw: TerrainWorld) -> VegetationGen:
@@ -50,7 +56,31 @@ static func create(tw: TerrainWorld) -> VegetationGen:
 	g.warp_mid = (imgs[2] as Image).get_data()
 	for i in tw.airfield_count():
 		g.airfields.append(tw.airfield(i).center)
+	g.net = tw.water_net
+	for t in tw.targets("bruecke"):
+		g.bridges.append(Vector2(t.pos.x, t.pos.z))
 	return g
+
+
+## M3.8: Abstand zur Wasserkante (m), INF fern von Gewässern.
+func water_edge(x: float, z: float) -> float:
+	return net.edge_dist(x, z) if net != null else INF
+
+
+## M3.8: an Brücken (Rampen, Widerlager) nichts pflanzen.
+func near_bridge(x: float, z: float) -> bool:
+	for b: Vector2 in bridges:
+		if b.distance_squared_to(Vector2(x, z)) < 170.0 * 170.0:
+			return true
+	return false
+
+
+## M3.8: darf hier etwas stehen (Wasser/Brücke)?
+func water_ok(x: float, z: float, sp: int) -> bool:
+	var e := water_edge(x, z)
+	if e < (WATER_GAP_BUSH if sp == BUSCH else WATER_GAP_TREE):
+		return false
+	return e > 400.0 or not near_bridge(x, z)
 
 
 # --- Nachgerechnete Shader-Funktionen ----------------------------------------------------------
@@ -260,13 +290,13 @@ func build_cell(cx: int, cz: int) -> Dictionary:
 						sp = NADEL_A if nz(x / 900.0 + 0.2, z / 900.0 + 0.2) > 0.45 else NADEL_B
 					else:
 						sp = LAUB_A if rng.randf() < 0.85 else LAUB_B
-				_add(bufs, counts, col, sp, x - x0, y, z - z0, rng, ko == 0 and sp != BUSCH)
+				_add(bufs, counts, col, sp, x - x0, y, z - z0, rng, ko == 0 and sp != BUSCH, x0, z0)
 				# Waldmantel: zusätzliche Büsche am Rand
 				if f < 0.58 and sp != BUSCH and rng.randf() < 0.6:
 					var bx := x + rng.randf_range(-3.5, 3.5)
 					var bz := z + rng.randf_range(-3.5, 3.5)
 					if keepout(bx, bz) != 2:
-						_add(bufs, counts, col, BUSCH, bx - x0, height(bx, bz), bz - z0, rng, false)
+						_add(bufs, counts, col, BUSCH, bx - x0, height(bx, bz), bz - z0, rng, false, x0, z0)
 	# 2) Hecken und Baumreihen auf den Schlag-/Flurgrenzen (nur wo der Shader Hecken zeichnet)
 	if any_fields:
 		var st := 6.0
@@ -294,7 +324,7 @@ func build_cell(cx: int, cz: int) -> Dictionary:
 				if ko == 0 and r < (0.45 if on_reg else 0.3):
 					# Pappelreihen an Flurgrenzen (Wege), sonst Eichen/Linden
 					sp = LAUB_B if on_reg and fi[3] < 0.5 else LAUB_A
-				_add(bufs, counts, col, sp, x - x0, y, z - z0, rng, sp != BUSCH)
+				_add(bufs, counts, col, sp, x - x0, y, z - z0, rng, sp != BUSCH, x0, z0)
 	# 3) Einzelbäume und Büsche auf Wiesen, dichter rund um den Flugplatz
 	var tries := 40 if af else 10
 	for t in tries:
@@ -319,14 +349,51 @@ func build_cell(cx: int, cz: int) -> Dictionary:
 				var bz := z + rng.randf_range(-5.0, 5.0)
 				if keepout(bx, bz) == 2:
 					continue
-				_add(bufs, counts, col, BUSCH, bx - x0, height(bx, bz), bz - z0, rng, false)
+				_add(bufs, counts, col, BUSCH, bx - x0, height(bx, bz), bz - z0, rng, false, x0, z0)
 		elif p < 0.85 or not af:
-			_add(bufs, counts, col, LAUB_A, x - x0, y, z - z0, rng, true)
+			_add(bufs, counts, col, LAUB_A, x - x0, y, z - z0, rng, true, x0, z0)
 		else:
-			_add(bufs, counts, col, LAUB_B if rng.randf() < 0.5 else NADEL_B, x - x0, y, z - z0, rng, true)
+			_add(bufs, counts, col, LAUB_B if rng.randf() < 0.5 else NADEL_B, x - x0, y, z - z0, rng, true, x0, z0)
+	# 4) M3.8: Ufergehölz – Pappelreihen und Weidengebüsch am Fluss, Erlen/Büsche am Bach, lückig
+	_riparian(x0, z0, bufs, counts, col, rng)
 	for s in bufs.size():
 		bufs[s] = PackedFloat32Array(bufs[s])
 	return {"bufs": bufs, "counts": counts, "col": PackedFloat32Array(col)}
+
+
+func _riparian(x0: float, z0: float, bufs: Array, counts: Array, col: Array, rng: RandomNumberGenerator) -> void:
+	if net == null:
+		return
+	var c := net.query(x0 + CELL * 0.5, z0 + CELL * 0.5)
+	if c.is_empty() or float(c.edge) > CELL * 0.75:
+		return
+	for t in 70:
+		var x := x0 + rng.randf() * CELL
+		var z := z0 + rng.randf() * CELL
+		var q := net.query(x, z)
+		if q.is_empty():
+			continue
+		var e: float = q.edge
+		var stream := int(net.courses[q.course].kind) == RiverNet.KIND_STREAM
+		if e < WATER_GAP_BUSH or e > (16.0 if stream else 26.0):
+			continue
+		# Lücken (Weiden, Viehtränken, Kiesbänke): großflächiges Rauschen
+		if nz(x / 260.0 + 0.17, z / 260.0 + 0.17) < (0.42 if stream else 0.47):
+			continue
+		if keepout(x, z) == 2 or near_bridge(x, z) or _slope(x, z) > 0.4:
+			continue
+		var m := mask_at(x, z)
+		if m.g > 0.3:
+			continue
+		var y := height(x, z)
+		var sp := BUSCH
+		var r := rng.randf()
+		if e > 7.0 and r < 0.5:
+			if stream:
+				sp = LAUB_A
+			else:
+				sp = LAUB_B if r < 0.38 else LAUB_A   # Pappeln, dazwischen Erlen/Weiden
+		_add(bufs, counts, col, sp, x - x0, y, z - z0, rng, sp != BUSCH, x0, z0)
 
 
 func _slope(x: float, z: float) -> float:
@@ -337,7 +404,10 @@ func _slope(x: float, z: float) -> float:
 
 
 func _add(bufs: Array, counts: Array, col: Array, sp: int, lx: float, y: float, lz: float,
-		rng: RandomNumberGenerator, collide: bool) -> void:
+		rng: RandomNumberGenerator, collide: bool, x0: float, z0: float) -> void:
+	# M3.8: nie im Wasser, nicht auf Brückenrampen (lx/lz lokal zur Zellecke x0/z0)
+	if not water_ok(lx + x0, lz + z0, sp):
+		return
 	var s := rng.randf_range(0.72, 1.18)
 	if sp == BUSCH:
 		s = rng.randf_range(0.6, 1.4)

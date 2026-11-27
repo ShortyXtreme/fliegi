@@ -335,6 +335,11 @@ func _update_debug(t: FlightTelemetry) -> void:
 		t.angular_velocity_local.x, t.angular_velocity_local.y, t.angular_velocity_local.z,
 		c.elevator, c.aileron, c.rudder, t.stall_amount * 100.0, t.buffet * 100.0,
 		rad_to_deg(t.downwash), aircraft.assist.limiter_amount * 100.0]
+	# M3.8: Wind (nur Debug, im Spiel kein Windanzeiger)
+	var wh := Vector2(t.wind.x, t.wind.z)
+	_debug.text += "\nWind %4.1f m/s nach %03.0f° (vert. %+4.1f)  Fahrt %5.1f km/h  über Grund %5.1f km/h\n%s" % [
+		wh.length(), fposmod(rad_to_deg(atan2(wh.x, -wh.y)), 360.0), t.wind.y, t.airspeed * 3.6,
+		t.ground_speed * 3.6, Weather.describe()]
 	for s in aircraft.flight.surfaces:
 		if s.def.is_main_wing and s.def.name.ends_with("root") or s.def.name.begins_with("htail_R") or s.def.name == "vtail":
 			_debug.text += "\n  %-14s α %+5.1f°  Cl %+4.2f  Abriss %3.0f %%" % [s.def.name,

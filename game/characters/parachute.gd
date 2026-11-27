@@ -54,7 +54,10 @@ func _physics_process(dt: float) -> void:
 		if _linger >= LINGER_TIME:
 			queue_free()
 		return
-	global_position += (drift + Vector3.DOWN * SINK_RATE) * dt
+	# M3.8: Schirm treibt mit dem Wind (Abwurf-Schwung klingt ab, Wind bleibt)
+	drift = drift.move_toward(Vector3.ZERO, 1.5 * dt)
+	var w := Weather.wind_at(global_position)
+	global_position += (drift + Vector3(w.x, 0.0, w.z) + Vector3.DOWN * SINK_RATE) * dt
 	var g := WorldGround.height_at(global_position.x, global_position.z)
 	if global_position.y <= g:
 		global_position.y = g

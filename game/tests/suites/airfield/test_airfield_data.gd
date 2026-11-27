@@ -102,9 +102,16 @@ func test_airfield_m3_4_dressing() -> Array:
 		for p in pts:
 			min_d = minf(min_d, Vector2(b.x - p.x, b.z - p.z).length())
 		min_d = minf(min_d, absf(b.x - GroundCrewDispatch.LANE_X) + 8.0)
-	var w0: Array = Windsock.wind_at(0.0)
-	var w1: Array = Windsock.wind_at(40.0)
-	var wind_ok: bool = (w0[0] as Vector3).z > 0.5 and float(w0[1]) > 0.0 and w0[0] != w1[0] \
+	# M3.8: Windsack folgt dem Wetter (Wind aus Nord → weht nach +Z, Böen ändern ihn mit der Zeit)
+	Weather.setup(Weather.Level.NORMAL, 7)
+	Weather.base_from_deg = 0.0
+	var ws := Windsock.new()
+	var w0: Array = ws.wind_here()
+	Weather.time = 40.0
+	var w1: Array = ws.wind_here()
+	ws.free()
+	Weather.reset()
+	var wind_ok: bool = (w0[0] as Vector3).z > 0.5 and float(w0[1]) > 0.0 and w0[1] != w1[1] \
 		and Windsock.droop_deg(0.0) > 60.0 and Windsock.droop_deg(8.0) < 1.0
 	var ok := len_ok and min_d >= 20.0 and wind_ok
 	return [ok, "Piste %.0f × %.0f m, Gebäude-Abstand %.0f m, Wind %s" % [l.runway_length(), l.runway_width, min_d, wind_ok]]

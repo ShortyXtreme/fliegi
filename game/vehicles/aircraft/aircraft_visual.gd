@@ -321,7 +321,7 @@ func _update_rig(t: FlightTelemetry, dt: float) -> void:
 	_rig_rotate("gear_main_L", 80.88 * u * u * (3.0 - 2.0 * u))
 	_rig_rotate("gear_main_R", 80.88 * u * u * (3.0 - 2.0 * u))
 	if t.wheels_in_contact > 0:
-		_wheel_angle += t.airspeed * dt
+		_wheel_angle += t.ground_speed * dt   # M3.8: Räder rollen über Grund
 	_rig_spin("wheel_main_L", _wheel_angle / 0.34, Vector3.RIGHT)
 	_rig_spin("wheel_main_R", _wheel_angle / 0.34, Vector3.RIGHT)
 	_rig_spin("wheel_tail", _wheel_angle / 0.115, Vector3.RIGHT)

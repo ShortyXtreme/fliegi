@@ -37,6 +37,10 @@ var sun: DirectionalLight3D
 var heights := PackedFloat32Array()
 
 var vegetation: Vegetation
+## M3.8: Gewässernetz (Hauptfluss + Bäche), Wasserflächen (nur Optik) und Brücken
+var water_net: RiverNet
+var water: RiverWater
+var bridges: Array[Node3D] = []
 var _materials: Array[ShaderMaterial] = []
 var _shader_origin := Vector3.ZERO
 var _n := 0
@@ -68,8 +72,12 @@ func _ready() -> void:
 	_build_tiles()
 	_build_airfields()
 	_build_targets()
+	# M3.8: Brücken (mit Kollision, Gruppe "bridge") und Wasserflächen
+	bridges = Bridges.build_all(self)
 	if build_visuals:
 		_build_environment()
+		water = RiverWater.create(self)
+		terrain_root.add_child(water)
 		# M3.7: Bäume, Büsche, Gras (nur mit Optik; Stufe aus den Einstellungen)
 		vegetation = Vegetation.new()
 		vegetation.setup(self)
@@ -96,10 +104,12 @@ func _load() -> void:
 	var c: Dictionary = _cache.get(data_path, {})
 	if c.is_empty():
 		var td: TerrainData = load(data_path)
-		c = {"data": td, "heights": td.decode_heights(), "shapes": [], "tex": null, "noise_img": null, "warp_imgs": []}
+		c = {"data": td, "heights": td.decode_heights(), "shapes": [], "tex": null, "noise_img": null, "warp_imgs": [],
+			"net": RiverNet.from_data(td.waters, td.size_m)}
 		_cache[data_path] = c
 	data = c.data
 	heights = c.heights
+	water_net = c.net
 	_n = data.samples
 	_sp = data.spacing()
 	_inv_sp = 1.0 / _sp
@@ -176,6 +186,26 @@ func height_at_bilinear(x: float, z: float) -> float:
 	var a := lerpf(heights[k], heights[k + 1], u)
 	var b := lerpf(heights[k + _n], heights[k + _n + 1], u)
 	return lerpf(a, b, v) + o.y
+
+
+## M3.8: Wasserspiegel (Szenen-y) an (x, z), wenn dort Wasser steht (im Wasserlauf und Boden
+## unter dem Spiegel), sonst NAN.
+func water_level_at(x: float, z: float) -> float:
+	if water_net == null:
+		return NAN
+	var o := origin()
+	var lv := water_net.level_at(x - o.x, z - o.z)
+	if is_nan(lv) or height_at_terrain(x - o.x, z - o.z) >= lv:
+		return NAN
+	return lv + o.y
+
+
+## M3.8: Abstand zur Wasserkante (m, < 0 im Wasser, INF = kein Gewässer in der Nähe), Szenen-Koord.
+func water_edge_dist(x: float, z: float) -> float:
+	if water_net == null:
+		return INF
+	var o := origin()
+	return water_net.edge_dist(x - o.x, z - o.z)
 
 
 func normal_at(x: float, z: float) -> Vector3:
@@ -369,6 +399,12 @@ func _material() -> ShaderMaterial:
 			w.resize(sz, sz, Image.INTERPOLATE_LANCZOS)
 			c.warp_imgs.append(w)
 			c.tex.append(ImageTexture.create_from_image(w))
+		# M3.8: Uferabstand/Wasserspiegel (tex[8])
+		var simg := data.decode_shore()
+		if simg.is_empty():
+			simg = Image.create(_n, _n, false, Image.FORMAT_RGBA8)
+			simg.fill(Color8(255, 0, 0, 0))
+		c.tex.append(ImageTexture.create_from_image(simg))
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://world/terrain/terrain.gdshader")
 	mat.set_shader_parameter("heightmap", c.tex[0])
@@ -379,6 +415,7 @@ func _material() -> ShaderMaterial:
 	mat.set_shader_parameter("detail_nrm", c.tex[5])
 	mat.set_shader_parameter("warp_lo", c.tex[6])
 	mat.set_shader_parameter("warp_mid", c.tex[7])
+	mat.set_shader_parameter("shore_tex", c.tex[8])
 	mat.set_shader_parameter("spacing", _sp)
 	mat.set_shader_parameter("half_size", _half)
 	mat.set_shader_parameter("samples", _n)
@@ -431,7 +468,8 @@ func field_images() -> Array:
 	return [c.noise_img, c.warp_imgs[0], c.warp_imgs[1]]
 
 
-## M3.7: Gelände-Texturen [Höhen, Maske, Rauschen, …] (für Gras-Shader).
+## M3.7: Gelände-Texturen [Höhen, Maske, Rauschen, Detail, Zellen, Normal-Detail, warp_lo,
+## warp_mid, M3.8 Ufer] (für Gras-, Wasser-Shader).
 func terrain_textures() -> Array:
 	var c: Dictionary = _cache[data_path]
 	if c.tex == null:

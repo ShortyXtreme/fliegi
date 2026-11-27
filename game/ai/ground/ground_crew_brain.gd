@@ -15,11 +15,11 @@ extends Controller
 
 ## M3.5: Befehle 0–7 wie M3, dazu Fahrzeuge rufen/wegschicken und „Automatik“.
 enum Command { FULL_SERVICE, FUEL_ONLY, AMMO_ONLY, QUICK_SERVICE, TRUCK_TO_ME, FOLLOW, REPAIR, PAUSE,
-	CALL_TRUCK, CALL_CART, TRUCK_HOME, CART_HOME, AUTO, CALL_MECH, MECH_HOME, ALL_HOME, STANDBY, STATUS }
+	CALL_TRUCK, CALL_CART, TRUCK_HOME, CART_HOME, AUTO, CALL_MECH, MECH_HOME, ALL_HOME, STANDBY, STATUS, WEATHER }
 const COMMAND_LABELS := ["Voll abfertigen", "Tanken", "Aufmunitionieren", "Schnellabfertigung",
 	"Tankwagen zu mir", "Folgen", "Reparieren", "Zurück / Pause",
 	"Tankwagen rufen", "Munitionswagen rufen", "Tankwagen wegschicken", "Munitionswagen wegschicken", "Automatik",
-	"Mechaniker rufen", "Mechaniker wegschicken", "Alle wegschicken", "Bereitschaft", "Status?"]
+	"Mechaniker rufen", "Mechaniker wegschicken", "Alle wegschicken", "Bereitschaft", "Status?", "Wetter?"]
 ## M3.5 Funk: Kanal je Befehl (Antwortzeilen und Aktivitätspunkt im Funkgerät).
 const CHANNEL_OF := {
 	Command.FUEL_ONLY: &"fuel", Command.CALL_TRUCK: &"fuel", Command.TRUCK_HOME: &"fuel", Command.TRUCK_TO_ME: &"fuel",

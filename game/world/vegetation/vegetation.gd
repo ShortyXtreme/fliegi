@@ -406,6 +406,7 @@ func _build_grass(radius: float, grid: float) -> void:
 	grass_mat.set_shader_parameter("heightmap", tex[0])
 	grass_mat.set_shader_parameter("mask_tex", tex[1])
 	grass_mat.set_shader_parameter("noise_tex", tex[2])
+	grass_mat.set_shader_parameter("shore_tex", tex[8])
 	grass_mat.set_shader_parameter("warp_lo", tex[6])
 	grass_mat.set_shader_parameter("warp_mid", tex[7])
 	grass_mat.set_shader_parameter("spacing", tw.data.spacing())

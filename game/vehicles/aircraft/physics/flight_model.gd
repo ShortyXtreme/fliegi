@@ -24,6 +24,8 @@ var modifiers := FlightModifiers.new()
 var collect_debug: bool = false
 var debug_vectors: Array = []
 var _prev_velocity := Vector3.ZERO
+## M3.8: Wind am Flugzeug in diesem Tick (m/s, Welt), Luftgeschwindigkeit = Bahn − Wind
+var wind := Vector3.ZERO
 var _order: Array[AeroSurface] = []   # Flügel zuerst, dann Flächen im Abwind
 var _wing_area := 0.0
 var _wing_slope := 4.4
@@ -86,7 +88,11 @@ func effective_stall_aoa(flaps: float) -> float:
 func integrate(state: PhysicsDirectBodyState3D, cmd: ControlCommands, exclude: Array[RID]) -> void:
 	var xf := state.transform
 	var b := xf.basis
-	var vel := state.linear_velocity
+	# M3.8: Aerodynamik relativ zur Luftmasse (Wind aus Weather; aus = Vector3.ZERO, altes Verhalten).
+	# Fahrwerk, Steigrate und Bodenbezug rechnen weiter mit der Geschwindigkeit über Grund.
+	var ground_vel := state.linear_velocity
+	wind = Weather.wind_at(xf.origin) if Weather.enabled() else Vector3.ZERO
+	var vel := ground_vel - wind
 	var ang := state.angular_velocity
 	var dt := state.step
 	var rho := air_density(xf.origin.y)
@@ -178,7 +184,9 @@ func integrate(state: PhysicsDirectBodyState3D, cmd: ControlCommands, exclude: A
 	t.gear_down_cmd = gear.target_down
 	t.gear_blocked = gear.blocked
 	t.gear_overspeed = gear.extension > 0.02 and speed > data.gear_max_speed
-	t.climb_rate = vel.y
+	t.climb_rate = ground_vel.y
+	t.ground_speed = ground_vel.length()
+	t.wind = wind
 	t.pitch_attitude = asin(clampf(-b.z.y, -1.0, 1.0))
 	t.pitch_up_vector = b.y
 	t.angular_velocity_local = ang_local
@@ -203,8 +211,8 @@ func integrate(state: PhysicsDirectBodyState3D, cmd: ControlCommands, exclude: A
 	else:
 		t.drag = 0.0
 		t.lift = 0.0
-	var accel := (vel - _prev_velocity) / dt
-	_prev_velocity = vel
+	var accel := (ground_vel - _prev_velocity) / dt
+	_prev_velocity = ground_vel
 	var g := state.total_gravity.length()
 	if g > 0.0:
 		t.g_load = (accel - state.total_gravity).dot(b.y) / g
