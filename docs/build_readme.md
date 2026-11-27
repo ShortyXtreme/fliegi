@@ -1,11 +1,20 @@
-# Flugkern M3.9 – Testversion „Windphysik“
+# Flugkern M3.10 – Testversion „Physik geprüft“
 
 ## Installation
 1. Die vorhandene **Flugkern.exe** (Godot 4.7.2) bleibt unverändert.
 2. **Alle vier .pck-Dateien** in denselben Ordner wie Flugkern.exe kopieren (alte Flugkern.pck überschreiben):
    `Flugkern.pck`, `Flugkern_modelle.pck`, `Flugkern_karte.pck`, `Flugkern_audio.pck`.
    Fehlt Modelle oder Karte, zeigt das Spiel eine Meldung; fehlt Audio, läuft es ohne Ton.
-3. Flugkern.exe starten. Der Fenstertitel muss „Flugkern M3.9“ zeigen.
+3. Flugkern.exe starten. Der Fenstertitel muss „Flugkern M3.10“ zeigen.
+
+## Neu in M3.10 (Physik-Prüfung)
+
+- Flugphysik: Normatmosphäre, Kompressibilität im Sturz (max. etwa 775 km/h), g-Grenze (Arcade 7,5 g, Realistisch etwa 9,4 g), realistische Rollrate, Propellerstrahl aufs Seitenruder (Seitenwind am Boden beherrschbar), sauberer Abrissschutz und ruhiges Abfangen bei hoher Fahrt.
+- Waffen: Kadenz 1.150/min wie echte MGs der Zeit, Leitwerk als dünne Flächen statt Block, Rückenpanzer, Treffer auf Motor oder Cockpit lohnen sich (12–16 Treffer statt 30–37). Beschädigte Flügel können unter hoher g-Last brechen.
+- Fallschirm mit echter Physik: freier Fall, Öffnungsruck, Sinkrate 6–7 m/s, Drift im Wind.
+- Tankwagen fährt realistisch (keine Kippkurven, Hang, Bremsweg), Figuren waten und schwimmen, Hänge über 45° gesperrt.
+- Bäume sind überall fest, auch für weit entfernte KI-Flugzeuge.
+- Speicherlecks behoben (wichtig für lange Partien).
 
 ## Neu in M3.9
 

@@ -103,7 +103,7 @@ func test_crew_model_and_points() -> Array:
 	var meshes := AirfieldOps.mesh_count(g.crew.visual)
 	var zones := a.damage.hitboxes.zones.size()
 	var src: String = a.damage.hitboxes.markers.source
-	var ok := pts.size() == 5 and anim >= 6 and meshes > 0 and zones == 9 and g.crew.anim_tree != null
+	var ok := pts.size() == 5 and anim >= 6 and meshes > 0 and zones == 11 and g.crew.anim_tree != null
 	g.queue_free()
 	await _step(2)
 	return [ok, "Punkte %d, Animationen %d, Meshes %d, Hitbox-Zonen %d (%s)" % [pts.size(), anim, meshes, zones, src]]
