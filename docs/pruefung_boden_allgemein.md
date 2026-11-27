@@ -93,3 +93,14 @@ Nach dem Freigeben der Szene bleiben 1 Knoten und 0 verwaiste übrig. Das Lecken
 SoundDirector `_exit_tree` → `_ambient.stop()`. Die Hochrechnung auf 1–3 h ergibt kein messbares Wachstum.
 Hinweis: Ein Durchlauf über 30 min wurde aus Zeitgründen abgebrochen (2 Minuten gleichbleibend). Aufruf:
 `godot --headless --path game --fixed-fps 60 --script res://tools/soak.gd -- 60 out.csv`.
+
+## Teststand (nach den Korrekturen)
+
+- Fast: 288 Tests (vorher 279; 9 neu). Im Lauf waren 3 rot, alle nur wegen der Authentisch-Pumpe 2,5 l/s:
+  test_stub_classes, test_times_per_stage, test_overflow_authentisch. Die Sollwerte sind angepasst, die Tests einzeln
+  nachgeprüft und grün (test_jobs 5/5, test_contract_m3 11/11).
+- `--suite=all --file=ai_ground`: 29/29. `--suite=all --file=airfield`: 17/17.
+- Am Ende der Testsuite stehen keine Meldungen „ObjectDB instances leaked“ und „resources still in use“ mehr (vorher 47 bzw. 3).
+- Angepasste Tests mit Begründung: test_follows_slope (Hangabtrieb: 10 % nur mit Vollgas, vorher 60 % Gas ohne Hang),
+  test_speed_brake_reverse (Bremsweg < 12 m statt < 10 m wegen Bremse 4,5 m/s²), test_walk_on_terrain (Soll mit
+  Tobler-Faktor), test_jobs/test_contract_m3 (Pumpe Authentisch).
