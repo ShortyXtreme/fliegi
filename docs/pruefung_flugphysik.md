@@ -74,7 +74,7 @@ Hügel: Die Seeds 1003 und 1009 bleiben ohne Schuss im Patt. Seed 1008 endet mit
 
 ## Ergebnisse (Stand Ende Audit)
 - Fast-Suite 284/287. Rot sind nur `test_service_markers_positions` (Marker/Art, kein Physikbezug), `test_query_cost` (Wind-Zeitmessung 55,9 µs statt < 50 µs) und `test_perf_1000_shots_8_targets` (5,5 ms/Tick). Die beiden letzten sind Zeitmessungen auf der geteilten, ausgelasteten Maschine.
-- Flugtests `--file=flight_` (M1-Tests, Audit-Tests, perf) 39/39, airfield 17/17, ai_ground 29/29 (vor der letzten Regleränderung; airfield danach erneut gestartet).
+- Flugtests `--file=flight_` (M1-Tests, Audit-Tests, perf) 39/39, airfield 17/17 (auch nach der letzten Regleränderung), ai_ground 29/29.
 - Duelle: siehe Tabelle oben.
 
 ## Angepasste Tests
