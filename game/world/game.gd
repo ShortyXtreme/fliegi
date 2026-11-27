@@ -238,6 +238,11 @@ func _setup_weather() -> void:
 	weather = WeatherDriver.new()
 	weather.name = "Weather"
 	add_child(weather)
+	# M3.9: Wetteränderungen meldet das Bodenpersonal (grob, ohne Zahlen)
+	weather.changed.connect(func(txt: String):
+		print("Diagnose Wetter: " + txt)
+		if hud != null and is_instance_valid(hud) and hud.combat != null:
+			hud.combat.kill_feed.add_text(null, "Bodenpersonal: %s." % txt, player_aircraft))
 	print("Diagnose " + Weather.describe())
 
 

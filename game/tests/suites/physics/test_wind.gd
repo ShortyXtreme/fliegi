@@ -112,7 +112,7 @@ func test_wind_profile_gusts_seed() -> Array:
 	var dmin := INF
 	var dmax := -INF
 	for k in 120:
-		Weather.time = k * 5.0
+		Weather.time = k * 15.0   # M3.9: 30 min (Drehen über Minuten bis Stunden)
 		var w := Weather.wind_at_agl(p, 300.0)
 		lo = minf(lo, Vector2(w.x, w.z).length())
 		hi = maxf(hi, Vector2(w.x, w.z).length())

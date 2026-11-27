@@ -5,6 +5,7 @@ extends RefCounted
 var airspeed: float = 0.0          # m/s (wahre Fahrt gegenüber der Luft; M3.8: mit Wind ≠ Geschwindigkeit über Grund)
 var ground_speed: float = 0.0      # m/s über Grund (M3.8)
 var wind: Vector3 = Vector3.ZERO   # m/s, Wind am Flugzeug (M3.8)
+var wind_info: WindSample = null   # M3.9: Anteile (mittel, Böe, Hang, Thermik, Rollböe)
 var altitude: float = 0.0          # m über Meeresspiegel (Welt-Y)
 var height_agl: float = 0.0        # m über Grund (Raycast)
 var aoa: float = 0.0               # rad, Anstellwinkel Rumpf

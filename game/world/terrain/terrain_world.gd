@@ -62,10 +62,13 @@ func _enter_tree() -> void:
 	WorldGround.set_provider(self)
 	if data == null:
 		_load()
+	# M3.9: Gelände-Windgitter (Hangwind, Lee, Tal, Rauigkeit, Thermik)
+	Weather.set_terrain(WindTerrain.for_terrain(self), self)
 
 
 func _exit_tree() -> void:
 	WorldGround.clear_provider(self)
+	Weather.clear_terrain(self)
 
 
 func _ready() -> void:

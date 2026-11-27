@@ -9,6 +9,9 @@ extends RefCounted
 const LONG_STIFFNESS := 2.0   # (N pro N Radlast) pro m/s Schlupf (Rollreibung)
 const BRAKE_STIFFNESS := 5.0  # steiler: Bremse hält das stehende Flugzeug (Haftreibung)
 const LAT_STIFFNESS := 2.0
+## M3.9: Schräglaufwinkel (tan) für volle Seitenkraft, Bezugsfahrt darunter (m/s)
+const SLIP_PEAK := 0.14
+const LAT_V_REF := 3.5
 const BELLY_SPRING := 140000.0
 const BELLY_DAMPER := 14000.0
 const BELLY_FRICTION := 0.65
@@ -119,7 +122,11 @@ func integrate(state: PhysicsDirectBodyState3D, cmd: ControlCommands, exclude: A
 		var mu_brake := w.brake_friction * cmd.brakes * brake_scale if w.has_brake else 0.0
 		var f_long := -clampf(v_long * n_ground * LONG_STIFFNESS, -mu_roll * n_ground, mu_roll * n_ground) \
 			- clampf(v_long * n_ground * BRAKE_STIFFNESS, -mu_brake * n_ground, mu_brake * n_ground)
-		var f_lat := -clampf(v_lat * n_ground * LAT_STIFFNESS, -w.lateral_friction * n_ground,
+		# M3.9: Seitenführung nach Schräglaufwinkel (Reifen): volle Seitenkraft erst bei ~SLIP_PEAK,
+		# im schnellen Rollen weicher als vorher (Rollen ohne Ausbrechen bei Seitenwind beherrschbar),
+		# langsam (< LAT_V_REF) wie bisher steif
+		var lat_k := minf(LAT_STIFFNESS, 1.0 / (maxf(absf(v_long), LAT_V_REF) * SLIP_PEAK))
+		var f_lat := -clampf(v_lat * n_ground * lat_k, -w.lateral_friction * n_ground,
 			w.lateral_friction * n_ground)
 		var f := normal * n_ground + fwd_g * f_long + side_g * f_lat
 		state.apply_force(f, r)

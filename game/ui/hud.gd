@@ -340,6 +340,14 @@ func _update_debug(t: FlightTelemetry) -> void:
 	_debug.text += "\nWind %4.1f m/s nach %03.0f° (vert. %+4.1f)  Fahrt %5.1f km/h  über Grund %5.1f km/h\n%s" % [
 		wh.length(), fposmod(rad_to_deg(atan2(wh.x, -wh.y)), 360.0), t.wind.y, t.airspeed * 3.6,
 		t.ground_speed * 3.6, Weather.describe()]
+	# M3.9: Anteile (mittlerer Wind, Böe, Hang/Thermik, Rollböe, Turbulenzstärke)
+	var wi := t.wind_info
+	if wi != null and Weather.enabled():
+		var mh := Vector2(wi.mean.x, wi.mean.z)
+		_debug.text += "\n  mittel %4.1f m/s aus %03.0f°  Böe %+4.1f/%+4.1f/%+4.1f m/s  Hang %+4.1f  Thermik %+4.1f m/s\n  Rollböe %+5.3f 1/s  σ %.1f/%.1f/%.1f m/s  z0 %.3f m  Lee %3.0f %%  Tal %3.0f %%  %3.0f m ü. Grund" % [
+			mh.length(), fposmod(rad_to_deg(atan2(-mh.x, mh.y)), 360.0), wi.turb.x, wi.turb.z, wi.turb.y,
+			wi.orographic, wi.thermal, wi.roll_grad, wi.sigma.x, wi.sigma.y, wi.sigma.z, wi.z0,
+			wi.lee * 100.0, wi.channel * 100.0, wi.agl]
 	for s in aircraft.flight.surfaces:
 		if s.def.is_main_wing and s.def.name.ends_with("root") or s.def.name.begins_with("htail_R") or s.def.name == "vtail":
 			_debug.text += "\n  %-14s α %+5.1f°  Cl %+4.2f  Abriss %3.0f %%" % [s.def.name,

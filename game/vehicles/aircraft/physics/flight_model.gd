@@ -26,6 +26,9 @@ var debug_vectors: Array = []
 var _prev_velocity := Vector3.ZERO
 ## M3.8: Wind am Flugzeug in diesem Tick (m/s, Welt), Luftgeschwindigkeit = Bahn − Wind
 var wind := Vector3.ZERO
+## M3.9: Anteile des Windes (mittel, Böe, Hang, Thermik, Rollböe) für Debug/Tests
+var wind_sample := WindSample.new()
+var _span := 10.0
 var _order: Array[AeroSurface] = []   # Flügel zuerst, dann Flächen im Abwind
 var _wing_area := 0.0
 var _wing_slope := 4.4
@@ -55,6 +58,12 @@ func _init(d: AircraftData) -> void:
 			_order.append(s)
 			_tail_arm = absf(s.def.position.z)
 	_wing_cl_ref = cl_ref_sum / maxf(_wing_area, 1e-3)
+	var half_span := 0.0
+	for s in surfaces:
+		if s.def.is_main_wing:
+			half_span = maxf(half_span, absf(s.def.position.x) + s.def.span * 0.5)
+	if half_span > 1.0:
+		_span = 2.0 * half_span
 	for s in surfaces:
 		if s.def.is_main_wing:
 			telemetry.stall_aoa = s.body_stall_aoa()
@@ -91,7 +100,15 @@ func integrate(state: PhysicsDirectBodyState3D, cmd: ControlCommands, exclude: A
 	# M3.8: Aerodynamik relativ zur Luftmasse (Wind aus Weather; aus = Vector3.ZERO, altes Verhalten).
 	# Fahrwerk, Steigrate und Bodenbezug rechnen weiter mit der Geschwindigkeit über Grund.
 	var ground_vel := state.linear_velocity
-	wind = Weather.wind_at(xf.origin) if Weather.enabled() else Vector3.ZERO
+	# M3.9: eine Abfrage je Tick mit Rollböe (Vertikalwind-Differenz an den Flügelspitzen)
+	var roll_g := 0.0
+	if Weather.enabled():
+		Weather.sample(wind_sample, xf.origin, NAN, b.x, _span)
+		wind = wind_sample.total
+		roll_g = wind_sample.roll_grad
+	else:
+		wind = Vector3.ZERO
+		wind_sample.clear()
 	var vel := ground_vel - wind
 	var ang := state.angular_velocity
 	var dt := state.step
@@ -111,6 +128,8 @@ func integrate(state: PhysicsDirectBodyState3D, cmd: ControlCommands, exclude: A
 	for s in _order:
 		var r := b * s.def.position
 		var v_point := vel + ang.cross(r)
+		if roll_g != 0.0:
+			v_point -= Vector3.UP * (roll_g * r.dot(b.x))
 		var eps := 0.0
 		if s.def.downwash_factor > 0.0:
 			if not dw_done:
@@ -187,6 +206,7 @@ func integrate(state: PhysicsDirectBodyState3D, cmd: ControlCommands, exclude: A
 	t.climb_rate = ground_vel.y
 	t.ground_speed = ground_vel.length()
 	t.wind = wind
+	t.wind_info = wind_sample
 	t.pitch_attitude = asin(clampf(-b.z.y, -1.0, 1.0))
 	t.pitch_up_vector = b.y
 	t.angular_velocity_local = ang_local
