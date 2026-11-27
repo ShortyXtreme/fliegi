@@ -11,16 +11,35 @@ extends CharacterBody3D
 
 const MAX_SPEED := 35.0 / 3.6
 const REVERSE_SPEED := 2.5
-const ACCEL := 2.0
+## Prüfung Boden: Antrieb wie ein beladener 3-t-Lkw der 1930er (Opel Blitz 3,6-36 S: 3,35 t leer,
+## 68–75 PS; Tankwagen beladen ≈ 5–6 t). Unten begrenzt die Haftung (Hinterachsantrieb, ≈ 65 %
+## Achslast, μ ≈ 0,4 auf Gras: 0,4 · 0,65 · g ≈ 2,5 m/s², also ≈ 20 % Steigfähigkeit),
+## darüber die Leistung (POWER_PER_MASS / v, W/kg an den Rädern). Vorher fest 2,0 m/s² ohne Hang.
+const DRIVE_ACCEL := 2.5
+const POWER_PER_MASS := 9.0
+## Alter Name (Tests/KI): Anfahrbeschleunigung im ersten Gang.
+const ACCEL := DRIVE_ACCEL
 const REVERSE_ACCEL := 1.2
-const BRAKE_DECEL := 6.0
+## Betriebsbremse auf Gras, Trommelbremsen beladen (vorher 6,0; StVZO heute ≥ 5,0 m/s² auf Asphalt).
+const BRAKE_DECEL := 4.5
+## Rollwiderstand auf Gras (c_rr ≈ 0,035 · g).
 const ROLL_DECEL := 0.35
+const GRAVITY := 9.81
 const MAX_STEER := 0.6
 const STEER_RATE := 1.8
-## Lenkwinkel bei Höchstfahrt (Anteil), damit es bei 35 km/h nicht kippt.
-const HIGH_SPEED_STEER := 0.45
+## Prüfung Boden: Querbeschleunigung höchstens MAX_LAT_ACCEL (m/s²) – Haftung auf Gras und
+## Kippgrenze eines hohen Tankwagens (g · Spur / (2 · Schwerpunkthöhe) ≈ 5 m/s²). Ersetzt den
+## festen Lenkanteil HIGH_SPEED_STEER (bei 35 km/h waren es 7 m/s², also kippen/rutschen).
+const MAX_LAT_ACCEL := 3.5
+## Alt, nur noch Untergrenze des Lenkwinkel-Anteils bei Höchstfahrt.
+const HIGH_SPEED_STEER := 0.2
 const REVERSE_DELAY := 0.4
 const STANDSTILL := 0.05
+## Prüfung Boden: Watfähigkeit. Ab WADE_DEPTH Wassertiefe (m) Schritttempo, ab DROWN_DEPTH säuft
+## der Motor ab (kein Vortrieb). Opel Blitz: Wattiefe ≈ 0,5–0,6 m.
+const WADE_DEPTH := 0.3
+const WADE_SPEED := 1.5
+const DROWN_DEPTH := 0.8
 
 var driver_seat: Seat
 var passenger_seat: Seat
@@ -43,6 +62,8 @@ var markers := {
 var seat_points: Array[Interactable] = []
 var visual: Node3D
 var _brake_hold := 0.0
+## Längsneigung (rad, + = Front hoch) aus _fit_to_ground, für den Hangabtrieb.
+var _pitch := 0.0
 var _shape: CollisionShape3D
 
 
@@ -152,27 +173,34 @@ func drive(i: PilotIntent, dt: float, has_driver := true) -> void:
 	var thr := clampf(i.throttle, 0.0, 1.0) if has_driver else 0.0
 	var brk := clampf(i.brakes, 0.0, 1.0) if has_driver else 1.0
 	var st := clampf(i.yaw, -1.0, 1.0) if has_driver else 0.0
-	# Lenkung
-	var k := clampf(absf(speed) / MAX_SPEED, 0.0, 1.0)
-	var want := st * MAX_STEER * lerpf(1.0, HIGH_SPEED_STEER, k)
-	steer = move_toward(steer, want, STEER_RATE * dt)
+	# Lenkung: Winkel so begrenzt, dass v² · tan(δ) / L ≤ MAX_LAT_ACCEL
+	var steer_max := max_steer_at(absf(speed))
+	steer = move_toward(steer, st * steer_max, STEER_RATE * dt)
+	# Wasser: Schritttempo, zu tief = Motor abgesoffen
+	var depth := water_depth()
+	if depth >= DROWN_DEPTH:
+		thr = 0.0
 	# Längs: vorwärts Gas/Bremse, im Stand Bremse halten = rückwärts
 	var standing := absf(speed) < STANDSTILL
 	var hb: bool = has_driver and driver_seat.controller != null and driver_seat.controller.get("handbrake") == true
 	_brake_hold = _brake_hold + dt if standing and brk > 0.1 and thr < 0.05 and not hb else 0.0
 	var a := 0.0
 	if speed > STANDSTILL or (standing and thr >= 0.05):
-		a = thr * ACCEL * (1.0 - 0.5 * speed / MAX_SPEED) - brk * BRAKE_DECEL
+		a = thr * drive_accel(speed) - brk * BRAKE_DECEL
 	elif hb and speed < -STANDSTILL:
 		a = BRAKE_DECEL   # Handbremse beim Rückwärtsrollen: bremsen, nicht beschleunigen
 	elif speed < -STANDSTILL or (standing and _brake_hold >= REVERSE_DELAY and has_driver):
 		a = -brk * REVERSE_ACCEL + thr * BRAKE_DECEL
+	# Hangabtrieb (nur in Fahrt; im Stand hält der Fahrer bzw. die Feststellbremse)
+	if not standing or thr >= 0.05:
+		a -= GRAVITY * sin(_pitch)
 	var s0 := speed
 	speed += a * dt
 	if (s0 > 0.0 and speed < 0.0 and a < 0.0 and brk > thr) or (s0 < 0.0 and speed > 0.0 and (thr > 0.0 or hb)):
 		speed = 0.0   # Bremsen bis Stillstand, nicht durch null
 	speed = move_toward(speed, 0.0, ROLL_DECEL * dt)
-	speed = clampf(speed, -REVERSE_SPEED, MAX_SPEED)
+	var vmax := MAX_SPEED if depth < WADE_DEPTH else WADE_SPEED
+	speed = clampf(speed, -REVERSE_SPEED, vmax)
 	if not has_driver and absf(speed) < STANDSTILL:
 		speed = 0.0
 	# Einspurmodell
@@ -201,9 +229,32 @@ func _fit_to_ground() -> void:
 	var hr := _h(p + right * track * 0.5)
 	p.y = (hf + hb + hl + hr) * 0.25
 	var pitch := atan2(hf - hb, wheelbase)
+	_pitch = pitch
 	var roll := atan2(hl - hr, track)
 	var b := Basis(Vector3.UP, heading) * Basis(Vector3.RIGHT, pitch) * Basis(Vector3.FORWARD, roll)
 	global_transform = Transform3D(b, p)
+
+
+## Vortriebs-Beschleunigung bei Vollgas (m/s²): Haftung/erster Gang unten, Leistung darüber.
+static func drive_accel(v: float) -> float:
+	return minf(DRIVE_ACCEL, POWER_PER_MASS / maxf(absf(v), 0.5))
+
+
+## Größter Lenkwinkel bei Fahrt v (m/s) für höchstens MAX_LAT_ACCEL Querbeschleunigung.
+func max_steer_at(v: float) -> float:
+	if v < 0.5:
+		return MAX_STEER
+	var lim := atan(MAX_LAT_ACCEL * wheelbase / (v * v))
+	return clampf(lim, MAX_STEER * HIGH_SPEED_STEER, MAX_STEER)
+
+
+## Wassertiefe an der Fahrzeugmitte (m), 0 ohne Wasser.
+func water_depth() -> float:
+	var p := global_position
+	var lv := WorldGround.water_level_at(p.x, p.z)
+	if is_nan(lv):
+		return 0.0
+	return maxf(lv - WorldGround.height_at(p.x, p.z), 0.0)
 
 
 static func _h(q: Vector3) -> float:

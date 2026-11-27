@@ -36,6 +36,18 @@ const CAPSULE_HEIGHT := 1.6
 const CAPSULE_LIFT := 0.15
 const RUN_THRESHOLD := 2.4
 const ENTER_ANIM_TIME := 0.8
+## Prüfung Boden: Gelände. Tempo nach Tobler (1993): v ∝ exp(−3,5 · |s + 0,05|) mit s = Steigung
+## (dh/dx) in Laufrichtung, auf ebenen Boden normiert; untere Grenze SLOPE_MIN_MUL. Steiler als
+## SLOPE_BLOCK (≈ 45°) geht es nicht weiter (vorher liefen Figuren jede Wand hinauf).
+const SLOPE_MIN_MUL := 0.25
+const SLOPE_BLOCK := 1.0
+## Prüfung Boden: Wasser. Ab WADE_DEPTH waten (Tempo sinkt bis WADE_MIN_MUL bei SWIM_DEPTH), ab
+## SWIM_DEPTH schwimmen (Kopf über Wasser: Körper SWIM_DEPTH unter dem Spiegel, SWIM_SPEED, kein
+## Sprint). Vorher gingen Figuren auf dem Grund eines 2,8 m tiefen Flusses.
+const WADE_DEPTH := 0.3
+const WADE_MIN_MUL := 0.35
+const SWIM_DEPTH := 1.35
+const SWIM_SPEED := 0.9
 
 var crew_seat: Seat
 var nation_id: int = Nations.BLUE
@@ -294,11 +306,16 @@ func _update_move(i: CrewIntent, dt: float) -> void:
 	var want := (right * mv.x + fwd * mv.y) * target_speed
 	if working:
 		want = Vector3.ZERO
+	want *= terrain_mul(want, global_position)
 	var hv := Vector3(velocity.x, 0.0, velocity.z).move_toward(want, ACCEL * dt)
 	velocity = hv
 	if hv.length_squared() > 1e-6:
+		var before := global_position
 		move_and_slide()
 		velocity.y = 0.0
+		if _too_steep(before, global_position):
+			global_position = Vector3(before.x, global_position.y, before.z)
+			velocity = Vector3.ZERO
 	_constrain_position()
 	_snap_to_ground()
 	# Körper drehen: Ego bzw. Arbeiten -> Blick, sonst Laufrichtung
@@ -318,7 +335,50 @@ func current_max_speed(sprint: bool) -> float:
 	if carried != null and is_instance_valid(carried):
 		mul = float(carried.get("speed_mul"))
 		can_sprint = bool(carried.get("can_sprint"))
+	if is_inside_tree() and is_swimming():
+		can_sprint = false
 	return (SPRINT_SPEED if sprint and can_sprint else WALK_SPEED) * mul
+
+
+## Tempo-Faktor für Gelände und Wasser bei gewünschter Bewegung want an p (Prüfung Boden).
+func terrain_mul(want: Vector3, p: Vector3) -> float:
+	var sp := Vector2(want.x, want.z).length()
+	if sp < 1e-4:
+		return 1.0
+	var mul := 1.0
+	var dir := Vector3(want.x, 0.0, want.z) / sp
+	var g0 := WorldGround.height_at(p.x, p.z)
+	var q := p + dir * 1.0
+	var s := WorldGround.height_at(q.x, q.z) - g0
+	mul = clampf(exp(-3.5 * (absf(s + 0.05) - 0.05)), SLOPE_MIN_MUL, 1.0)
+	var depth := water_depth_at(p)
+	if depth > WADE_DEPTH:
+		if depth >= SWIM_DEPTH:
+			return minf(mul, SWIM_SPEED / sp)
+		mul = minf(mul, lerpf(1.0, WADE_MIN_MUL, (depth - WADE_DEPTH) / (SWIM_DEPTH - WADE_DEPTH)))
+	return mul
+
+
+## Wassertiefe über dem Grund an p (m), 0 ohne Wasser.
+static func water_depth_at(p: Vector3) -> float:
+	var lv := WorldGround.water_level_at(p.x, p.z)
+	if is_nan(lv):
+		return 0.0
+	return maxf(lv - WorldGround.height_at(p.x, p.z), 0.0)
+
+
+func is_swimming() -> bool:
+	return water_depth_at(global_position) >= SWIM_DEPTH
+
+
+## Schritt a -> b steiler als SLOPE_BLOCK bergauf (Wand, Böschung)?
+static func _too_steep(a: Vector3, b: Vector3) -> bool:
+	var d := Vector2(b.x - a.x, b.z - a.z).length()
+	if d < 1e-4:
+		return false
+	var ha := WorldGround.height_at(a.x, a.z)
+	var hb := WorldGround.height_at(b.x, b.z)
+	return (hb - ha) / d > SLOPE_BLOCK
 
 
 ## Haken für Leinen (Schlauch, Paket 5): carried.constrain(pos) begrenzt die Position.
@@ -331,6 +391,9 @@ func _constrain_position() -> void:
 func _snap_to_ground() -> void:
 	var p := global_position
 	p.y = WorldGround.height_at(p.x, p.z)
+	var lv := WorldGround.water_level_at(p.x, p.z)
+	if not is_nan(lv) and lv - p.y > SWIM_DEPTH:
+		p.y = lv - SWIM_DEPTH          # schwimmt: Kopf über Wasser
 	global_position = p
 
 

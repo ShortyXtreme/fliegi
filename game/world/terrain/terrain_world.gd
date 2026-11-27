@@ -37,6 +37,8 @@ var sun: DirectionalLight3D
 var heights := PackedFloat32Array()
 
 var vegetation: Vegetation
+## Prüfung Boden: Baum-Abfrage (Kollision ohne Physikkörper, siehe TreeObstacles)
+var trees: TreeObstacles
 ## M3.8: Gewässernetz (Hauptfluss + Bäche), Wasserflächen (nur Optik) und Brücken
 var water_net: RiverNet
 var water: RiverWater
@@ -77,6 +79,11 @@ func _ready() -> void:
 	_build_targets()
 	# M3.8: Brücken (mit Kollision, Gruppe "bridge") und Wasserflächen
 	bridges = Bridges.build_all(self)
+	# Prüfung Boden: Baumkollision für Flugzeuge überall (auch headless/Server), ohne Körper
+	trees = TreeObstacles.new()
+	trees.name = "TreeObstacles"
+	trees.setup(self)
+	add_child(trees)
 	if build_visuals:
 		_build_environment()
 		water = RiverWater.create(self)

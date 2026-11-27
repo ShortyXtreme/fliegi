@@ -43,8 +43,11 @@ func _init() -> void:
 
 ## Bei einer vorhandenen PlayerController-Instanz (game.gd M2) diese übernehmen.
 func adopt_flight(pc: PlayerController) -> void:
-	if flight != null and flight != pc and flight.get_parent() == self:
-		flight.queue_free()
+	if flight != null and flight != pc:
+		if flight.get_parent() == self:
+			flight.queue_free()
+		elif flight.get_parent() == null and not flight.is_inside_tree():
+			flight.free()   # Prüfung Boden: in _init erzeugt, nie im Baum – sonst Leck je Partie
 	flight = pc
 	pc.peer_id = peer_id
 	pc.session = self

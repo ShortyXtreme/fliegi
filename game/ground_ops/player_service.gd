@@ -39,8 +39,10 @@ func attach(a: Aircraft) -> Dictionary:
 		var it: Interactable = pts[m]
 		var act := it.add_action(ACTION, "Arbeiten", 0.0, &"")
 		act["continuous"] = true
-		act["can"] = func(ch): return _can(it, act, ch)
-		it.holding.connect(func(id, ch, dt, _p): if id == ACTION: _work(it, ch, dt))
+		# Prüfung Boden: gebundene Methode statt Lambda – ein Lambda, das act einfängt und in act
+		# liegt, ist ein Referenz-Kreis (Dictionary <-> Lambda) und wurde nie freigegeben.
+		act["can"] = _can.bind(it)
+		it.holding.connect(_on_holding.bind(it))
 	_attached[a] = pts
 	return pts
 
@@ -108,13 +110,19 @@ func label_for(j: GroundJob) -> String:
 	return t
 
 
-func _can(it: Interactable, act: Dictionary, ch: Node) -> bool:
+func _can(ch: Node, it: Interactable) -> bool:
 	var j := job_for(it, ch)
 	if j == null:
 		return false
+	var act := it.get_action(ACTION)
 	act["label"] = label_for(j)
 	act["needs_item"] = _needs(j, _board().rules)
 	return true
+
+
+func _on_holding(id: StringName, ch: Node, dt: float, _p: float, it: Interactable) -> void:
+	if id == ACTION:
+		_work(it, ch, dt)
 
 
 func _work(it: Interactable, ch: Node, dt: float) -> void:

@@ -6,8 +6,9 @@ const SUITE := "fast"
 
 
 class Slope extends RefCounted:
+	var grade := 0.1
 	func height_at(x: float, _z: float) -> float:
-		return 0.1 * x
+		return grade * x
 
 
 func _vehicle(v: GroundVehicle, pos: Vector3, yaw := 0.0) -> CrewTestUtil.FixedCrewController:
@@ -38,7 +39,7 @@ func test_speed_brake_reverse() -> Array:
 	var still := v.speed
 	await _step(60 * 6)
 	var rev := v.speed
-	var ok: bool = vmax <= GroundVehicle.MAX_SPEED + 1e-4 and vmax > 9.0 and stop_d < 10.0 \
+	var ok: bool = vmax <= GroundVehicle.MAX_SPEED + 1e-4 and vmax > 9.0 and stop_d < 12.0 \
 		and still == 0.0 and rev < -2.0 and rev >= -GroundVehicle.REVERSE_SPEED - 1e-4
 	return [ok, "Höchstfahrt %.1f km/h, Bremsweg %.1f m in %.1f s, Stand %.2f, rückwärts %.1f km/h" % [
 		vmax * 3.6, stop_d, stop_t / 60.0, still, rev * 3.6]]
@@ -82,19 +83,56 @@ func test_deterministic() -> Array:
 	return [a == b and a[4] >= 0.0, "Lauf 1 %s, Lauf 2 %s" % [a, b]]
 
 
+## Prüfung Boden: mit Hangabtrieb. 10 % mit Vollgas (vorher 60 % Gas, ohne Hangabtrieb), 30 % schafft
+## der beladene Wagen nicht (Haftung ≈ 2,5 m/s²), bergab ohne Gas rollt er schneller.
 func test_follows_slope() -> Array:
 	var slope := Slope.new()
 	WorldGround.set_provider(slope)
 	var v := FuelTruck.new()
 	var c := _vehicle(v, Vector3(20, 0, -50), -PI / 2)   # Front nach +X, bergauf
-	c.pi.throttle = 0.6
-	await _step(60 * 8)
+	c.pi.throttle = 1.0
+	await _step(60 * 10)
 	var p := v.global_position
 	var nose := -v.global_transform.basis.z
-	var ok: bool = absf(p.y - 0.1 * p.x) < 0.01 and absf(nose.y - sin(atan(0.1))) < 0.01 and p.x > 40.0
+	var up_v := v.speed
+	var ok: bool = absf(p.y - 0.1 * p.x) < 0.01 and absf(nose.y - sin(atan(0.1))) < 0.01 and p.x > 45.0
+	v.queue_free()
+	slope.grade = 0.3
+	var v2 := FuelTruck.new()
+	var c2 := _vehicle(v2, Vector3(20, 0, -80), -PI / 2)
+	c2.pi.throttle = 1.0
+	await _step(60 * 5)
+	var steep := v2.global_position.x - 20.0
+	v2.queue_free()
+	slope.grade = -0.1
+	var v3 := FuelTruck.new()
+	var c3 := _vehicle(v3, Vector3(20, 0, -110), -PI / 2)   # bergab
+	c3.pi.throttle = 0.1
+	await _step(60 * 4)
+	c3.pi.throttle = 0.0
+	await _step(60 * 4)
+	var down_v := v3.speed
 	WorldGround.clear_provider(slope)
-	return [ok, "x %.1f m, Höhe %.2f (Boden %.2f), Nase hoch %.3f (soll %.3f)" % [
-		p.x, p.y, 0.1 * p.x, nose.y, sin(atan(0.1))]]
+	ok = ok and steep < 1.0 and down_v > 2.0
+	return [ok, "10 %%: x %.1f m, %.1f km/h, Höhe %.2f (Boden %.2f), Nase hoch %.3f (soll %.3f); 30 %%: %.1f m in 5 s; 10 %% bergab rollend %.1f km/h" % [
+		p.x, up_v * 3.6, p.y, 0.1 * p.x, nose.y, sin(atan(0.1)), steep, down_v * 3.6]]
+
+
+## Prüfung Boden: Kurvengrenze – bei Höchstfahrt und vollem Einschlag höchstens MAX_LAT_ACCEL.
+func test_lateral_limit() -> Array:
+	var v := FuelTruck.new()
+	var c := _vehicle(v, Vector3(-300, 0, 300))
+	c.pi.throttle = 1.0
+	await _step(60 * 20)
+	c.pi.yaw = 1.0
+	await _step(60 * 3)
+	var h0 := v.heading
+	await get_tree().physics_frame
+	var rate := absf(wrapf(v.heading - h0, -PI, PI)) * 60.0
+	var lat := absf(v.speed) * rate
+	var ok := lat <= GroundVehicle.MAX_LAT_ACCEL + 0.05 and lat > 2.5 and v.speed > 9.0
+	return [ok, "%.1f km/h, Radius %.1f m, Querbeschleunigung %.2f m/s² (max. %.1f; vorher ≈ 7)" % [
+		v.speed * 3.6, v.speed / maxf(rate, 1e-4), lat, GroundVehicle.MAX_LAT_ACCEL]]
 
 
 func test_fill_truck_at_depot() -> Array:

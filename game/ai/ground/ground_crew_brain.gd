@@ -529,6 +529,12 @@ func compute_intent(_dt: float) -> PilotIntent:
 	var want := clampf(d * 0.5, 0.0, GroundVehicle.MAX_SPEED * 0.8)
 	if absf(ang) > 1.0:
 		want = minf(want, 3.0)
+	# Prüfung Boden: vor Kurven so langsam, dass der Kreis zum Ziel (Radius d / (2 sin |ang|))
+	# mit der Querbeschleunigungs-Grenze des Wagens fahrbar ist (sonst kreist er ums Ziel).
+	var sa := sin(absf(ang))
+	if sa > 0.05:
+		var r_need := d / (2.0 * sa)
+		want = minf(want, maxf(sqrt(GroundVehicle.MAX_LAT_ACCEL * 0.8 * r_need), 2.0))
 	if d < DRIVE_ARRIVE:
 		want = 0.0
 	# M3.1: vor Hindernissen (Flugzeug, Wagen, Gebäude, Figur) im Fahrweg bremsen
