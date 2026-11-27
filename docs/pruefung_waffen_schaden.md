@@ -116,6 +116,40 @@ Für andere Bereiche (nur gemeldet):
 - [M1] R. L. McCoy: MC DRAG – A Computer Program for Estimating the Drag Coefficients of Projectiles, BRL-TR-02293 (1981). https://apps.dtic.mil/sti/pdfs/ADA098110.pdf
 - [G1] E. Gustin, Usenet rec.aviation.military 1998 (zitiert bei yarchive): B-17 ≈ 20 Treffer 20 mm, 3 Treffer 30 mm. https://www.yarchive.net/mil/german_aircraft_cannon.html
 
-## 6. Korrekturen
+## 6. Korrekturen (umgesetzt)
 
-(folgt nach Umsetzung)
+| Nr. | Änderung | Dateien | Test |
+|---|---|---|---|
+| 1 | `damage_mul` der Trefferbox wird im Schaden angewendet | `weapons/projectile_system.gd` | `test_damage_mul_and_density` (Heckrumpf 4,0 statt 10) |
+| 2 | Leitwerk als Höhenleitwerks- und Flossenplatte (aus `htail_*`/`vtail`) plus Heckkonus-Füllbox; Durchschlag aus Rumpf-Füllboxen bis 4,5 m (sonst 1,0 m); Rückenpanzer Cockpit ×0,3 aus dem hinteren Kegel (cos > 0,6) | `vehicles/aircraft/damage/hitbox_set.gd` | `test_tail_plates_and_rear_armor` |
+| 3 | Kadenz 600 → 1.150/min; Waffenposition = Modell-Marker (±2,35; −0,068; −0,89); `structure_hp` 320 → 280 | `weapons/data/mg_t1.tres`, `loadout_fighter_t1.tres`, `weapon_def.gd`, `damage_profile.gd` | `test_cadence_and_ammo` (38 Schuss/s) |
+| 4 | Bruchlast beschädigter Flügel: unter 75 % HP bricht er über 5–12 g (linear), wenn die Last 0,1 s anliegt; negative g zählen doppelt, intakt kein Bruch | `damage_model.gd`, `damage_profile.gd` | `test_wing_overload_break` (40 % → 8,7 g) |
+| 5 | Luftdichte: k ∝ ρ(h) beim Abschuss (`Ballistics.k_at`), gleich in ProjectileSystem, HitValidator (`Shot.k`) und LeadSolver | `ballistics.gd`, `projectile_system.gd`, `hit_validator.gd`, `lead_solver.gd` | `test_damage_mul_and_density` (3.000 m: 668 statt 625 m/s nach 0,5 s) |
+| 6 | Erster Schuss nach dem Abzug ohne Vorlauf (`late` = 0). Vorher galt er als einen Tick zu früh abgegeben, bei 1.150/min lehnte der HitValidator Folgeschüsse als CADENCE ab. Der `late`-Versatz ist jetzt nur `v0·dir·late` | `weapon_system.gd` | `test_aircraft_fires_on_box` 20/20 |
+| 7 | Wrack: Masse vom Flugzeug, k = 5 (v_end ≈ 70 m/s), Luftbremsung ≤ 2 g; Zittern des Verwundeten zeitbasiert; Hook `WeaponSystem.ammo_mass_kg()` (`WeaponDef.round_mass` 40 g) | `wreck.gd`, `damage_model.gd`, `weapon_system.gd`, `weapon_def.gd` | – |
+
+**Angepasste Tests** (brechen nur durch die korrigierte Geometrie bzw. Physik):
+- `test_fallback_hitboxes` zählt jetzt Zonen statt Boxen.
+- `test_service_markers_positions` (art) und die Selbsttest-Diagnose erwarten 11 statt 9 Boxen.
+- `test_cadence_and_ammo` leitet den Sollwert aus der Kadenz ab.
+- `test_lead_crossing_target` und `test_hit_moving_box_high_speed` rechnen mit k in Schützenhöhe.
+- `test_tolerance` nimmt den echten Trefferpunkt statt des Segmentanfangs, der vorher zufällig im Rahmen lag.
+
+**Vorher/Nachher** (Treffer bis Abschuss, Median, Streukreis 1 m, `weapons_diag.gd`):
+
+| Anflug | vorher | nachher | Ursache nachher |
+|---|---|---|---|
+| 6 Uhr | 12 | 37 | Leitwerk 30, Zelle 10 (Cockpit 27 % der Treffer, gepanzert) |
+| seitlich | 22 | 30 | Pilot 27, Zelle 13 |
+| frontal | 25 | 29 | Zelle, Motor aus |
+| von oben | 24 | 33 | Zelle, Pilot |
+| gezielt Cockpit seitlich | – | 12 | Pilot |
+| gezielt Motor seitlich / frontal | – | 12 / 16 | Motor aus |
+
+Spielgefühl: Die Feuerdauer sinkt von 50 auf 26 s, die Feuerrate je Flugzeug steigt von 20 auf 38 Schuss/s. Ein Abschuss dauert in Sekunden Feuer ungefähr so lange wie vorher (≈ 3–5 s bei 20 % Trefferquote). Der Munitionsverbrauch je Abschuss steigt aber etwa auf das 2,5-Fache (Wirtschaft/Bunker beachten). Gezieltes Schießen auf Motor oder Pilot lohnt jetzt: Es braucht etwa ein Drittel der Treffer.
+
+**Stellschrauben:** `HitboxSet.REAR_ARMOR_MUL`/`PENETRATION_FUSELAGE`/`FILLER_MUL`, `DamageProfile.structure_hp`, `wing_weak_below`/`wing_break_g_min|max`, `WeaponDef.rpm`/`damage`.
+
+**Teststand:** Weapons 17/17 und Damage 34/34 grün (einzeln). Die Fast-Suite lief 284/287, rot waren nur zwei Leistungstests unter Last der geteilten Maschine (`test_perf_1000_shots_8_targets` ist einzeln grün mit 3,3 ms, `test_query_cost` gehört zum Wetter-Bereich) und der inzwischen angepasste Boxenzähler. Nicht gelaufen (Zeitbudget): slow/KI-Duelle, airfield, ai_ground, Selbsttest nachher.
+
+**Offen:** KI-Duelle (slow) mit neuer TTK und Kadenz nachmessen; g-Limit/Strukturschutz in der Flugphysik (16 g in Arcade); Munitionsmasse in `aircraft.gd` koppeln; Flügel-Hitbox dünner; Kühler als eigene Zone; Rückstoß erst bei Kanonen.
