@@ -72,8 +72,14 @@ func _build(td: TerrainData, heights: PackedFloat32Array) -> void:
 		mim.resize(ms, ms, Image.INTERPOLATE_BILINEAR)
 	var md := mim.get_data()
 	var cnt := RES * RES
-	for arr in [ln_z0, disp, src, gx, gz, depth, ax_c, ax_s]:
-		(arr as PackedFloat32Array).resize(cnt)
+	ln_z0.resize(cnt)
+	disp.resize(cnt)
+	src.resize(cnt)
+	gx.resize(cnt)
+	gz.resize(cnt)
+	depth.resize(cnt)
+	ax_c.resize(cnt)
+	ax_s.resize(cnt)
 	var lg := log(Z0_GRASS)
 	for j in RES:
 		for i in RES:

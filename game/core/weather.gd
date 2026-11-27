@@ -87,6 +87,19 @@ static var _ph := PackedFloat32Array([0, 0, 0, 0, 0, 0, 0, 0])
 static var _bands: Array[FastNoiseLite] = []
 static var _env := FastNoiseLite.new()
 static var _tmp := WindSample.new()
+## Bandgewichte je 2 m Höhe (0 … 640 m, darüber konstant)
+const _LUT_N := 320
+static var _lut_u: Array[Vector4] = []
+static var _lut_w: Array[Vector4] = []
+
+
+static func _build_lut() -> void:
+	_lut_u.clear()
+	_lut_w.clear()
+	for k in _LUT_N:
+		var h := k * 2.0 + 1.0
+		_lut_u.append(band_weights(_len_u(h)))
+		_lut_w.append(band_weights(_len_w(h)))
 
 
 ## Kein Wind (Tests, Selbsttest, Start).
@@ -295,7 +308,7 @@ static func sample(out: WindSample, p: Vector3, agl := NAN, right := Vector3.ZER
 	var lx := 0.0
 	var lz := 0.0
 	if wt != null and is_instance_valid(terrain_node) and terrain_node.is_inside_tree():
-		var o: Vector3 = terrain_node.origin() if terrain_node.has_method("origin") else Vector3.ZERO
+		var o: Vector3 = terrain_node.origin()
 		lx = p.x - o.x
 		lz = p.z - o.z
 		z0 = exp(wt.at(wt.ln_z0, lx, lz))
@@ -368,10 +381,11 @@ static func sample(out: WindSample, p: Vector3, agl := NAN, right := Vector3.ZER
 	var qz := pa.z - adv.z * t
 	var qy := pa.y - 0.4 * t
 	var env := clampf(1.0 + 1.1 * _env.get_noise_3d(qx, qy * 0.3, qz), 0.35, 1.9) / 1.08
-	var lu := _len_u(agl)
-	var lw := _len_w(agl)
-	var bu := band_weights(lu)
-	var bw := band_weights(lw)
+	var li := clampi(int(agl * 0.5), 0, _LUT_N - 1)
+	if _lut_u.is_empty():
+		_build_lut()
+	var bu: Vector4 = _lut_u[li]
+	var bw: Vector4 = _lut_w[li]
 	var tu := 0.0
 	var tv := 0.0
 	var tw := 0.0
@@ -458,7 +472,7 @@ static func _thermals(q: Vector2, p: Vector3, agl: float, conv: float, t: float,
 		var s := src_here
 		var wt := terrain
 		if wt != null and is_instance_valid(terrain_node):
-			var o: Vector3 = terrain_node.origin() if terrain_node.has_method("origin") else Vector3.ZERO
+			var o: Vector3 = terrain_node.origin()
 			s = wt.at(wt.src, p.x + ctr.x - q.x - o.x, p.z + ctr.y - q.y - o.z)
 		w += wmax * maxf(s, 0.0) * strength * env * exp(-r2)
 	# Ausgleich: leichtes Absinken zwischen den Thermiken, stärker über Wasser
