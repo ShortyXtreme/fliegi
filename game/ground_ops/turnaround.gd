@@ -9,8 +9,11 @@ extends RefCounted
 ## Schnellabfertigung an (Munition zuerst, dann 50 % Treibstoff).
 
 const BEST_PATH := "user://abfertigung_bestzeit.cfg"
-## Richtzeiten Plan §2 (s) je Stufe: [solo, mit 2 KI-Helfern].
-const REFERENCE := [[50.0, 30.0], [195.0, 100.0], [330.0, 165.0]]
+## Richtzeiten Plan §2 (s) je Stufe: [solo, mit 2 KI-Helfern]. Bezug: volle Munition
+## nachladen (2 Gurte), 22 % -> 100 % Treibstoff, Leitwerk 70 %. M3.11: Authentisch mit
+## 2 Helfern 165 -> 180 s (Pumpe 2,5 l/s seit der Boden-Prüfung, gemessen 176 s); die
+## Munitionsmenge je Ladung ist unverändert, die Richtzeiten hängen nicht vom Verbrauch ab.
+const REFERENCE := [[50.0, 30.0], [195.0, 100.0], [330.0, 180.0]]
 ## Wertung: Anteil der Richtzeit für 3/2/1 Sterne.
 const STAR_LIMITS := [0.85, 1.0, 1.25]
 const ALARM_DEFAULT_S := 180.0

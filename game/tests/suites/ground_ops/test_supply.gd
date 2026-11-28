@@ -99,7 +99,7 @@ func test_client_and_state() -> Array:
 	depot.destroyed.connect(func(): dead[0] = true)
 	depot.take_damage(1000.0)
 	var ok: bool = c == 0.0 and is_equal_approx(d2.available(FuelSystem.GRADE_AVIATION), 7000.0) \
-		and b2.available(AmmoBunker.AMMO_792) == 19500 and dead[0] and events.size() >= 3 \
+		and b2.available(AmmoBunker.AMMO_792) == AmmoBunker.START_792 - 500 and dead[0] and events.size() >= 3 \
 		and is_equal_approx(depot.available(FuelSystem.GRADE_AVIATION), 7000.0)
 	return [ok, "Client %.0f, Lager %s, Bunker %s, zerstört %s, Ereignisse %d" % [
 		c, d2.to_array(), b2.to_array(), dead[0], events.size()]]

@@ -1,5 +1,16 @@
 # Änderungsprotokoll Flugkern
 
+## M3.11 „Feinschliff Physik“ (Entwurf, Branch m3-11-feinschliff)
+
+Offene Punkte aus `docs/pruefung_flugphysik.md`, `pruefung_waffen_schaden.md`, `pruefung_boden_allgemein.md`.
+- **KI-Bodenschutz** (`ai_pilot_brain.gd`): Vorausschau wie ein Auto-GCAS. Die aktuelle Kurve wird mit der gemessenen Normalbeschleunigung fortgeschrieben, danach wird das Abfangen mit dem verfügbaren g gerechnet (7,5-g-Grenze, Nickrate, CL·q·S/W, Anteil 0,85) und die Geländehöhe entlang der Bahn abgefragt. Hügel-Duelle 7/10 → 10/10, flach 10/10. Die alte gerade 4-s-Vorausschau brach über dem Rücken 19 % der Zeit den Kurvenkampf ab, daher die Patts.
+- **Masse/Trägheit**: Munitionsmasse gekoppelt (40 g/Schuss). Trägheit voll 8.000/9.000/4.400 kg m² (Gier/Roll vorher 13.000/6.000, Roskam), minus Δm·r² für leere Tanks und verschossene Munition.
+- **Motor**: Rückdrehmoment, P-Faktor, Drall am Seitenleitwerk (Stil B ×0,6, feste Trimmkanten für 380 km/h). Realistisch zieht der Startlauf nach links, der Kurs ist mit ≤ 15 % Seitenruder haltbar; Arcade gleicht 90 % aus und dämpft am Boden das Gieren. Kühlung mit Thermostat-Klappe (100 °C im Vollgas-Steigflug bei 230 km/h), ab 115 °C Leistungsabfall, ab 125 °C Motorschaden, Motorlampe. Verbrauch nach abgegebener Leistung.
+- **Anzeige/Boden**: Fahrtmesser zeigt IAS, Rollreibung Gras 0,035 → 0,045.
+- **g-Toleranz** (`pilot_g_tolerance.gd`, `ui/combat/g_effect_overlay.gd`): Grauschleier ab 4,5 g, Blackout ab ≈ 5,6 g nach einigen Sekunden, langsame Erholung, Redout ab −2 g; Arcade +1,5 g und schwächerer Effekt; Einstellung „g-Effekte“. Die KI hat dieselben Grenzen, lässt ab Grauschleier nach und feuert im Blackout nicht.
+- **Bodenbetrieb**: Bunker 20.000 → 40.000 Schuss; Richtzeit Authentisch mit 2 Helfern 165 → 180 s.
+- **Tests**: neu `physics/test_m3_11.gd` (12), `ai/test_ai_brain` +2 (Hangkreis, gekrümmte Vorausschau).
+
 ## M3.9 „Windphysik“ (Entwurf, Branch m3-9-windphysik)
 
 - **Recherche** `docs/recherche_windphysik.md`: Grenzschicht (Log-Profil, Rauigkeit, Ekman-Drehung, Tagesgang), Dryden/von Kármán (MIL-F-8785C), Böenfaktor, Hang/Lee/Tal/Thermik, Fronten, wie IL-2/DCS/MSFS/JSBSim es machen, Wirkung auf Spornrad-Jäger, priorisierte Empfehlung.

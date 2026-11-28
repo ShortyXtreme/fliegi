@@ -1,7 +1,9 @@
 class_name AmmoBunker
 extends AmmoStore
 ## M3 (Strang G / Paket 1): Munitionsbunker mit endlichem Bestand
-## (Start: 7,92 mm 20.000 Schuss). Auch Munitionswagen und die getragene Kiste nutzen diese
+## (Start: 7,92 mm 40.000 Schuss; M3.11: vorher 20.000. Mit Kadenz 1.150/min und der
+## neuen Trefferverteilung kostet ein Abschuss ≈ 2,5-mal so viel Munition, die Maschinen
+## kommen öfter leer zurück -> Bestand verdoppelt, ≈ 40 volle Ladungen à 1.000 Schuss). Auch Munitionswagen und die getragene Kiste nutzen diese
 ## Klasse als Vorrat. HP und Signal destroyed: Haken für M4. Zustand kompakt über to_array().
 ## Typname wie WeaponDef.ammo_type (&"7.92mm").
 
@@ -9,7 +11,7 @@ signal destroyed
 signal changed
 
 const AMMO_792 := &"7.92mm"
-const START_792 := 20000
+const START_792 := 40000
 
 var stock := {}
 var hp := 400.0

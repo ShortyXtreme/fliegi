@@ -60,9 +60,13 @@ func test_real_hits_with_damage_and_zone_hp() -> Array:
 	d.own = a
 	var fire := [true]
 	_seat(a, func(_a, i: PilotIntent, _dt): i.fire_primary = fire[0])
-	await _step(20)
-	fire[0] = false
-	await _step(30)
+	# M3.11: Brand (Zufall je entity_id, also von der Testreihenfolge abhängig) frisst
+	# HP ohne Treffer-Eintrag -> hier sofort löschen, geprüft wird nur Log = Zonenverlust.
+	for k in 50:
+		if k == 20:
+			fire[0] = false
+		b.damage.extinguish()
+		await _step(1)
 	var mine := d.mine(50)
 	var sum := 0.0
 	for e in mine:

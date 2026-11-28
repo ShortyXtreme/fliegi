@@ -103,7 +103,7 @@ func test_stock_data() -> Array:
 	dep.draw(FuelSystem.GRADE_AVIATION, 500.0)
 	bun.request(AmmoBunker.AMMO_792, 1000)
 	var d := GroundHudData.stock(dep, bun)
-	var ok: bool = absf(d.aviation - 7500.0) < 1.0 and absf(d.ersatz - 3000.0) < 1.0 and d.ammo == 19000
+	var ok: bool = absf(d.aviation - 7500.0) < 1.0 and absf(d.ersatz - 3000.0) < 1.0 and d.ammo == AmmoBunker.START_792 - 1000
 	return [ok, "Lager %s" % str(d)]
 
 
