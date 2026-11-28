@@ -30,8 +30,6 @@ const RETREAT_HP := 0.35
 const RETREAT_FUEL := 0.12
 ## Höchstlast bei G-Nutzung 1,0 (Rekrut 0,6 → 5,4 g, Veteran 0,95 → 8,6 g).
 const MAX_G := 9.0
-## Bodenschutz-Vorausschau (s).
-const LOOKAHEAD := [1.0, 2.0, 4.0]
 ## Kollisionsvermeidung: Mindestabstand im nächsten Punkt (m) und Zeithorizont (s).
 const COLLISION_MISS := 30.0
 const COLLISION_TIME := 1.5
@@ -107,6 +105,12 @@ func _start(a: Aircraft) -> void:
 		patrol_center = a.global_position
 	if home == Vector3.INF:
 		home = patrol_center
+	var wa := 0.0
+	for s in a.flight.surfaces:
+		if s.def.is_main_wing:
+			wa += s.area
+	if wa > 1.0:
+		_wing_area = wa
 	_intent.gear_down = false
 	_intent.flaps = 0.0
 	_intent.brakes = 0.0
@@ -331,24 +335,120 @@ func _pick_maneuver(a: Aircraft, threat: AIPerception.Contact) -> void:
 
 # --- Bodenschutz -----------------------------------------------------------------
 
+## M3.11: Bodenschutz über die vorausberechnete Abfangbahn (Prinzip Auto-GCAS).
+## Vorher: gerade Bahn p + v·t (1/2/4 s) und Abfangweg bei 2,5 g -> Hänge in Kurven wurden
+## zu spät erkannt (Hügel-Duell Seed 1008 Bodenberührung), auf flachem Boden zu früh.
+## Jetzt: (1) die aktuelle Bahn wird mit der gemessenen Normalbeschleunigung als Kurve
+## fortgeschrieben, solange Reaktion und Rollen auf waagerechte Flügel dauern; (2) danach
+## Abfangen mit dem verfügbaren Lastvielfachen (Arcade-g-Grenze, Nickraten-Grenze und
+## Auftriebsgrenze CL·q·S/W), bis die Bahn GCAS_END_GAMMA steigt, dazu ein kurzes gerades
+## Stück. Entlang der ganzen Bahn wird die Geländehöhe abgefragt; der kleinste Abstand
+## (m) ist die Freiheit. Zusätzlich (3) die aktuelle Kurve selbst CURVE_T s weiter: trifft
+## sie das Gelände näher als CURVE_MARGIN × Marge, wird ebenfalls abgefangen (Kurve in den
+## Hang, bevor die Abfangbahn knapp wird). Ein Wert je Tick (Zwischenspeicher), beide
+## Hysterese-Schwellen vergleichen gegen denselben Wert.
+const GCAS_DT := 0.25
+const GCAS_REACT := 0.3            # s bis zum ersten Ruderausschlag
+const GCAS_ROLL_RATE := 1.6        # rad/s wirksam (Arcade max 2,2 mit Anlauf)
+const GCAS_ROLL_FREE := 0.6        # rad: bis zu dieser Querlage wird schon gezogen
+const GCAS_G_ONSET := 0.5          # s bis die Last aufgebaut ist
+const GCAS_G_SAFETY := 0.85        # Anteil des verfügbaren Lastvielfachen
+## Wirksamer Auftriebsbeiwert an der Begrenzer-Grenze (Abriss − 1,25°); aus der
+## gemessenen 1-g-Abrissfahrt 145 km/h IAS bei 2.500 kg (CL_max ≈ 1,44) × 0,9.
+const GCAS_CL_LIMIT := 1.3
+const GCAS_END_GAMMA := deg_to_rad(25.0)
+const GCAS_MAX_T := 9.0
+const GCAS_TAIL_T := 1.5
+const CURVE_T := 4.0
+const CURVE_MARGIN := 0.5
+var _gcas_tick := -1
+var _gcas_clear := Vector2(INF, INF)
+var _wing_area := 17.2
+
+
 func _ground_threat(a: Aircraft, margin_mul: float) -> bool:
-	var p := a.global_position
-	var v := a.linear_velocity
 	var m := _diff.ground_margin * margin_mul
+	var p := a.global_position
 	if p.y - WorldGround.height_at(p.x, p.z) < m * 0.6:
 		return true
-	for t in LOOKAHEAD:
-		var q: Vector3 = p + v * t
-		var h := maxf(WorldGround.height_at(q.x, q.z), WorldGround.height_at(
-				lerpf(p.x, q.x, 0.5), lerpf(p.z, q.z, 0.5)))
-		if q.y < h + m:
-			return true
-	# Sinkflug: Abfangweg bei ~2,5 g plus Rollzeit
-	if v.y < 0.0:
-		var need := v.y * v.y / (2.0 * 9.81 * 2.5) + absf(v.y) * 1.0 + m
-		if p.y - WorldGround.height_at(p.x, p.z) < need:
-			return true
-	return false
+	if _gcas_tick != _ticks:
+		_gcas_tick = _ticks
+		_gcas_clear = ground_clearance(a)
+	return _gcas_clear.x < m or _gcas_clear.y < m * CURVE_MARGIN
+
+
+## Kleinster vorhergesagter Abstand (m) über Gelände: x = Abfangbahn, y = aktuelle Kurve
+## über CURVE_T s (s. o.).
+func ground_clearance(a: Aircraft) -> Vector2:
+	var p := a.global_position
+	var v := a.linear_velocity
+	var speed := v.length()
+	if speed < 5.0:
+		var h0 := p.y - WorldGround.height_at(p.x, p.z)
+		return Vector2(h0, h0)
+	var b := a.global_transform.basis
+	var t := a.telemetry()
+	var g := 9.81
+	# Phase 1: aktuelle Kurve (Normalbeschleunigung aus g-Last entlang der Hochachse
+	# plus Schwerkraft, ohne Anteil längs der Bahn) als Drehung des Geschwindigkeitsvektors.
+	var acc := b.y * (clampf(t.g_load, -3.0, 9.0) * g) + Vector3.DOWN * g
+	var vdir := v / speed
+	var a_perp := acc - vdir * acc.dot(vdir)
+	var omega := vdir.cross(a_perp) / speed           # rad/s, Achse × Betrag
+	var bank := atan2(-b.x.y, b.y.y)                 # 0 = waagerecht, ±PI = Rücken
+	var t_roll := maxf(absf(bank) - GCAS_ROLL_FREE, 0.0) / GCAS_ROLL_RATE
+	var t1 := GCAS_REACT + t_roll
+	var clear := INF
+	var curve := INF
+	var q := p
+	var vel := v
+	var qc := p
+	var vc := v
+	var tt := 0.0
+	var w_len := omega.length()
+	var t_end := maxf(t1, CURVE_T)
+	while tt < t_end:
+		var dt := minf(GCAS_DT, t_end - tt)
+		if tt < t1:
+			dt = minf(dt, t1 - tt)
+		if w_len > 1e-4:
+			vc = vc.rotated(omega / w_len, w_len * dt)
+		qc += vc * dt
+		tt += dt
+		var c := qc.y - WorldGround.height_at(qc.x, qc.z)
+		curve = minf(curve, c)
+		if tt <= t1 + 1e-4:
+			q = qc
+			vel = vc
+			clear = minf(clear, c)
+	# Phase 2: Abfangen in der senkrechten Ebene der momentanen Flugrichtung.
+	var v_h := Vector3(vel.x, 0.0, vel.z)
+	var head := v_h.normalized() if v_h.length() > 0.1 * speed \
+			else _flat(b.y if b.y.y >= 0.0 else -b.y)
+	var vs := speed
+	var gamma := asin(clampf(vel.y / speed, -1.0, 1.0))
+	var n0 := clampf(t.g_load, 0.0, 9.0)
+	var t2 := 0.0
+	var tail := 0.0
+	while t2 < GCAS_MAX_T and tail < GCAS_TAIL_T:
+		var rho := FlightModel.air_density(q.y)
+		var n_aero := 0.5 * rho * vs * vs * _wing_area * GCAS_CL_LIMIT / (a.mass * g)
+		var n_rate := a.data.arcade_max_pitch_rate * vs / g + cos(gamma)
+		var n_av := minf(minf(a.data.arcade_g_limit, n_rate), n_aero) * GCAS_G_SAFETY
+		var n := lerpf(n0, n_av, clampf(t2 / GCAS_G_ONSET, 0.0, 1.0))
+		if gamma < GCAS_END_GAMMA:
+			gamma += (n - cos(gamma)) * g / maxf(vs, 20.0) * GCAS_DT
+		else:
+			gamma = GCAS_END_GAMMA
+			tail += GCAS_DT
+		# Fahrt: Schwerkraft längs der Bahn und Widerstand im Ziehen (grob)
+		vs = maxf(vs - (g * sin(gamma) + 0.8 * maxf(n - 1.0, 0.0)) * GCAS_DT, 25.0)
+		q += (head * cos(gamma) + Vector3.UP * sin(gamma)) * vs * GCAS_DT
+		t2 += GCAS_DT
+		clear = minf(clear, q.y - WorldGround.height_at(q.x, q.z))
+		if gamma > 0.0 and q.y - p.y > 0.0 and clear > 1000.0:
+			break
+	return Vector2(clear, curve)
 
 
 func _ground_recovery(a: Aircraft, i: PilotIntent) -> PilotIntent:

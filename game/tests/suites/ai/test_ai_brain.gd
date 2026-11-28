@@ -79,6 +79,7 @@ func test_pursuit_fires_and_hits() -> Array:
 func test_ground_avoid_from_dive() -> Array:
 	var me := U.spawn(world, Vector3(0, 700, 0), Vector3(0, -1.7, -1), Nations.BLUE, 1, 140.0)
 	var brain := U.brain(me, "rekrut", 2)
+	brain.patrol_altitude = 0.0      # M3.11: Patrouille will tiefer, nur der Bodenschutz fängt ab
 	var min_alt := INF
 	var saw := false
 	for k in 600:
@@ -91,12 +92,68 @@ func test_ground_avoid_from_dive() -> Array:
 func test_ground_avoid_inverted() -> Array:
 	var me := U.spawn(world, Vector3(0, 450, 0), Vector3(0, -0.6, -1), Nations.BLUE, 1, 120.0)
 	me.global_transform.basis = me.global_transform.basis * Basis(Vector3.FORWARD, PI)
-	U.brain(me, "erfahren", 3)
+	var br := U.brain(me, "erfahren", 3)
+	br.patrol_altitude = 0.0
 	var min_alt := INF
 	for k in 600:
 		await _step(1)
 		min_alt = minf(min_alt, me.global_position.y)
 	return [min_alt > 60.0, "Rückenflug-Sinkflug aus 450 m: tiefster Punkt %.0f m" % min_alt]
+
+
+## M3.11: Kurvenflug am Hang. Patrouille kreist in 1.500 m Abstand um die 1.000-m-Kuppe
+## der Hügel-Arena, Sollhöhe 600 m liegt fast auf Geländehöhe (≈ 510 m): der Bodenschutz
+## muss in der Kurve über die gekrümmte Bahn abfangen. 60 s ohne Bodenberührung.
+func test_ground_avoid_hill_orbit() -> Array:
+	(world as DuelArena).set_hills(true)
+	await _step(1)
+	var me := U.spawn(world, Vector3(1500, 800, 0), Vector3.FORWARD, Nations.BLUE, 1, 120.0)
+	var brain := U.brain(me, "erfahren", 6)
+	brain.patrol_center = Vector3.ZERO
+	brain.patrol_radius = 1500.0
+	brain.patrol_altitude = 600.0
+	var min_agl := INF
+	var gcas := 0
+	for k in 3600:
+		await _step(1)
+		var p := me.global_position
+		min_agl = minf(min_agl, p.y - WorldGround.height_at(p.x, p.z))
+		gcas += 1 if brain.state == AIPilotBrain.State.GROUND_AVOID else 0
+	(world as DuelArena).set_hills(false)
+	return [min_agl > 40.0 and not me.damage.is_destroyed,
+			"Hangkreis 60 s: tiefster Abstand %.0f m, Bodenschutz %.1f s" % [min_agl, gcas / 60.0]]
+
+
+## M3.11: Vorausschau über die gekrümmte Bahn. 4-g-Kurve (75° Querlage) am steilsten Teil
+## des Hangs (r = σ) zur Kuppe hin: die gerade Bahn (1/2/4 s) liegt über der Marge, die
+## fortgeschriebene Kurve trifft den Hang -> Kurven-Freiheit < halbe Marge (60 m).
+## Gleiche Kurve vom Hang weg: frei.
+func test_ground_clearance_curved() -> Array:
+	(world as DuelArena).set_hills(true)
+	await _step(1)
+	var me := U.spawn(world, Vector3(0, 760, 1300), Vector3.LEFT, Nations.BLUE, 1, 110.0)
+	me.freeze = true
+	var brain := U.brain(me, "erfahren", 7)
+	await _step(1)
+	var base := Basis.looking_at(Vector3.LEFT, Vector3.UP)
+	# Rollen um die Längsachse: negativer Winkel um FORWARD (−z lokal) = rechte Fläche unten
+	me.global_transform.basis = base * Basis(Vector3.FORWARD, deg_to_rad(-75.0))
+	var right_down := me.global_transform.basis.y.z < 0.0   # Auftrieb zeigt zur Kuppe (−z)
+	if not right_down:
+		me.global_transform.basis = base * Basis(Vector3.FORWARD, deg_to_rad(75.0))
+	me.linear_velocity = Vector3.LEFT * 110.0
+	me.telemetry().g_load = 4.0
+	var c_turn := brain.ground_clearance(me)
+	var straight := INF
+	for t in [1.0, 2.0, 4.0]:
+		var q: Vector3 = me.global_position + me.linear_velocity * t
+		straight = minf(straight, q.y - WorldGround.height_at(q.x, q.z))
+	me.global_transform.basis = base * Basis(Vector3.FORWARD, deg_to_rad(75.0 if not right_down else -75.0) * -1.0)
+	var c_away := brain.ground_clearance(me)
+	(world as DuelArena).set_hills(false)
+	return [c_turn.y < 60.0 and straight > 120.0 and c_away.y > 120.0 and c_turn.x > 60.0,
+			"Kurve zur Kuppe: Kurve %.0f m / Abfangbahn %.0f m, gerade Bahn %.0f m, Kurve weg %.0f m" % [
+				c_turn.y, c_turn.x, straight, c_away.y]]
 
 
 func test_evade_when_attacked() -> Array:
