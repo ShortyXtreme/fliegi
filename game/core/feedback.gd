@@ -280,8 +280,10 @@ func _is_trigger(event: InputEvent) -> bool:
 
 ## Tastenbelegung wartet gerade auf eine Taste: F8 dort nicht abfangen.
 func _rebind_capturing() -> bool:
-	for m in get_tree().root.find_children("*", "GameMenu", true, false):
-		if (m as GameMenu).capture != &"":
+	var sc := get_tree().current_scene
+	var menus := [sc.get("menu") if sc != null else null, game.get("pause_menu") if game != null and is_instance_valid(game) else null]
+	for m in menus:
+		if m is GameMenu and is_instance_valid(m) and (m as GameMenu).capture != &"":
 			return true
 	return false
 
