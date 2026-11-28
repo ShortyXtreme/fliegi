@@ -436,3 +436,26 @@ Alle Werte liegen in `.tres`. „/min“ heißt Partieminute, Tempo multiplizier
 - /home/claude/fliegi/game/ai/brain/ai_pilot_brain.gd (Bodenangriff, Bodenschutz)
 - /home/claude/fliegi/game/core/match_rules.gd (Tempo, Zeitlimit, Seed)
 - /home/claude/fliegi/game/world/combat_scenario.gd, game.gd (Szenario „Partie“)
+
+## 8. Antworten des Product Owners (28.11.2026)
+
+| # | Frage | Antwort |
+|---|---|---|
+| 1 | Bodenangriff | **A:** Bomben-Ausrüstung am vorhandenen Jäger; eigener Bomber erst im nächsten Meilenstein |
+| 2 | Zug | **A:** Nein, nur Lkw-Kolonnen |
+| 3 | Flugzeuge begrenzt | **A:** Für alle gleich; ohne freie Maschine kann der Spieler einem KI-Piloten die Maschine abnehmen |
+| 4 | Kriegskraft sichtbar | **A:** Nur am Planungstisch und in der Lagebesprechung, im Flug grobe Funkmeldung |
+| 5 | Wissen über feindliche Wirtschaft | **B (abweichend von der Empfehlung): Alles muss erst entdeckt werden, auch der Standort.** |
+| 6 | Planung | **A:** Planen nur am Planungstisch; am Boden überall Karte ansehen und funken, im Flug nur funken |
+| 7 | Neubau | **A:** Feste Bauplätze (je 3 am Flugplatz und an der Industrie) |
+| 8 | Übergang Tier II | **A:** Großer Kriegskraft-Bonus + Meldung an alle, Partie läuft weiter |
+| 9 | Koop | **A:** Nein, M4 Einzelspieler; Koop in M5 (mit Speichern/Laden), Architektur MP-tauglich |
+| 10 | Ausbildung Bodenpersonal | **A:** Später, zusammen mit dem Anwerben |
+
+### Folgen aus Antwort 5 („alles entdecken“) für die Pakete
+- **Karte/Aufklärung:** Feindliche Gebäude, Straßen und Lager sind auf der eigenen Karte anfangs unbekannt (nur eigenes Gebiet, Front-/Flusslinie und grobes Gelände). Entdeckt wird durch Sichtkontakt im Flug (Sichtweite abhängig von Höhe, Wetter, Tarnung), Aufklärungsfotos/Überflug, Beobachtungsposten, Funkhorchdienst (später) und Hinweise aus gefangenen/geretteten Piloten bzw. Kolonnenverfolgung (Lkw fahren dorthin, wo etwas ist).
+- **Wissen veraltet:** Einmal entdeckte Standorte bleiben bekannt; Zustand (Schaden, Füllstand) hat einen Zeitstempel und veraltet.
+- **Paket 14 (Aufklärung, Posten) früher einplanen**, da ohne Entdeckung kein Angriff möglich ist; Paket 16 (Strategiekarte) zeigt nur Bekanntes je Nation (Sichtbarkeit je Nation ist ohnehin MP-Regel).
+- **KI fair:** Die KI-Nation muss die Wirtschaft des Spielers genauso erst entdecken (keine Allwissenheit); ihre Aufklärungsflüge sind sichtbar/abfangbar.
+- **Spielfluss:** Damit die ersten 15 min nicht leer sind, starten beide Nationen mit grober Aufklärung des Grenzgebiets (z. B. 1–2 grenznahe Ziele bekannt) und die KI schickt früh Aufklärer; Testpartie-Ablauf in Abschnitt 4 entsprechend anpassen.
+- **Abnahmetests:** Unentdecktes Ziel erscheint nicht auf Karte/Planungstisch; nach Überflug innerhalb Sichtweite wird es entdeckt; KI greift nur entdeckte Ziele an; Zustandsinfo veraltet mit Zeitstempel.
