@@ -255,9 +255,9 @@ func _process(dt: float) -> void:
 	var thr := player.throttle if player else t.throttle_actual
 	var flaps := int(round(aircraft.pilot_seat.intent.flaps * 100.0))
 	var stall_aoa_deg := rad_to_deg(t.stall_aoa)
-	_info.text = "%s  [%s]\nFahrt   %4.0f km/h\nHöhe    %4.0f m  (Grund %4.0f m)\nSteigen %+5.1f m/s\nGas     %3.0f %%   Klappen %d %%\nFahrwerk %s\nAnstellw. %+5.1f°  (Abriss ~%.0f°)\nG       %4.1f\nModus   %s%s\nKamera  %s\nFPS     %d" % [
+	_info.text = "%s  [%s]\nFahrt   %4.0f km/h IAS\nHöhe    %4.0f m  (Grund %4.0f m)\nSteigen %+5.1f m/s\nGas     %3.0f %%   Klappen %d %%\nFahrwerk %s\nAnstellw. %+5.1f°  (Abriss ~%.0f°)\nG       %4.1f\nModus   %s%s\nKamera  %s\nFPS     %d" % [
 		aircraft.data.display_name, VERSION,
-		t.airspeed * 3.6, t.altitude, t.height_agl, t.climb_rate,
+		t.ias * 3.6, t.altitude, t.height_agl, t.climb_rate,
 		thr * 100.0, flaps, gear_text(t),
 		rad_to_deg(t.aoa) if t.airspeed > 10.0 else 0.0, stall_aoa_deg, t.g_load,
 		FlightAssist.MODE_NAMES[aircraft.assist_mode],

@@ -13,7 +13,8 @@ extends Resource
 @export var steer_max_deg: float = 0.0
 @export var has_brake: bool = false
 @export var brake_friction: float = 0.55
-@export var rolling_friction: float = 0.035
+## M3.11: feste, kurze Wiese 0,04–0,06 (Prüfung Flugphysik, ERAU Takeoff & Landing); vorher 0,035.
+@export var rolling_friction: float = 0.045
 @export var lateral_friction: float = 0.9
 ## Einziehbar (Hauptfahrwerk). Das Spornrad ist fest.
 @export var retractable: bool = true

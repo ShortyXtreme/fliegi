@@ -192,3 +192,45 @@ func test_fuel_follows_power() -> Array:
 	var ok: bool = r[0][0] > 300.0 and r[0][0] < 345.0 and ratio > 0.65 and ratio < 0.85
 	return [ok, "Vollgas 500 m: %.0f l/h (Leistung %.2f), 7.000 m: %.0f l/h (Leistung %.2f), Verhältnis %.2f" % [
 		r[0][0], r[0][1], r[1][0], r[1][1], ratio]]
+
+
+# --- Punkt 5: Fahrtmesser und Rollreibung ----------------------------------------
+
+## Fahrtmesser (Flug-Panel) zeigt IAS: in 4.000 m bei 400 km/h wahrer Fahrt ≈ 327 km/h.
+func test_airspeed_indicator_ias() -> Array:
+	var a := _spawn(false, 4000.0, 400.0 / 3.6, 1.0)
+	await _step(2)
+	var d := FlightPanel.gather(a, null, null)
+	var want := a.telemetry().airspeed * 3.6 * sqrt(FlightModel.air_density(a.global_position.y) / 1.225)
+	var ok: bool = absf(d.speed_kmh - want) < 1.0 and d.speed_kmh < d.tas_kmh * 0.85
+	return [ok, "Anzeige %.0f km/h (IAS), wahre Fahrt %.0f km/h" % [d.speed_kmh, d.tas_kmh]]
+
+
+## Rollreibung Gras 0,045: Ausrollen mit Leerlauf von 15 auf 8 m/s, mittlere Verzögerung
+## ≈ μ·g − Leerlaufschub/m (≈ 0,44 − 0,15 m/s²).
+func test_grass_rolling_friction() -> Array:
+	var a := _spawn(true)
+	await _step(5)
+	var mu: float = a.data.wheels[0].rolling_friction
+	_seat(a, func(_ac: Aircraft, i: PilotIntent, _dt: float) -> void:
+		i.assist_mode = FlightAssist.Mode.REALISTIC
+		i.throttle = 0.0
+		i.brakes = 0.0
+		i.gear_down = true)
+	await _step(5)
+	a.linear_velocity = -a.global_transform.basis.z.slide(Vector3.UP).normalized() * 15.0
+	var t := 0.0
+	var v0 := -1.0
+	var t0 := 0.0
+	for k in 1200:
+		await get_tree().physics_frame
+		t += 1.0 / 60.0
+		var v := a.linear_velocity.length()
+		if v0 < 0.0 and v <= 14.0:
+			v0 = v
+			t0 = t
+		if v0 > 0.0 and v <= 8.0:
+			break
+	var decel := (v0 - a.linear_velocity.length()) / maxf(t - t0, 1e-3)
+	var ok := is_equal_approx(mu, 0.045) and decel > 0.2 and decel < 0.6
+	return [ok, "μ_Roll %.3f, Ausrollen 14 -> 8 m/s: %.2f m/s² in %.1f s" % [mu, decel, t - t0]]

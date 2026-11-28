@@ -23,7 +23,9 @@ static func gather(aircraft: Aircraft, player: PlayerController, cam: CameraRig,
 		debug := false) -> Dictionary:
 	var t := aircraft.telemetry()
 	var d := {}
-	d.speed_kmh = t.airspeed * 3.6
+	# M3.11: Fahrtmesser zeigt angezeigte Fahrt (IAS), nicht die wahre Fahrt
+	d.speed_kmh = t.ias * 3.6
+	d.tas_kmh = t.airspeed * 3.6
 	d.altitude = t.altitude
 	d.agl = t.height_agl
 	d.climb = t.climb_rate

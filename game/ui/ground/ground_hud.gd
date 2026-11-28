@@ -443,7 +443,7 @@ func key_state() -> Dictionary:
 		st.engine_off = ec != null and not ec.is_running()
 		st.next_switch = ec.next_switch_label() if ec != null else ""
 		st.realistic = pl != null and pl.assist_mode == FlightAssist.Mode.REALISTIC
-		st.speed_kmh = t.airspeed * 3.6
+		st.speed_kmh = t.ias * 3.6
 		st.parking_brake = FlightPanel.show_parking_brake(pl, t)
 		st.gear_down = t.gear_down_cmd
 		st.agl = t.height_agl
