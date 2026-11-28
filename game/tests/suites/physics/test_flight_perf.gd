@@ -234,6 +234,7 @@ func test_perf_takeoff() -> Array:
 		i.throttle = 1.0
 		i.flaps = 0.5
 		i.yaw = Autopilot.hold_heading(ac.global_transform.basis, -t.angular_velocity_local.y, TestWorld.RUNWAY_DIR)
+		i.roll = clampf(ac.global_transform.basis.x.y * 3.0, -1.0, 1.0)   # M3.11: Rückdrehmoment
 		i.pitch = -0.2 if t.airspeed < 30.0 else 0.35)
 	for f in 60 * 60:
 		await get_tree().physics_frame

@@ -30,6 +30,8 @@ const RETREAT_HP := 0.35
 const RETREAT_FUEL := 0.12
 ## Höchstlast bei G-Nutzung 1,0 (Rekrut 0,6 → 5,4 g, Veteran 0,95 → 8,6 g).
 const MAX_G := 9.0
+## M3.11: ab diesem Grauschleier (0..1) nimmt die KI Zug vom Knüppel.
+const G_EASE_FROM := 0.5
 ## Kollisionsvermeidung: Mindestabstand im nächsten Punkt (m) und Zeithorizont (s).
 const COLLISION_MISS := 30.0
 const COLLISION_TIME := 1.5
@@ -139,7 +141,10 @@ func compute_intent(dt: float) -> PilotIntent:
 		return i.clamp_values()
 	i.assist_mode = FlightAssist.Mode.ARCADE \
 			if FlightAssist.Mode.ARCADE in a.allowed_assist_modes else a.assist_mode
-	perception.update(dt)
+	# M3.11: im Blackout/Redout sieht der Pilot nichts (Lagebild bleibt stehen, kein Feuer)
+	var blind := a.pilot_g.is_blind()
+	if not blind:
+		perception.update(dt)
 	target = perception.best_target()
 	_update_noise(dt)
 	_set_state(_decide(a, dt), dt)
@@ -173,9 +178,14 @@ func compute_intent(dt: float) -> PilotIntent:
 	# G-Nutzung: Ziehen auf g_use × MAX_G begrenzen (Arcade: Knüppel = Nickrate).
 	var v := maxf(a.telemetry().airspeed, 30.0)
 	var stick_max := clampf(g_scale * MAX_G * 9.81 / (v * a.data.arcade_max_pitch_rate), 0.1, 1.0)
+	# M3.11: Grauschleier -> der Pilot lässt nach (wie ein Mensch), damit er nicht wegtritt
+	if a.pilot_g.grey > G_EASE_FROM:
+		stick_max *= clampf(1.0 - (a.pilot_g.grey - G_EASE_FROM) * 1.2, 0.4, 1.0)
 	i.pitch = minf(s.x, stick_max)
 	i.roll = s.y
 	i.yaw = s.z
+	if blind:
+		i.fire_primary = false
 	return i.clamp_values()
 
 

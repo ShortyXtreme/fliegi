@@ -34,6 +34,8 @@ var pilot: PilotRecord = null
 ## Kampfsysteme (Stubs aus Paket 0).
 var weapons: WeaponSystem
 var damage: DamageModel
+## M3.11: g-Toleranz des Piloten (Grauschleier/Blackout/Redout), Spieler und KI.
+var pilot_g := PilotGTolerance.new()
 ## M3.5: Teile abtrennen (Flügel, Leitwerk) -> Debris.
 var breakup: AircraftBreakup
 ## Vom Server erlaubte Hilfen-Modi (Lobby-Einstellung).
@@ -145,6 +147,11 @@ func _physics_process(dt: float) -> void:
 	weapons.tick(_intent, dt)
 	damage.tick(dt)
 	_update_fuel(dt)
+	if damage.pilot_aboard():
+		pilot_g.tick(dt, clampf(flight.telemetry.g_load, -6.0, 12.0),
+				assist_mode == FlightAssist.Mode.ARCADE)
+	else:
+		pilot_g.reset()
 	# Server entscheidet, ob der gewünschte Modus erlaubt ist.
 	if Authority.is_server() and _intent.assist_mode in allowed_assist_modes:
 		assist_mode = _intent.assist_mode
@@ -240,6 +247,7 @@ func place(xf: Transform3D, speed: float = 0.0, throttle: float = 0.0,
 	if service != null:
 		service.apply(self)
 	_eject_prev = false
+	pilot_g.reset()
 	if visual:
 		visual.snap_gear(flight.gear.extension)
 	flight.engine.throttle_actual = throttle

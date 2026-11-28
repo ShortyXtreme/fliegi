@@ -40,6 +40,8 @@ const OPTIONS := [
 	["vegetation", "m3_7", "Vegetation", Vegetation.LEVELS, Vegetation.LABELS, "mittel"],
 	# M3.8: Wind (gilt ab der nächsten Partie; Tutorial höchstens schwach, Selbsttest aus)
 	["wind", "m3_8", "Wind", Weather.LEVELS, Weather.LABELS, "normal"],
+	# M3.11: Bildschirmeffekt der g-Toleranz (Grauschleier, Blackout, Redout)
+	["g_effekte", "m3_11", "g-Effekte (Grauschleier/Blackout)", ["an", "aus"], ["An", "Aus"], "an"],
 ]
 const VOL := [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 const VOL_LABELS := ["0 %", "10 %", "20 %", "30 %", "40 %", "50 %", "60 %", "70 %", "80 %", "90 %", "100 %"]
@@ -139,6 +141,7 @@ static func apply_runtime(game: Node = null) -> void:
 	InteractionGuide.enabled = get_value("hilfen") != "aus"
 	InteractionHint.arcade = get_value("flug") != "realistisch"
 	RadioPanel.beep_on = get_value("funk_piep") != "aus"
+	GEffectOverlay.enabled = get_value("g_effekte") != "aus"
 	Vegetation.set_level(maxi(Vegetation.LEVELS.find(String(get_value("vegetation"))), 0))
 	CombatHud.radar_mode = CombatHud.RadarMode.ALWAYS if get_value("radar") == "immer" \
 		else CombatHud.RadarMode.COMBAT_ONLY

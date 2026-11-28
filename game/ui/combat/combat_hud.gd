@@ -34,6 +34,8 @@ var kill_feed: KillFeed
 var alerts: AlertStack
 ## M3.5: Schalterpanel (Motor/Elektrik) neben dem Flug-Panel, letzte Motor-Meldung.
 var switch_panel: SwitchPanel
+## M3.11: Grauschleier/Blackout/Redout über allem
+var g_effect: GEffectOverlay
 var engine_msg := ""
 var _engine_msg_t := 0.0
 var _ec: EngineControl
@@ -77,6 +79,8 @@ func _ready() -> void:
 	add_child(alerts)
 	switch_panel = SwitchPanel.new()
 	add_child(switch_panel)
+	g_effect = GEffectOverlay.new()
+	add_child(g_effect)
 	theme = HudStyle.theme()
 
 
@@ -131,6 +135,7 @@ func _process(dt: float) -> void:
 		overlay.on_eject_denied()
 	overlay.tick(dt)
 	kill_feed.tick(dt)
+	g_effect.update_from(a.pilot_g)
 
 
 func _update_switches(a: Aircraft, dt: float) -> void:

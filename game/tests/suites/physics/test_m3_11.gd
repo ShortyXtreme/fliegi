@@ -234,3 +234,83 @@ func test_grass_rolling_friction() -> Array:
 	var decel := (v0 - a.linear_velocity.length()) / maxf(t - t0, 1e-3)
 	var ok := is_equal_approx(mu, 0.045) and decel > 0.2 and decel < 0.6
 	return [ok, "μ_Roll %.3f, Ausrollen 14 -> 8 m/s: %.2f m/s² in %.1f s" % [mu, decel, t - t0]]
+
+
+# --- Punkt 6: g-Toleranz ---------------------------------------------------------
+
+static func _g_run(t: PilotGTolerance, g: float, secs: float, arcade := false) -> void:
+	for k in int(secs * 60.0):
+		t.tick(1.0 / 60.0, g, arcade)
+
+
+## Zeitverlauf (Realistisch): 5 g anhaltend Grauschleier ohne Blackout, 6,5 g Blackout nach
+## einigen Sekunden, 7,5 g für 2 s nur leichter Schleier, langsame Erholung, Redout bei
+## −3 g. Arcade abgeschwächt.
+func test_g_tolerance_profile() -> Array:
+	var t := PilotGTolerance.new()
+	_g_run(t, 5.0, 20.0)
+	var grey5 := t.grey
+	var black5 := t.black
+	t.reset()
+	var t_black := -1.0
+	for k in 900:
+		t.tick(1.0 / 60.0, 6.5, false)
+		if t_black < 0.0 and t.black > 0.9:
+			t_black = k / 60.0
+	_g_run(t, 1.0, 3.0)
+	var still_dark := t.black            # Erholung langsam
+	_g_run(t, 1.0, 12.0)
+	var recovered := t.black + t.grey
+	t.reset()
+	_g_run(t, 7.5, 2.0)
+	var spike := t.grey
+	_g_run(t, 1.0, 10.0)
+	t.reset()
+	_g_run(t, -3.0, 6.0)
+	var red3 := t.red
+	t.reset()
+	_g_run(t, -1.5, 6.0)
+	var red15 := t.red
+	t.reset()
+	_g_run(t, 6.5, 15.0, true)
+	var arc_black := t.black
+	var ok := grey5 > 0.3 and grey5 < 0.8 and black5 < 0.01 and t_black > 4.0 and t_black < 10.0 \
+		and still_dark > 0.4 and recovered < 0.05 and spike < 0.25 and red3 > 0.9 and red15 < 0.01 \
+		and arc_black < 0.01
+	return [ok, "5 g: Schleier %.2f / Blackout %.2f; 6,5 g: Blackout nach %.1f s, 3 s danach noch %.2f, nach 15 s %.2f; 7,5 g für 2 s: Schleier %.2f; −3 g: Redout %.2f, −1,5 g: %.2f; Arcade 6,5 g: Blackout %.2f" % [
+		grey5, black5, t_black, still_dark, recovered, spike, red3, red15, arc_black]]
+
+
+## Effekt: Overlay-Stufen folgen dem Piloten, Arcade abgeschwächt, Einstellung schaltet ab.
+## Am Flugzeug: Spieler und KI haben dieselbe Toleranz; die KI feuert im Blackout nicht.
+func test_g_effect_overlay_and_ai() -> Array:
+	var t := PilotGTolerance.new()
+	_g_run(t, 7.0, 12.0)
+	var real := GEffectOverlay.levels(t, true)
+	t.arcade = true
+	var arc := GEffectOverlay.levels(t, true)
+	var off := GEffectOverlay.levels(t, false)
+	var ov := GEffectOverlay.new()
+	add_child(ov)
+	t.arcade = false
+	ov.update_from(t)
+	var vis := ov.visible
+	ov.queue_free()
+	# KI-Pilot im Blackout: kein Feuer
+	var a := _spawn(false, 1500.0, 120.0, 0.8)
+	var foe := _spawn(false, 1500.0, 120.0, 0.8)
+	foe.nation_id = Nations.RED
+	foe.global_position = a.global_position + (-a.global_transform.basis.z) * 200.0
+	var br := AIPilotBrain.new()
+	br.difficulty = AIDifficulty.load_level("veteran")
+	a.add_child(br)
+	a.pilot_seat.possess(br)
+	var fired := false
+	for k in 120:
+		a.pilot_g.black = 1.0
+		a.pilot_g.grey = 1.0
+		await get_tree().physics_frame
+		fired = fired or br.last_intent().fire_primary
+	var ok := real.y > 0.9 and arc.y < real.y * 0.7 and off == Vector3.ZERO and vis and not fired
+	return [ok, "Overlay real %s, Arcade %s, aus %s, sichtbar %s; KI im Blackout gefeuert: %s" % [
+		real, arc, off, vis, fired]]
