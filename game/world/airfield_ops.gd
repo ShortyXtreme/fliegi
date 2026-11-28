@@ -123,6 +123,7 @@ func _buildings() -> void:
 	for k in HANGAR_COUNT:
 		var key := "hangar" if k == 0 else "hangar_%d" % k
 		var h := _put(load_model("hangar"), key, layout.to_scene(layout.hangar + Vector3(0, 0, -HANGAR_SPACING * k)), FACE_EAST)
+		dress_hangar(h)
 		if h == null or decor_only:
 			continue
 		GroundNav.register_model(h)
@@ -148,6 +149,18 @@ func _buildings() -> void:
 		m.name = "parking_mark_%d" % i
 		m.global_transform = Transform3D(xf.basis, _ground(xf.origin) + Vector3(0, 0.03, 0))
 		model_meshes["parking_mark"] = mesh_count(m)
+
+
+## M3.13: Stirnwände und Torflügel der Halle mit weathered_brown_planks (senkrechte Bretter, triplanar)
+## statt der gebackenen Holz-Textur; Dach, Bögen, Fundament bleiben. Nur mit Texturen (Stufe Mittel/Hoch).
+static func dress_hangar(h: Node3D) -> void:
+	if h == null or GroundTextures.effective_level() == GroundTextures.Level.NIEDRIG:
+		return
+	var m := AirfieldDressing.wood_mat("bretter", Color(0.45, 0.40, 0.33), 0.0, true, 2.4)
+	for mi in h.find_children("*", "MeshInstance3D", true, false):
+		var n := String(mi.name)
+		if n.begins_with("front_wall") or n.begins_with("back_wall") or n.begins_with("door_leaf"):
+			(mi as MeshInstance3D).material_override = m
 
 
 ## Kollisionsbox um das Modell (Tanklager, Bunker), etwas kleiner als die Umrisse.

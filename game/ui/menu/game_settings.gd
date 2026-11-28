@@ -4,6 +4,7 @@ extends RefCounted
 ## CombatScenario ([m2] ki_stufe) und MatchRules ([m3] bodenbetrieb) beim Spielstart lesen.
 ## Neu: [m3_2] flug = "arcade" | "realistisch", radar = "immer" | "kampf", maus = 0,5 … 2,0.
 ## M3.8: [m3_8] wind = "aus" | "schwach" | "normal" | "stark".
+## M3.13: [m3_13] texturen = "niedrig" | "mittel" | "hoch".
 ## M3.3: [audio] vol_master/vol_motor/vol_waffen/vol_umgebung/vol_ui = 0,0 … 1,0, alarmton = "sirene" | "glocke".
 ## apply_runtime() setzt die sofort wirksamen Werte (Flugmodus, Radar, Maus) im laufenden Spiel.
 
@@ -38,6 +39,8 @@ const OPTIONS := [
 	["alarmton", "audio", "Alarmton", ["sirene", "glocke"], ["Sirene", "Glocke"], "sirene"],
 	# M3.7: Bäume, Büsche, Gras (Dichte und Sichtweite), Standard Mittel
 	["vegetation", "m3_7", "Vegetation", Vegetation.LEVELS, Vegetation.LABELS, "mittel"],
+	# M3.13: Texturqualität (Boden, Rinde, Holz): Niedrig = prozedural, Mittel = 1K, Hoch = Gelände 2K
+	["texturen", "m3_13", "Texturqualität", GroundTextures.LEVELS, GroundTextures.LABELS, "mittel"],
 	# M3.8: Wind (gilt ab der nächsten Partie; Tutorial höchstens schwach, Selbsttest aus)
 	["wind", "m3_8", "Wind", Weather.LEVELS, Weather.LABELS, "normal"],
 	# M3.11: Bildschirmeffekt der g-Toleranz (Grauschleier, Blackout, Redout)
@@ -143,6 +146,7 @@ static func apply_runtime(game: Node = null) -> void:
 	RadioPanel.beep_on = get_value("funk_piep") != "aus"
 	GEffectOverlay.enabled = get_value("g_effekte") != "aus"
 	Vegetation.set_level(maxi(Vegetation.LEVELS.find(String(get_value("vegetation"))), 0))
+	GroundTextures.set_level_name(String(get_value("texturen")))
 	CombatHud.radar_mode = CombatHud.RadarMode.ALWAYS if get_value("radar") == "immer" \
 		else CombatHud.RadarMode.COMBAT_ONLY
 	if game != null:

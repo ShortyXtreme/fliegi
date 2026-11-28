@@ -10,6 +10,9 @@ extends RefCounted
 ##   zwei Windsäcke (Windsock, animiert), Rollwege und Abstellfläche aus dem Rollweg-Graph,
 ##   Platzrand (Hecke West/Nord/Süd, Holzzaun Ost), Flugleitung mit Funkmast, Holzschuppen, Fässer.
 ## Gebäude (Flugleitung, Schuppen) haben Kollision (auch headless), der Rest ist nur Optik.
+## M3.13: echte Texturen (GroundTextures, Poly Haven CC0): Pistengrund und Farbflecken aerial_grass_rock,
+## Rollwege/Abstellfläche/abgenutzte Grasbahnen dirt_floor (ground_decal.gdshader), Schuppen
+## weathered_brown_planks, Flugleitung wood_peeling_paint_weathered (wood.gdshader, triplanar).
 
 const HEDGE_X := Vector2(-165.0, 150.0)   ## West- und Ostrand (x)
 const HEDGE_Z := 770.0                     ## Nord-/Südrand (±z)
@@ -125,8 +128,8 @@ static func _runway(node: Node3D, l: AirfieldLayout) -> void:
 	var w := l.runway_width
 	var mid_z := (l.runway_start.z + l.runway_end.z) * 0.5
 	# Grundfläche: gemähtes Gras, Mählanen (abwechselnd heller, 10 m breit)
-	var base := _mi(node, _plane(w, len), noise_mat(Color(0.15, 0.22, 0.07), Color(0.24, 0.30, 0.11), 0.03,
-		Vector3(2.0, 40.0, 1.0)), Vector3(0, 0.05, mid_z), false)
+	var base := _mi(node, _plane(w, len), _flat_mat(noise_mat(Color(0.15, 0.22, 0.07), Color(0.24, 0.30, 0.11), 0.03,
+		Vector3(2.0, 40.0, 1.0)), GroundTextures.L_GRASS), Vector3(0, 0.05, mid_z), false)
 	base.name = "Runway"
 	var lane := noise_mat(Color(0.30, 0.36, 0.15), Color(0.36, 0.40, 0.2), 0.02, Vector3(1.0, 30.0, 1.0), 0.3)
 	var nl := int(w / 10.0)
@@ -180,7 +183,7 @@ static func _taxiways(node: Node3D, l: AirfieldLayout) -> void:
 					rng.randf_range(14.0, 20.0), rng.randf_range(-0.5, 0.5)))
 				cols.append(_worn_tone(rng, 0.3, 0.48))
 			z += 7.0
-	_multi(node, _plane(1.0, 1.0), _blob_mat(1), xf, cols).name = "Taxiways"
+	_multi(node, _plane(1.0, 1.0), _decal_mat(1, GroundTextures.L_DIRT), xf, cols).name = "Taxiways"
 
 
 ## Abgefahrenes Gras: gelblich-olivgrün bis lehmig, a = Deckkraft (dark: dunklere Radspur).
@@ -334,6 +337,41 @@ static func _blob_mat(prio: int, rough := 1.0) -> StandardMaterial3D:
 	return m
 
 
+## M3.13: Fleck mit Boden-Textur (Ebene des Gelände-Arrays), sonst wie _blob_mat.
+static func _decal_mat(prio: int, layer: int) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = load("res://world/terrain/ground_decal.gdshader")
+	m.set_shader_parameter("blob", _blob())
+	m.set_shader_parameter("layer", layer)
+	m.render_priority = prio
+	return GroundTextures.bind(m, "decal")
+
+
+## M3.13: undurchsichtige Fläche mit der Rausch-Textur aus noise_mat() und Boden-Textur darüber.
+static func _flat_mat(nm: StandardMaterial3D, layer: int) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = load("res://world/terrain/ground_flat.gdshader")
+	m.set_shader_parameter("base_tex", nm.albedo_texture)
+	m.set_shader_parameter("base_scale", Vector2(nm.uv1_scale.x, nm.uv1_scale.y))
+	m.set_shader_parameter("use_blob", 0.0)
+	m.set_shader_parameter("layer", layer)
+	return GroundTextures.bind(m, "decal")
+
+
+## M3.13: Holz (Bretter/gestrichen), triplanar im Objektraum; ground_y = Bodenhöhe im Mesh.
+static func wood_mat(art: String, tint: Color, ground_y: float, vertical := false, size := 2.2) -> ShaderMaterial:
+	var key := "%s_%s_%.2f_%s" % [art, tint.to_html(), ground_y, vertical]
+	if not _mats.has(key):
+		var m := ShaderMaterial.new()
+		m.shader = load("res://world/terrain/wood.gdshader")
+		m.set_shader_parameter("tint", tint)
+		m.set_shader_parameter("ground_y", ground_y)
+		m.set_shader_parameter("vertical", vertical)
+		m.set_shader_parameter("size", size)
+		_mats[key] = GroundTextures.bind(m, art)
+	return _mats[key]
+
+
 ## Flache Fleck-Instanz: Größe (x quer, z längs), Drehung um die Hochachse, Höhe y.
 static func _flat(p: Vector3, sx: float, sz: float, yaw: float) -> Transform3D:
 	return Transform3D(Basis(Vector3.UP, yaw) * Basis.from_scale(Vector3(sx, 1, sz)), p)
@@ -361,7 +399,7 @@ static func _ground_detail(node: Node3D, l: AirfieldLayout) -> void:
 		var c: Color = tones[rng.randi() % tones.size()]
 		c.a = rng.randf_range(0.3, 0.5)
 		pc.append(c)
-	_multi(node, quad, _blob_mat(0), px, pc).name = "RunwayPatches"
+	_multi(node, quad, _decal_mat(0, GroundTextures.L_GRASS), px, pc).name = "RunwayPatches"
 	# 2) M3.7: Graspiste – platt gefahrene Bahnen (weich, gelblich); Reifenabrieb nur auf Belag
 	if not paved(l):
 		_worn_grass(node, l, rng)
@@ -450,7 +488,7 @@ static func _worn_grass(node: Node3D, l: AirfieldLayout, rng: RandomNumberGenera
 				xf.append(_flat(Vector3(sx * 1.9 + rng.randf_range(-0.6, 0.6), 0.085, zz), rng.randf_range(2.6, 4.0),
 					rng.randf_range(18.0, 30.0), rng.randf_range(-0.02, 0.02)))
 				cols.append(_worn_tone(rng, 0.1 + 0.12 * (1.0 - t), 0.18 + 0.14 * (1.0 - t), true))
-	_multi(node, _plane(1.0, 1.0), _blob_mat(1), xf, cols).name = "WornGrass"
+	_multi(node, _plane(1.0, 1.0), _decal_mat(1, GroundTextures.L_DIRT), xf, cols).name = "WornGrass"
 
 
 # --- Platzrand -----------------------------------------------------------------------------
@@ -510,7 +548,8 @@ static func _tower(node: Node3D, p: Vector3) -> void:
 	g.name = "Flugleitung"
 	g.position = p
 	node.add_child(g)
-	_mi(g, _box(Vector3(8, 6, 6)), mat("putz", Color(0.78, 0.74, 0.64)), Vector3(0, 3, 0))
+	# M3.13: gestrichenes Holzhaus (wood_peeling_paint_weathered)
+	_mi(g, _box(Vector3(8, 6, 6)), wood_mat("farbe", Color(0.78, 0.74, 0.64), -3.0), Vector3(0, 3, 0))
 	_mi(g, _box(Vector3(8.1, 1.0, 6.1)), mat("fenster", Color(0.12, 0.14, 0.16), 0.3), Vector3(0, 4.6, 0))
 	_mi(g, _box(Vector3(1.2, 2.2, 0.1)), mat("holz", Color(0.36, 0.27, 0.18)), Vector3(1.5, 1.1, 3.02))
 	_roof(g, Vector3(0, 6, 0), 8.8, 6.8, 2.2, mat("dach", Color(0.35, 0.22, 0.17)))
@@ -535,7 +574,7 @@ static func _shed(node: Node3D, p: Vector3) -> void:
 	g.name = "Schuppen"
 	g.position = p
 	node.add_child(g)
-	var wood := mat("bretter", Color(0.33, 0.24, 0.16))
+	var wood := wood_mat("bretter", Color(0.33, 0.24, 0.16), -1.6)
 	_mi(g, _box(Vector3(10, 3.2, 6)), wood, Vector3(0, 1.6, 0))
 	_mi(g, _box(Vector3(3.0, 2.6, 0.1)), mat("holz_dunkel", Color(0.22, 0.16, 0.11)), Vector3(0, 1.3, 3.02))
 	_roof(g, Vector3(0, 3.2, 0), 10.6, 6.6, 1.4, mat("teerpappe", Color(0.18, 0.18, 0.19)))

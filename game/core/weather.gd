@@ -200,6 +200,15 @@ static func front_gustiness(t: float) -> float:
 	return 0.6 * exp(-x * x)
 
 
+## M3.13: Bedeckung 0..1 (Himmel, Licht, Nebel): vor einer Kaltfront zieht es zu, beim Durchgang
+## bedeckt, dahinter klart es auf (Rückseitenwetter). Ohne Front/ohne Wind 0 (klarer Nachmittag).
+static func overcast_at(t: float) -> float:
+	if front_time == INF or not enabled() or steady:
+		return 0.0
+	var x := (t - front_time + FRONT_DUR * 0.4) / (FRONT_DUR * 1.6)
+	return clampf(1.5 * exp(-x * x), 0.0, 1.0)
+
+
 ## Richtung „woher“ (Grad, 10 m) zur Zeit t: Großwetter dreht langsam, schwankt über Minuten.
 static func from_deg_at(t: float) -> float:
 	if steady:

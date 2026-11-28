@@ -4,6 +4,8 @@
   Flugkern_modelle.pck Flugzeug-/Boden-Modelle und Texturen
   Flugkern_karte.pck   Geländedaten/-texturen (world/terrain, ohne Skripte)
   Flugkern_audio.pck   alle Klänge (assets/audio)
+  Flugkern_texturen.pck M3.13: Poly-Haven-Texturen 1K und Himmel (assets/textures/); die 2K-Gelände-
+                       Farben (Stufe Hoch) liegen im Kartenpaket, damit beide unter 30 MB bleiben
 Die Einträge werden gelesen (Python, Verzeichnis der .pck), in einen Arbeitsordner entpackt und
 mit Godots PCKPacker (tools/split_pck.gd) neu gepackt -> Format passt immer zur Engine.
 Aufruf (aus game/): python3 tools/split_pck.py <gesamt.pck> <zielordner> <version> <godot>"""
@@ -17,7 +19,7 @@ import tempfile
 
 LIMIT = 30_000_000
 PACKS = {"main": "Flugkern.pck", "modelle": "Flugkern_modelle.pck", "karte": "Flugkern_karte.pck",
-         "audio": "Flugkern_audio.pck"}
+         "audio": "Flugkern_audio.pck", "texturen": "Flugkern_texturen.pck"}
 SCRIPT_EXT = (".gd", ".gdc", ".remap", ".uid")
 
 
@@ -47,6 +49,12 @@ def classify(src):
         return "main"
     if src.startswith("assets/audio/"):
         return "audio"
+    if src.startswith("assets/textures/") and src.endswith(".gd"):
+        return "main"
+    if src.startswith("assets/textures/") and "_2k." in src and "gelaende" in src:
+        return "karte"
+    if src.startswith("assets/textures/"):
+        return "texturen"
     if src.startswith("world/terrain/"):
         return "karte"
     if src.startswith(("vehicles/aircraft/models/", "assets/ground/", "characters/crew/anim/")) \
@@ -74,7 +82,7 @@ def main():
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         open(dst, "wb").write(data)
         manifest[kind].append(["res://" + name, dst])
-    for kind in ("modelle", "karte", "audio"):
+    for kind in ("modelle", "karte", "audio", "texturen"):
         info = os.path.join(work, "files", "pack_info", kind + ".txt")
         os.makedirs(os.path.dirname(info), exist_ok=True)
         open(info, "w").write(version + "\n")

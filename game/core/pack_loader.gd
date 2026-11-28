@@ -7,8 +7,9 @@ extends RefCounted
 ## Jedes Zusatzpaket enthält res://pack_info/<id>.txt mit der Version (Diagnose).
 
 ## [Datei, Kennung, Pflicht]
+## M3.13: texturen optional – fehlt es, zeigt das Spiel die prozeduralen Boden-Kacheln (GroundTextures).
 const PACKS := [["Flugkern_modelle.pck", "modelle", true], ["Flugkern_karte.pck", "karte", true],
-	["Flugkern_audio.pck", "audio", false]]
+	["Flugkern_audio.pck", "audio", false], ["Flugkern_texturen.pck", "texturen", false]]
 const INFO := "res://pack_info/%s.txt"
 
 ## Ergebnis des letzten load_all(): Kennung -> {file, size, version, loaded}

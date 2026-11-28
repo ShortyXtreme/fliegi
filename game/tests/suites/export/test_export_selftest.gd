@@ -48,10 +48,13 @@ func test_export_selftest_hits_both_ways() -> Array:
 			and text.contains("C_ki_abfertigung: fertig") and text.contains("E_ki_start") \
 			and not text.contains("Animationen 0") and not text.contains("SCRIPT ERROR")
 	# M3.3: alle Pakete geladen (Version), jede Datei <= 30 000 000 Byte, Audio-Busse/Streams
-	var ok_pk := not text.contains("FEHLT") and text.contains("Flugkern_audio.pck") \
+	# M3.13: Texturen-Paket geladen und im Spiel wirksam (Stufe Mittel, keine prozedurale Rückfallstufe)
+	var ok_pk := not text.contains("FEHLT") and text.contains("Flugkern_audio.pck") and text.contains("Flugkern_texturen.pck") \
+			and text.contains("Texturdateien vollständig") \
 			and text.contains("Streams geladen %d/%d" % [GameAudio.SOUNDS.size(), GameAudio.SOUNDS.size()]) and text.contains("Motor-Layer 6/6")
 	var sizes := []
-	for f in ["Flugkern.pck", "Flugkern_modelle.pck", "Flugkern_karte.pck", "Flugkern_audio.pck"]:
+	for f in ["Flugkern.pck", "Flugkern_modelle.pck", "Flugkern_karte.pck", "Flugkern_audio.pck",
+			"Flugkern_texturen.pck"]:
 		var fa := FileAccess.open(pck.get_base_dir().path_join(f), FileAccess.READ)
 		var n := fa.get_length() if fa != null else -1
 		sizes.append("%s %d" % [f, n])
@@ -73,7 +76,8 @@ func test_export_selftest_missing_packs() -> Array:
 	for drop in ["Flugkern_audio.pck", "Flugkern_modelle.pck"]:
 		var tmp := OS.get_cache_dir().path_join("flugkern_ohne_" + drop.get_basename())
 		DirAccess.make_dir_recursive_absolute(tmp)
-		for f in ["Flugkern.pck", "Flugkern_modelle.pck", "Flugkern_karte.pck", "Flugkern_audio.pck"]:
+		for f in ["Flugkern.pck", "Flugkern_modelle.pck", "Flugkern_karte.pck", "Flugkern_audio.pck",
+			"Flugkern_texturen.pck"]:
 			DirAccess.remove_absolute(tmp.path_join(f))
 			if f != drop:
 				OS.execute("ln", ["-sf", pck.get_base_dir().path_join(f), tmp.path_join(f)])

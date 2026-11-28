@@ -96,6 +96,7 @@ func _ready() -> void:
 
 func _process(_dt: float) -> void:
 	_sync_shader_origin()
+	_update_sky()
 
 
 ## Gelände-Bezug an die Shader geben (nach Floating-Origin-Verschiebung).
@@ -430,6 +431,8 @@ func _material() -> ShaderMaterial:
 	mat.set_shader_parameter("half_size", _half)
 	mat.set_shader_parameter("samples", _n)
 	mat.set_shader_parameter("tile_cells", _cells())
+	# M3.13: echte Boden-Texturen je Qualitätsstufe (Niedrig: prozedurale Kacheln)
+	GroundTextures.bind(mat, "terrain")
 	return mat
 
 
@@ -493,15 +496,31 @@ func set_tree_radius(r: float) -> void:
 		m.set_shader_parameter("tree_radius", r)
 
 
+## M3.13: Himmel aus HDRI-Panoramen (Poly Haven, CC0): kloofendal_48d_partly_cloudy (Standard) und
+## quarry_cloudy (bedeckt, wenn Weather.overcast_at() es meldet – um eine Kaltfront). Beide im
+## Shader world/terrain/sky_hdri.gdshader überblendet; Umgebungslicht und Reflexionen kommen aus
+## demselben Himmel. Die Sonne steht wie im HDRI (Azimut 216°, Höhe 48°, Nachmittag).
+## Fehlen die Dateien (Paket), bleibt der prozedurale Himmel aus M3.x.
+const SKY_CLEAR := "res://assets/textures/polyhaven/himmel_klar_2k.hdr"
+const SKY_OVERCAST := "res://assets/textures/polyhaven/himmel_bedeckt_2k.hdr"
+## Helligkeit der Panoramen (bedeckt ist im Original heller als der klare Himmel ohne Sonne)
+const SKY_ENERGY := [1.0, 0.5]
+const SUN_ENERGY := [1.05, 0.32]
+const FOG_DENSITY := [0.00007, 0.00011]
+const FOG_COLOR := [Color(0.68, 0.75, 0.83), Color(0.62, 0.65, 0.68)]
+## Screenshots/Tests: Bedeckung erzwingen (0..1), < 0 = Wetter
+static var overcast_override := -1.0
+
+var env: Environment
+var sky_mat: Material
+var overcast := 0.0
+
+
 func _build_environment() -> void:
-	var sky_mat := ProceduralSkyMaterial.new()
-	sky_mat.sky_top_color = Color(0.24, 0.42, 0.72)
-	sky_mat.sky_horizon_color = Color(0.68, 0.75, 0.82)
-	sky_mat.ground_bottom_color = Color(0.62, 0.69, 0.76)
-	sky_mat.ground_horizon_color = Color(0.68, 0.75, 0.82)
 	var sky := Sky.new()
-	sky.sky_material = sky_mat
-	var env := Environment.new()
+	sky.sky_material = _make_sky()
+	sky.radiance_size = Sky.RADIANCE_SIZE_128
+	env = Environment.new()
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
@@ -518,12 +537,66 @@ func _build_environment() -> void:
 	add_child(we)
 	sun = DirectionalLight3D.new()
 	sun.name = "Sun"
-	sun.rotation_degrees = Vector3(-30, -35, 0)
+	# M3.13: Richtung wie die Sonne im HDRI (vorher -30°/-35°: gleiches Azimut, flacher)
+	sun.rotation_degrees = sun_rotation()
 	sun.light_color = Color(1.0, 0.95, 0.86)
 	sun.light_energy = 1.05
 	sun.shadow_enabled = true
 	sun.directional_shadow_max_distance = 800.0
 	add_child(sun)
+	overcast = -1.0
+	_update_sky()
+
+
+## Euler-Winkel der Sonne passend zum HDRI (polyhaven_meta.gd, HIMMEL_KLAR.sun = Richtung zur Sonne).
+static func sun_rotation() -> Vector3:
+	var d: Vector3 = GroundTextures.META.HIMMEL_KLAR.sun
+	var b := Basis.looking_at(-d, Vector3.UP)
+	return b.get_euler() * (180.0 / PI)
+
+
+func _make_sky() -> Material:
+	if ResourceLoader.exists(SKY_CLEAR) and ResourceLoader.exists(SKY_OVERCAST):
+		var m := ShaderMaterial.new()
+		m.shader = load("res://world/terrain/sky_hdri.gdshader")
+		m.set_shader_parameter("sky_clear", load(SKY_CLEAR))
+		m.set_shader_parameter("sky_overcast", load(SKY_OVERCAST))
+		m.set_shader_parameter("energy_clear", SKY_ENERGY[0])
+		m.set_shader_parameter("energy_overcast", SKY_ENERGY[1])
+		# bedeckter Himmel: hellste Stelle (Sonne hinter Wolken) zur Sonne drehen
+		var az_c: float = GroundTextures.META.HIMMEL_KLAR.az
+		var az_o: float = GroundTextures.META.HIMMEL_BEDECKT.az
+		m.set_shader_parameter("u_offset_overcast", (az_o - az_c) / 360.0)
+		var hz: Color = GroundTextures.META.HIMMEL_KLAR.horizon
+		m.set_shader_parameter("below_color", Vector3(hz.r, hz.g, hz.b) * 0.8)
+		sky_mat = m
+		return m
+	var p := ProceduralSkyMaterial.new()
+	p.sky_top_color = Color(0.24, 0.42, 0.72)
+	p.sky_horizon_color = Color(0.68, 0.75, 0.82)
+	p.ground_bottom_color = Color(0.62, 0.69, 0.76)
+	p.ground_horizon_color = Color(0.68, 0.75, 0.82)
+	sky_mat = p
+	return p
+
+
+## M3.13: Bedeckung aus dem Wetter (in 1/32-Schritten, damit die Radiance nicht jedes Bild neu
+## gerechnet wird) auf Himmel, Sonne und Nebel.
+func _update_sky() -> void:
+	if env == null or sun == null:
+		return
+	var oc := overcast_override if overcast_override >= 0.0 else Weather.overcast_at(Weather.time)
+	oc = roundf(clampf(oc, 0.0, 1.0) * 32.0) / 32.0
+	if oc == overcast:
+		return
+	overcast = oc
+	if sky_mat is ShaderMaterial:
+		(sky_mat as ShaderMaterial).set_shader_parameter("overcast", oc)
+	sun.light_energy = lerpf(SUN_ENERGY[0], SUN_ENERGY[1], oc)
+	sun.light_color = Color(1.0, 0.95, 0.86).lerp(Color(0.92, 0.94, 1.0), oc)
+	sun.shadow_opacity = lerpf(1.0, 0.45, oc)
+	env.fog_density = lerpf(FOG_DENSITY[0], FOG_DENSITY[1], oc)
+	env.fog_light_color = (FOG_COLOR[0] as Color).lerp(FOG_COLOR[1], oc)
 
 
 ## Pisten, Markierungen, Windsack; Hallen/Turm-Platzhalter nur ohne Gebäudemodelle (M3.1).

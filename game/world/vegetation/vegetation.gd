@@ -83,6 +83,9 @@ func _ready() -> void:
 		sm.shader = load("res://world/vegetation/tree.gdshader")
 		sm.set_shader_parameter("mode", m)
 		sm.set_shader_parameter("lod_r", LOD_R)
+		# M3.13: Rinde (bark_platanus) an den Stämmen, nur nah (LOD0/LOD1)
+		if m < 2:
+			GroundTextures.bind(sm, "bark")
 		mats.append(sm)
 	for s in VegetationGen.SPECIES.size():
 		var mmi := MultiMeshInstance3D.new()

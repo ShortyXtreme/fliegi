@@ -13,8 +13,18 @@ uniform float far_r = 2200.0;
 uniform float wind = 1.0;
 global uniform vec4 wind_state;   // M3.8: x, z Richtung „wohin“, y Stärke m/s, w Böe 0..1
 uniform float albedo_gain = 3.0;   // Vertexfarben dunkel (Cycles-Palette), Gras ist heller
+// M3.13: Rinde bark_platanus (Poly Haven, CC0) an den Stämmen – Farbe RGB, Normale RG + Rauheit B + AO A.
+// Triplanar im Objektraum (keine UVs nötig), wirkt als Verhältnis zur Mittelfarbe auf die
+// Vertexfarbe; nur bis ~120 m (GroundTextures, Stufe Niedrig: aus). Kronen unverändert.
+uniform sampler2D bark_col : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D bark_nrm : filter_linear_mipmap_anisotropic, repeat_enable;
+uniform vec3 bark_mean = vec3(0.1, 0.07, 0.05);
+uniform float tex_on = 0.0;
+uniform float bark_size = 1.1;
 
 varying vec3 tint;
+varying vec3 lpos;
+varying vec3 lnrm;
 
 void vertex() {
 	vec3 io = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
@@ -32,6 +42,8 @@ void vertex() {
 	vec3 hv = fract(sin(vec3(dot(io.xz, vec2(12.9898, 78.233)), dot(io.xz, vec2(39.346, 11.135)),
 		dot(io.xz, vec2(73.156, 52.235)))) * 43758.5453);
 	float ph = hv.x * 6.2832;
+	lpos = VERTEX;
+	lnrm = NORMAL;
 	float h = max(VERTEX.y - 2.5, 0.0);
 	// M3.8: Wind aus dem Wetter – Neigung in Windrichtung (Lokalraum der Instanz), Wiegen mit
 	// Böen, die in Windrichtung durch den Wald laufen; bei Flaute kaum Bewegung
@@ -54,4 +66,34 @@ void fragment() {
 	ALBEDO = COLOR.rgb * tint * albedo_gain;
 	ROUGHNESS = 0.9;
 	SPECULAR = 0.25;
+	// Rinde: Stamm/Äste (rot >= grün), nah
+	float bark = step(COLOR.g, COLOR.r * 1.02);
+	float fade = 1.0 - smoothstep(30.0, 120.0, length(VERTEX));
+	if (tex_on > 0.5 && bark * fade > 0.01) {
+		vec3 n = normalize(lnrm);
+		vec3 bw = pow(abs(n), vec3(4.0));
+		bw /= bw.x + bw.y + bw.z;
+		vec3 q = lpos / bark_size;
+		// Seiten: Bild aufrecht (v nach unten = -y); Deckel/Boden von oben
+		vec2 ux = vec2(q.z, -q.y);
+		vec2 uz = vec2(q.x, -q.y);
+		vec2 uy = q.xz;
+		vec3 c = texture(bark_col, ux).rgb * bw.x + texture(bark_col, uy).rgb * bw.y + texture(bark_col, uz).rgb * bw.z;
+		vec4 nx = texture(bark_nrm, ux);
+		vec4 ny = texture(bark_nrm, uy);
+		vec4 nz = texture(bark_nrm, uz);
+		vec4 nn = nx * bw.x + ny * bw.y + nz * bw.z;
+		vec2 tx = nx.xy * 2.0 - 1.0;
+		vec2 ty = ny.xy * 2.0 - 1.0;
+		vec2 tz = nz.xy * 2.0 - 1.0;
+		// u = z bzw. x, Bild-oben = +y (v = -y), Grün nach oben
+		vec3 g = vec3(0.0, tx.y, tx.x) * bw.x + vec3(ty.x, 0.0, -ty.y) * bw.y + vec3(tz.x, tz.y, 0.0) * bw.z;
+		float k = bark * fade;
+		vec3 r = clamp(c / max(bark_mean, vec3(0.004)), vec3(0.15), vec3(3.0));
+		ALBEDO *= mix(vec3(1.0), r, k);
+		ROUGHNESS = mix(0.9, nn.b, k);
+		g *= k;
+		vec3 nobj = normalize(n + g - n * dot(g, n));
+		NORMAL = normalize((VIEW_MATRIX * MODEL_MATRIX * vec4(nobj, 0.0)).xyz);
+	}
 }

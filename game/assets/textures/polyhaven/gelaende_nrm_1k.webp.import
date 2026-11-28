@@ -1,0 +1,29 @@
+[remap]
+
+importer="2d_array_texture"
+type="CompressedTexture2DArray"
+uid="uid://dwogjiifa3nck"
+path.bptc="res://.godot/imported/gelaende_nrm_1k.webp-51d9c52334049f7378365918aadf7db1.bptc.ctexarray"
+metadata={
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
+}
+
+[deps]
+
+source_file="res://assets/textures/polyhaven/gelaende_nrm_1k.webp"
+dest_files=["res://.godot/imported/gelaende_nrm_1k.webp-51d9c52334049f7378365918aadf7db1.bptc.ctexarray"]
+
+[params]
+
+compress/mode=2
+compress/high_quality=true
+compress/lossy_quality=0.7
+compress/uastc_level=0
+compress/rdo_quality_loss=0.0
+compress/hdr_compression=1
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+slices/horizontal=1
+slices/vertical=7

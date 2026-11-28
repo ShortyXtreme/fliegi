@@ -2,9 +2,10 @@
 
 ## Installation
 1. Die vorhandene **Flugkern.exe** (Godot 4.7.2) bleibt unverändert.
-2. **Alle vier .pck-Dateien** in denselben Ordner wie Flugkern.exe kopieren (alte Flugkern.pck überschreiben):
-   `Flugkern.pck`, `Flugkern_modelle.pck`, `Flugkern_karte.pck`, `Flugkern_audio.pck`.
-   Fehlt Modelle oder Karte, zeigt das Spiel eine Meldung; fehlt Audio, läuft es ohne Ton.
+2. **Alle fünf .pck-Dateien** in denselben Ordner wie Flugkern.exe kopieren (alte Flugkern.pck überschreiben):
+   `Flugkern.pck`, `Flugkern_modelle.pck`, `Flugkern_karte.pck`, `Flugkern_audio.pck`, `Flugkern_texturen.pck`.
+   Fehlt Modelle oder Karte, zeigt das Spiel eine Meldung; fehlt Audio, läuft es ohne Ton; fehlt Texturen,
+   zeigt es den einfachen Boden von früher (wie Texturqualität „Niedrig“).
 3. Flugkern.exe starten. Der Fenstertitel muss „Flugkern M3.12“ zeigen.
 
 ## Feedback geben
@@ -15,6 +16,12 @@
   schreibgeschützt, unter `%APPDATA%\Godot\app_userdata\Flugkern M2\feedback\`; das Spiel zeigt den Pfad an).
   Darin: Bildschirmfoto, Bericht, Log und Flugdaten der letzten Minute.
 - Die Taste lässt sich unter Einstellungen › Tastenbelegung ändern. Das Tutorial überspringt Schritte jetzt mit **F6** (vorher F8).
+
+## Neu in M3.13
+
+- Echte Texturen (Poly Haven, CC0): Wiese, Waldboden, Ufer, Fels, Sand und Erde aus der Nähe, Rinde an den Bäumen, Holzwände an Hallen, Schuppen und Flugleitung.
+- Himmel aus einem echten Foto-Panorama (Nachmittag, leicht bewölkt); zieht eine Kaltfront durch, wird es bedeckt und das Licht weicher.
+- Neue Einstellung „Texturqualität“: Niedrig (einfacher Boden, wenig Grafikspeicher), Mittel (Standard), Hoch (schärferer Boden aus der Nähe).
 
 ## Neu in M3.12
 
