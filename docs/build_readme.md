@@ -1,11 +1,22 @@
-# Flugkern M3.10 – Testversion „Physik geprüft“
+# Flugkern M3.11 – Testversion „Motor und Pilot“
 
 ## Installation
 1. Die vorhandene **Flugkern.exe** (Godot 4.7.2) bleibt unverändert.
 2. **Alle vier .pck-Dateien** in denselben Ordner wie Flugkern.exe kopieren (alte Flugkern.pck überschreiben):
    `Flugkern.pck`, `Flugkern_modelle.pck`, `Flugkern_karte.pck`, `Flugkern_audio.pck`.
    Fehlt Modelle oder Karte, zeigt das Spiel eine Meldung; fehlt Audio, läuft es ohne Ton.
-3. Flugkern.exe starten. Der Fenstertitel muss „Flugkern M3.10“ zeigen.
+3. Flugkern.exe starten. Der Fenstertitel muss „Flugkern M3.11“ zeigen.
+
+## Neu in M3.11
+
+- KI fängt im Hügelland sicher ab (rechnet die Kurve und das Abfangen mit dem echten verfügbaren g voraus).
+- Motor: Drehmoment, P-Faktor und Propellerdrall ziehen das Flugzeug beim Start nach links. Im realistischen Modus mit leichtem rechtem Seitenruder halten, Arcade gleicht fast alles aus.
+- Kühlung: Im Stand mit viel Gas wird der Motor nach etwa einer Minute zu heiß. Ab 115 °C weniger Leistung, ab 125 °C Motorschaden, die Motorlampe warnt.
+- Verbrauch hängt an der echten Leistung, in der Höhe sparsamer.
+- Munition wiegt mit (40 kg voll), Trägheit realistischer (lebendiger beim Rollen und Gieren).
+- Fahrtmesser zeigt angezeigte Fahrt (IAS).
+- Grauschleier und Blackout bei anhaltend hoher g-Last, Redout bei negativen g. In den Einstellungen unter „g-Effekte“ abschaltbar, im Arcade-Modus schwächer.
+- Munitionsbunker mit 40.000 statt 20.000 Schuss.
 
 ## Neu in M3.10 (Physik-Prüfung)
 
