@@ -209,6 +209,16 @@ func ammo_mass_kg() -> float:
 	return kg
 
 
+## M3.11: Masse der vollen Munition (kg). data.mass gilt mit vollen Kästen.
+func ammo_mass_full_kg() -> float:
+	var kg := 0.0
+	var ms := mounts()
+	for i in ms.size():
+		if ms[i].weapon != null:
+			kg += magazines[i].capacity * ms[i].weapon.round_mass
+	return kg
+
+
 ## Mündungsgeschwindigkeit der Gruppe (m/s), für Vorhalt (HUD/KI).
 func muzzle_velocity(group: int = Group.PRIMARY) -> float:
 	var w := weapon_of_group(group)

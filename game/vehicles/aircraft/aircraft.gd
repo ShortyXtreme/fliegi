@@ -40,11 +40,15 @@ var breakup: AircraftBreakup
 var allowed_assist_modes: Array[int] = [FlightAssist.Mode.ARCADE, FlightAssist.Mode.REALISTIC]
 var assist_mode: int = FlightAssist.Mode.ARCADE
 
-## Treibstoffdichte (kg/l) für die Massenkopplung. data.mass gilt mit vollen Tanks.
+## Treibstoffdichte (kg/l) für die Massenkopplung. data.mass gilt mit vollen Tanks und
+## voller Munition (M3.11).
 const FUEL_DENSITY := 0.72
 
 var _intent := PilotIntent.new()
 var _fuel_mass_applied := 0.0
+## M3.11: verschossene Munition (kg) und die zuletzt gesetzte Gesamtminderung (kg).
+var _ammo_mass_missing := 0.0
+var _mass_applied := 0.0
 ## Physik-Tick der letzten Platzierung: Kontakte aus der Erzeugungs-/Vorposition in den
 ## ersten Ticks danach ignorieren (Jolt meldet sie sonst als Aufprall).
 var _placed_frame := -100
@@ -158,9 +162,14 @@ func _update_fuel(_dt: float) -> void:
 		cap += c
 	var missing := maxf(cap - f.total(), 0.0) * FUEL_DENSITY
 	flight.telemetry.fuel_fraction = f.total() / maxf(cap, 1e-3)
-	if absf(missing - _fuel_mass_applied) > 1.0:
-		_fuel_mass_applied = missing
-		mass = maxf(data.mass - missing, data.mass * 0.5)
+	_fuel_mass_applied = missing
+	# M3.11: Munitionsmasse wie der Treibstoff (7,92 mm mit Gurtglied 40 g/Schuss)
+	_ammo_mass_missing = maxf(weapons.ammo_mass_full_kg() - weapons.ammo_mass_kg(), 0.0) \
+			if weapons != null else 0.0
+	var total := _fuel_mass_applied + _ammo_mass_missing
+	if absf(total - _mass_applied) > 0.5:
+		_mass_applied = total
+		mass = maxf(data.mass - total, data.mass * 0.5)
 
 
 ## Wrack nach Absturz einfrieren (rutscht/rollt nicht weiter); place() hebt das auf.
@@ -192,6 +201,8 @@ func place(xf: Transform3D, speed: float = 0.0, throttle: float = 0.0,
 	freeze = false
 	_placed_frame = Engine.get_physics_frames()
 	_fuel_mass_applied = 0.0
+	_ammo_mass_missing = 0.0
+	_mass_applied = 0.0
 	mass = data.mass
 	global_transform = xf
 	linear_velocity = -xf.basis.z * speed
