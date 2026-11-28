@@ -21,7 +21,7 @@ const GROUPS := [
 		&"drive_steer_left", &"drive_steer_right", &"drive_handbrake"]],
 	["Funk", [&"crew_wheel", &"radio_channel_1", &"radio_channel_2", &"radio_channel_3", &"radio_channel_4",
 		&"radio_cmd_1", &"radio_cmd_2", &"radio_cmd_3", &"radio_cmd_4", &"radio_back", &"radio_prev", &"radio_next"]],
-	["Allgemein", [&"help_toggle", &"release_mouse", &"tutorial_skip", &"tutorial_quit"]],
+	["Allgemein", [&"help_toggle", &"release_mouse", &"feedback_save", &"tutorial_skip", &"tutorial_quit"]],
 ]
 
 const LABELS := {
@@ -46,6 +46,7 @@ const LABELS := {
 	&"help_toggle": "Hilfe", &"release_mouse": "Pausenmenü / Maus frei", &"tutorial_skip": "Tutorial: Schritt weiter",
 	&"tutorial_quit": "Tutorial beenden", &"alarm_debug": "Alarmstart (Debug)", &"debug_toggle": "Debug",
 	&"reset_runway": "Neustart Piste", &"reset_air": "Neustart Luft",
+	&"feedback_save": "Feedback speichern (für Tester)",
 }
 
 ## Standard-Haupttasten (beim ersten setup() gemerkt): aktion -> InputEvent
@@ -285,4 +286,6 @@ static func display(action: StringName) -> String:
 	var s := KeyGlyphs.event_token(k) if k != null else "–"
 	if p != null:
 		s += "  ·  " + KeyGlyphs.event_token(p)
+	elif action == Feedback.ACTION:
+		s += "  ·  " + Feedback.PAD_TEXT   # Kombination, nicht in der InputMap
 	return s

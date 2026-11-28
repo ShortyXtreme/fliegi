@@ -51,6 +51,7 @@ static func p(acts, sep := " ") -> String:
 static func groups(ctx: int) -> Array:
 	var general := ["Allgemein", 1, [["Hilfe ein / aus", k(&"help_toggle"), p(&"help_toggle")],
 		["Pausenmenü / Maus frei", k(&"release_mouse"), p(&"release_mouse")],
+		["Feedback speichern", k(Feedback.ACTION), Feedback.PAD_SPEC],
 		["Tutorial: Schritt weiter / beenden", k([&"tutorial_skip", &"tutorial_quit"], " / "), ""]]]
 	var radio := ["Funkgerät", 1, [["Funkgerät öffnen / schließen", k(&"crew_wheel"), p(&"crew_wheel")],
 		["Kanal 1–4 wählen", k([&"radio_channel_1", &"radio_channel_4"], " – "), "Kreuz ↑↓ + A"],

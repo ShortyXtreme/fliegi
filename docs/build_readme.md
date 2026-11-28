@@ -7,6 +7,15 @@
    Fehlt Modelle oder Karte, zeigt das Spiel eine Meldung; fehlt Audio, läuft es ohne Ton.
 3. Flugkern.exe starten. Der Fenstertitel muss „Flugkern M3.11“ zeigen.
 
+## Feedback geben
+- **F8 = Feedback speichern; den Ordner feedback/… an Claude schicken (Dateien in den Chat ziehen).**
+  Am Controller: View-Taste halten und Y drücken. Das Spiel läuft weiter, es öffnet sich ein kleines Feld
+  „Was ist los?“ – kurz beschreiben, Enter speichert (Esc speichert ohne Text).
+- Der Ordner liegt neben Flugkern.exe unter `feedback/<Datum_Uhrzeit>_<Text>/` (ist der Spielordner
+  schreibgeschützt, unter `%APPDATA%\Godot\app_userdata\Flugkern M2\feedback\`; das Spiel zeigt den Pfad an).
+  Darin: Bildschirmfoto, Bericht, Log und Flugdaten der letzten Minute.
+- Die Taste lässt sich unter Einstellungen › Tastenbelegung ändern. Das Tutorial überspringt Schritte jetzt mit **F6** (vorher F8).
+
 ## Neu in M3.11
 
 - KI fängt im Hügelland sicher ab (rechnet die Kurve und das Abfangen mit dem echten verfügbaren g voraus).
@@ -77,7 +86,7 @@
 
 ## Neu in M3.2
 - **Hauptmenü** bei jedem Start: Tutorial (mit Fortschritt), Freies Spiel, Einstellungen (Realismus Flug, Bodenbetrieb, KI-Stufe, Radar, Maus-Empfindlichkeit), Steuerung, Beenden – Maus, Pfeile + Enter oder Stick + A/B. **Im Spiel: Esc bzw. Menu-Taste = Pausenmenü** (gibt die Maus frei). Neustart auf der Piste am Controller nur noch über das Menü (Tastatur R).
-- **Geführtes Tutorial:** über das Hauptmenü oder **„Tutorial starten.bat“** (Option `--tutorial`). 7 Schritte: Starten, Fliegen, Zielen auf ein Übungsziel (schießt nicht), Notausstieg, Landen, Abfertigen, Abschluss. **F8** Schritt überspringen, **F7** beenden.
+- **Geführtes Tutorial:** über das Hauptmenü oder **„Tutorial starten.bat“** (Option `--tutorial`). 7 Schritte: Starten, Fliegen, Zielen auf ein Übungsziel (schießt nicht), Notausstieg, Landen, Abfertigen, Abschluss. **F6** Schritt überspringen (früher F8), **F7** beenden.
 - **Neue Oberfläche:** feste Bildschirmzonen, Ruhezustand ohne Waffen-/Schadensanzeige (erscheint im Kampf oder bei Änderungen), Warnungen oben Mitte, Epochen-Gestaltung (Elfenbein/Messing/Oliv, Schrift Oswald).
 - **Tasten-Leiste** unten Mitte: die gerade sinnvollen Tasten als Symbole, automatisch Tastatur oder Xbox-Controller.
 - **F1** ist jetzt eine übersichtliche Tafel je Kontext (Tastatur und Controller nebeneinander) und öffnet nicht mehr automatisch.

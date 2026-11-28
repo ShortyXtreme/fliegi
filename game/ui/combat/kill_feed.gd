@@ -16,6 +16,9 @@ const CAUSE_TEXT := {
 	CombatEvents.Cause.FRIENDLY: "Eigenbeschuss",
 }
 
+## Feedback-Taste: jeder neue Eintrag als Klartext (Ereignis-Log).
+signal entry_added(text: String)
+
 ## Einträge: {left, left_col, mid, right, right_col, note, t}
 var entries: Array = []
 
@@ -60,6 +63,7 @@ func add_text(who: Node, text: String, own: Node) -> void:
 
 func _push(e: Dictionary) -> void:
 	entries.append(e)
+	entry_added.emit(" ".join(PackedStringArray([e.left, e.mid, e.right, e.note].filter(func(x): return String(x) != ""))))
 	while entries.size() > MAX_ENTRIES:
 		entries.pop_front()
 	queue_redraw()

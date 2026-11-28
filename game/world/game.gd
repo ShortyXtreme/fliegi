@@ -200,6 +200,7 @@ func _ready() -> void:
 		start_tutorial()
 	_print_diagnostics()
 	_print_ground_diagnostics()
+	Feedback.attach_game(self)   # Feedback-Taste: Ringpuffer, Ereignisse dieser Partie
 	if Selbsttest.requested():
 		var st := Selbsttest.new()
 		st.name = "Selbsttest"

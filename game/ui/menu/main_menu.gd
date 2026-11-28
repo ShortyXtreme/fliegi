@@ -29,6 +29,7 @@ static func skip_requested(args: PackedStringArray = OS.get_cmdline_user_args(),
 func _ready() -> void:
 	InputBindings.setup()
 	GameSettings.apply_runtime()
+	Feedback.ensure(get_tree())   # Feedback-Taste auch im Hauptmenü
 	if skip_requested():
 		Game.tutorial_mode = "--tutorial" in OS.get_cmdline_user_args()
 		get_tree().change_scene_to_file.call_deferred(GameMenu.GAME_SCENE)

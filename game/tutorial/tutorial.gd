@@ -4,7 +4,7 @@ extends Node
 ## über das Hauptmenü, GameMenu). Ruhige Szene: gleiche Welt, keine roten Angreifer,
 ## kein Alarm, nur ein „Übungsziel“, das nicht zurückschießt.
 ## Jeder Schritt hat Aufgaben, deren Prüfung die echte Aktion beobachtet (Flugzustand, Eingabe,
-## Treffer-Bus, Befehlsrad, Tragen, Munition, Sitz). F8 überspringt den Schritt, F7 beendet.
+## Treffer-Bus, Befehlsrad, Tragen, Munition, Sitz). F6 überspringt den Schritt (war F8), F7 beendet.
 ## Fortschritt in user://tutorial.cfg (angeboten, letzter Schritt, abgeschlossen).
 
 signal step_changed(index: int)

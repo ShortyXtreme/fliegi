@@ -26,6 +26,9 @@ extends RefCounted
 ##          Handbremse, J / Steuerkreuz ← 1 s halten = Aussteigen (im Stand),
 ##          E / A = Interagieren (z. B. Schlauchtrommel), Tab / LB = Befehlsrad, C / Y = Kamera.
 ##   GLOBAL F1 / Back = Hilfe, Esc / Menu = Pausenmenü + Maus freigeben (M3.2).
+##          F8 / View halten + Y = Feedback speichern (Feedback-Taste, core/feedback.gd; die
+##          Controller-Kombination prüft Feedback selbst, sie steht nicht in der InputMap).
+##          Tutorial: F6 Schritt weiter (war F8), F7 beenden.
 
 const STICK_DEADZONE := 0.15
 const TRIGGER_DEADZONE := 0.08
@@ -41,7 +44,8 @@ enum Context { FLIGHT, CREW, DRIVE, RADIO, RADIO_CMD }
 
 ## In allen Kontexten aktiv.
 const GLOBAL_ACTIONS: Array[StringName] = [&"help_toggle", &"release_mouse", &"alarm_debug",
-	&"tutorial_skip", &"tutorial_quit"]   # M3.2: Tutorial F8 Schritt überspringen, F7 beenden
+	&"tutorial_skip", &"tutorial_quit",   # M3.2: Tutorial F6 Schritt überspringen (war F8), F7 beenden
+	&"feedback_save"]                      # Feedback-Taste F8
 ## Aktionen je Kontext (ohne GLOBAL). Neue Aktionen MÜSSEN hier eingetragen werden
 ## (test_every_action_in_context).
 const CONTEXT_ACTIONS := {
@@ -119,8 +123,9 @@ static func setup() -> void:
 	_keys("help_toggle", [KEY_F1])
 	_keys("debug_toggle", [KEY_F3])
 	_keys("alarm_debug", [KEY_F9])
-	_keys("tutorial_skip", [KEY_F8])                     # M3.2: Tutorial-Schritt überspringen
-	_keys("tutorial_quit", [KEY_F7])                     # M3.2: Tutorial beenden                       # M3: Alarmstart sofort (Debug)
+	_keys("tutorial_skip", [KEY_F6])                     # M3.2: Tutorial-Schritt überspringen (war F8)
+	_keys("tutorial_quit", [KEY_F7])                     # M3.2: Tutorial beenden
+	_keys("feedback_save", [Feedback.DEFAULT_KEY])       # Feedback-Taste (F8), Pad: View halten + Y
 	_keys("reset_runway", [KEY_R])
 	_keys("reset_air", [KEY_T])
 	_keys("release_mouse", [KEY_ESCAPE])
