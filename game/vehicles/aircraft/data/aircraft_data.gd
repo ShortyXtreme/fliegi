@@ -7,8 +7,13 @@ extends Resource
 
 @export_group("Masse")
 @export var mass: float = 2500.0
-## Trägheitsmomente um Körperachsen (x = Nicken, y = Gieren, z = Rollen), kg m².
-@export var inertia: Vector3 = Vector3(7000, 11000, 6000)
+## Trägheitsmomente um Körperachsen (x = Nicken, y = Gieren, z = Rollen), kg m², mit vollen
+## Tanks und voller Munition. M3.11: Gieren/Rollen nach Roskam-Trägheitsradien (Ry 0,38,
+## Rx 0,25 · b) 13.000/6.000 -> 9.000/4.400; verbrauchter Treibstoff und verschossene
+## Munition mindern sie um Δm·r² (Tank- bzw. Waffenlage).
+@export var inertia: Vector3 = Vector3(8000, 9000, 4400)
+## M3.11: Schwerpunkt der Flügeltanks (rechte Seite, links gespiegelt), m.
+@export var fuel_tank_position: Vector3 = Vector3(1.0, -0.3, 0.0)
 
 @export_group("Antrieb")
 @export var engine_power_w: float = 700000.0

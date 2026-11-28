@@ -170,6 +170,28 @@ func _update_fuel(_dt: float) -> void:
 	if absf(total - _mass_applied) > 0.5:
 		_mass_applied = total
 		mass = maxf(data.mass - total, data.mass * 0.5)
+		inertia = _current_inertia()
+
+
+## M3.11: Trägheit mit Beladung: I_voll − Σ Δm·(Abstand zur Achse)² für Tanks und Munition.
+func _current_inertia() -> Vector3:
+	var di := Vector3.ZERO
+	var f := damage.fuel
+	var tp := data.fuel_tank_position
+	for k in f.capacity.size():
+		var dm := maxf(f.capacity[k] - f.liters[k], 0.0) * FUEL_DENSITY
+		di += dm * Vector3(tp.y * tp.y + tp.z * tp.z, tp.x * tp.x + tp.z * tp.z,
+				tp.x * tp.x + tp.y * tp.y)
+	if weapons != null:
+		var ms := weapons.mounts()
+		for i in ms.size():
+			if ms[i].weapon == null:
+				continue
+			var mg = weapons.magazines[i]
+			var dm: float = maxf(mg.capacity - mg.count, 0) * ms[i].weapon.round_mass
+			var r: Vector3 = ms[i].position
+			di += dm * Vector3(r.y * r.y + r.z * r.z, r.x * r.x + r.z * r.z, r.x * r.x + r.y * r.y)
+	return (data.inertia - di).max(data.inertia * 0.5)
 
 
 ## Wrack nach Absturz einfrieren (rutscht/rollt nicht weiter); place() hebt das auf.
@@ -204,6 +226,7 @@ func place(xf: Transform3D, speed: float = 0.0, throttle: float = 0.0,
 	_ammo_mass_missing = 0.0
 	_mass_applied = 0.0
 	mass = data.mass
+	inertia = data.inertia
 	global_transform = xf
 	linear_velocity = -xf.basis.z * speed
 	# M3.8: in der Luft gesetzt: speed ist die Fahrt gegenüber der Luft (mit dem Wind treiben)
