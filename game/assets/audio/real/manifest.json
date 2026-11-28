@@ -1,0 +1,822 @@
+{
+ "bytes": 2568390,
+ "sounds": {
+  "alarm_bell": {
+   "bytes": 45924,
+   "cut": [
+    0.0,
+    4.6
+   ],
+   "len_s": 4.6,
+   "loop": true,
+   "lufs": -9.6,
+   "peak_db": 0.5,
+   "ref": "alarm_bell",
+   "ref_lufs": -9.2,
+   "seam_db": 39.28,
+   "seam_jump": 0.0,
+   "speech": 0.236,
+   "src": "7_alarm/675682__craigsmith__s28-15-old-style-fire-alarm-bell-hand-cranked.wav",
+   "xfade_corr": 1.0
+  },
+  "alarm_siren": {
+   "bytes": 246714,
+   "cut": [
+    4.0,
+    34.0
+   ],
+   "len_s": 29.503,
+   "loop": true,
+   "lufs": -11.1,
+   "peak_db": -1.4,
+   "ref": "alarm_siren",
+   "ref_lufs": -11.1,
+   "seam_db": 0.3,
+   "seam_jump": 0.02,
+   "speech": 0.126,
+   "src": "7_alarm/675691__craigsmith__s24-14-single-air-raid-siren.wav",
+   "xfade_corr": 0.03
+  },
+  "ambient": {
+   "bytes": 822932,
+   "cut": [
+    2.0,
+    62.0
+   ],
+   "len_s": 59.338,
+   "loop": true,
+   "lufs": -18.2,
+   "peak_db": 0.8,
+   "ref": "ambient",
+   "ref_lufs": -17.8,
+   "seam_db": -3.31,
+   "seam_jump": 0.06,
+   "speech": 0.189,
+   "src": "einzeln/240108__klankbeeld__meadow-land-summer-ambience-nl-140603_0262.wav",
+   "xfade_corr": 0.31
+  },
+  "belt": {
+   "bytes": 16332,
+   "cut": [
+    1.0,
+    2.6
+   ],
+   "len_s": 1.6,
+   "loop": false,
+   "lufs": -19.5,
+   "peak_db": -4.5,
+   "ref": "belt",
+   "ref_lufs": -19.3,
+   "speech": 0.225,
+   "src": "8_metall/486292__craigsmith__r17-14-jingling-metal.wav"
+  },
+  "crash": {
+   "bytes": 37500,
+   "cut": [
+    0.8,
+    5.0
+   ],
+   "len_s": 4.2,
+   "loop": false,
+   "lufs": -17.8,
+   "peak_db": -1.0,
+   "ref": "crash",
+   "ref_lufs": -17.6,
+   "speech": 0.235,
+   "src": "8_metall/486276__craigsmith__r04-50-metal-scraping.wav"
+  },
+  "crash_impact": {
+   "bytes": 55446,
+   "cut": [
+    1.1,
+    7.8
+   ],
+   "len_s": 6.7,
+   "loop": false,
+   "lufs": -23.0,
+   "peak_db": -7.1,
+   "ref": "explosion",
+   "ref_lufs": -22.9,
+   "speech": 0.233,
+   "src": "5_explosionen/483276__craigsmith__r09-48-huge-explosion-with-wood-and-sand-debris.wav"
+  },
+  "crate_down_1": {
+   "bytes": 8141,
+   "cut": [
+    0.66,
+    1.15
+   ],
+   "len_s": 0.486,
+   "loop": false,
+   "lufs": -20.1,
+   "peak_db": -7.3,
+   "ref": "crate_down",
+   "ref_lufs": -19.9,
+   "speech": 0.19,
+   "src": "8_metall/486287__craigsmith__r16-35-metal-thump.wav"
+  },
+  "crate_down_2": {
+   "bytes": 8840,
+   "cut": [
+    1.78,
+    2.4
+   ],
+   "len_s": 0.616,
+   "loop": false,
+   "lufs": -20.0,
+   "peak_db": -7.5,
+   "ref": "crate_down",
+   "ref_lufs": -19.9,
+   "speech": 0.132,
+   "src": "8_metall/486287__craigsmith__r16-35-metal-thump.wav"
+  },
+  "crate_down_3": {
+   "bytes": 9033,
+   "cut": [
+    4.16,
+    4.8
+   ],
+   "len_s": 0.636,
+   "loop": false,
+   "lufs": -20.1,
+   "peak_db": -0.8,
+   "ref": "crate_down",
+   "ref_lufs": -19.9,
+   "speech": 0.07,
+   "src": "8_metall/486287__craigsmith__r16-35-metal-thump.wav"
+  },
+  "crate_up_1": {
+   "bytes": 7646,
+   "cut": [
+    4.86,
+    5.3
+   ],
+   "len_s": 0.436,
+   "loop": false,
+   "lufs": -23.6,
+   "peak_db": -8.7,
+   "ref": "crate_up",
+   "ref_lufs": -23.3,
+   "speech": 0.063,
+   "src": "8_metall/486277__craigsmith__r08-55-metal-clanks.wav"
+  },
+  "crate_up_2": {
+   "bytes": 7253,
+   "cut": [
+    7.09,
+    7.5
+   ],
+   "len_s": 0.406,
+   "loop": false,
+   "lufs": -23.6,
+   "peak_db": -6.9,
+   "ref": "crate_up",
+   "ref_lufs": -23.3,
+   "speech": 0.068,
+   "src": "8_metall/486277__craigsmith__r08-55-metal-clanks.wav"
+  },
+  "engine_catch": {
+   "bytes": 39119,
+   "cut": [
+    16.6,
+    21.2
+   ],
+   "len_s": 4.6,
+   "loop": false,
+   "lufs": -21.9,
+   "peak_db": -6.8,
+   "ref": "engine_catch",
+   "ref_lufs": -21.9,
+   "speech": 0.088,
+   "src": "1_wwii_fighter/437790__craigsmith__g04-23-wwii-fighter-starts-taxis-stops.wav"
+  },
+  "engine_misfire": {
+   "bytes": 21626,
+   "cut": [
+    20.0,
+    22.4
+   ],
+   "len_s": 2.4,
+   "loop": false,
+   "lufs": -25.0,
+   "peak_db": -12.8,
+   "ref": "engine_stop",
+   "ref_lufs": -25.0,
+   "speech": 0.498,
+   "src": "1_wwii_fighter/437776__craigsmith__g04-12-fighter-engine-pop-and-dive.wav"
+  },
+  "engine_starve": {
+   "bytes": 100529,
+   "cut": [
+    56.0,
+    68.4
+   ],
+   "len_s": 12.4,
+   "loop": false,
+   "lufs": -25.1,
+   "peak_db": -2.9,
+   "ref": "engine_stop",
+   "ref_lufs": -25.0,
+   "speech": 0.237,
+   "src": "2_props/479525__craigsmith__r02-40-prop-sputtering-engine.wav"
+  },
+  "engine_stop": {
+   "bytes": 62836,
+   "cut": [
+    106.2,
+    114.2
+   ],
+   "len_s": 8.0,
+   "loop": false,
+   "lufs": -25.1,
+   "peak_db": -10.6,
+   "ref": "engine_stop",
+   "ref_lufs": -25.0,
+   "speech": 0.109,
+   "src": "1_wwii_fighter/437790__craigsmith__g04-23-wwii-fighter-starts-taxis-stops.wav"
+  },
+  "engines/v12/full": {
+   "bytes": 46452,
+   "cut": [
+    26.0,
+    50.0
+   ],
+   "f0": 70.5,
+   "f_target": 70.5,
+   "len_s": 5.521,
+   "loop": true,
+   "lufs": -10.8,
+   "peak_db": -0.8,
+   "ref": "engines/v12/mid",
+   "ref_lufs": -10.7,
+   "ref_rpm": 2750,
+   "seam_db": 1.81,
+   "seam_jump": 0.15,
+   "speech": 0.172,
+   "src": "1_wwii_fighter/437792__craigsmith__g04-25-wwii-fighter-revs-engine.wav",
+   "xfade_corr": 0.45
+  },
+  "engines/v12/high": {
+   "bytes": 52546,
+   "cut": [
+    3.0,
+    36.0
+   ],
+   "f0": 58.2,
+   "f_target": 62.9,
+   "len_s": 6.235,
+   "loop": true,
+   "lufs": -10.8,
+   "peak_db": -0.4,
+   "ref": "engines/v12/mid",
+   "ref_lufs": -10.7,
+   "ref_rpm": 2454,
+   "seam_db": 0.76,
+   "seam_jump": 0.08,
+   "speech": 0.153,
+   "src": "1_wwii_fighter/437771__craigsmith__g04-07-wwii-stuka-engine-drone.wav",
+   "xfade_corr": 0.26
+  },
+  "engines/v12/idle": {
+   "bytes": 36245,
+   "cut": [
+    2.6,
+    10.0
+   ],
+   "f0": 44.6,
+   "f_target": 44.6,
+   "len_s": 4.185,
+   "loop": true,
+   "lufs": -10.9,
+   "peak_db": -0.6,
+   "ref": "engines/v12/mid",
+   "ref_lufs": -10.7,
+   "ref_rpm": 1740,
+   "seam_db": 1.79,
+   "seam_jump": 0.34,
+   "speech": 0.058,
+   "src": "1_wwii_fighter/437775__craigsmith__g04-11-wwii-fighters-engine-idle.wav",
+   "xfade_corr": 0.18
+  },
+  "engines/v12/low": {
+   "bytes": 49697,
+   "cut": [
+    34.5,
+    46.0
+   ],
+   "f0": 53.2,
+   "f_target": 50.1,
+   "len_s": 6.125,
+   "loop": true,
+   "lufs": -10.8,
+   "peak_db": -0.6,
+   "ref": "engines/v12/mid",
+   "ref_lufs": -10.7,
+   "ref_rpm": 1954,
+   "seam_db": 0.7,
+   "seam_jump": 0.09,
+   "speech": 0.057,
+   "src": "1_wwii_fighter/437790__craigsmith__g04-23-wwii-fighter-starts-taxis-stops.wav",
+   "xfade_corr": 0.13
+  },
+  "engines/v12/mid": {
+   "bytes": 50266,
+   "cut": [
+    2.6,
+    18.0
+   ],
+   "f0": 56.2,
+   "f_target": 56.2,
+   "len_s": 5.93,
+   "loop": true,
+   "lufs": -10.8,
+   "peak_db": -0.5,
+   "ref": "engines/v12/mid",
+   "ref_lufs": -10.7,
+   "ref_rpm": 2192,
+   "seam_db": 1.91,
+   "seam_jump": 0.26,
+   "speech": 0.146,
+   "src": "1_wwii_fighter/437772__craigsmith__g04-08-fighter-engine-drone.wav",
+   "xfade_corr": 0.43
+  },
+  "enter": {
+   "bytes": 8374,
+   "cut": [
+    0.6,
+    1.1
+   ],
+   "len_s": 0.496,
+   "loop": false,
+   "lufs": -18.4,
+   "peak_db": -0.5,
+   "ref": "enter",
+   "ref_lufs": -17.4,
+   "speech": 0.314,
+   "src": "8_metall/486284__craigsmith__r16-31-metal-clank-and-ring.wav"
+  },
+  "explosion_1": {
+   "bytes": 36890,
+   "cut": [
+    3.12,
+    7.6
+   ],
+   "len_s": 4.48,
+   "loop": false,
+   "lufs": -23.0,
+   "peak_db": -12.9,
+   "ref": "explosion",
+   "ref_lufs": -22.9,
+   "speech": 0.166,
+   "src": "5_explosionen/483294__craigsmith__r30-06-big-crisp-explosions.wav"
+  },
+  "explosion_2": {
+   "bytes": 37941,
+   "cut": [
+    9.72,
+    14.4
+   ],
+   "len_s": 4.68,
+   "loop": false,
+   "lufs": -23.0,
+   "peak_db": -13.4,
+   "ref": "explosion",
+   "ref_lufs": -22.9,
+   "speech": 0.11,
+   "src": "5_explosionen/483294__craigsmith__r30-06-big-crisp-explosions.wav"
+  },
+  "explosion_3": {
+   "bytes": 40211,
+   "cut": [
+    0.12,
+    5.2
+   ],
+   "len_s": 5.08,
+   "loop": false,
+   "lufs": -23.0,
+   "peak_db": -7.2,
+   "ref": "explosion",
+   "ref_lufs": -22.9,
+   "speech": 0.091,
+   "src": "5_explosionen/483281__craigsmith__r09-53-huge-explosion.wav"
+  },
+  "fire": {
+   "bytes": 80590,
+   "cut": [
+    3.0,
+    13.0
+   ],
+   "len_s": 10.002,
+   "loop": true,
+   "lufs": -19.9,
+   "peak_db": -3.4,
+   "ref": "fire",
+   "ref_lufs": -19.8,
+   "seam_db": 0.11,
+   "seam_jump": 0.02,
+   "speech": 0.332,
+   "src": "9_feuer/BURNING/FIREBurn_Fire burning with rumble; without crackle_CS_USC.wav",
+   "xfade_corr": 0.25
+  },
+  "hatch": {
+   "bytes": 9343,
+   "cut": [
+    10.1,
+    10.95
+   ],
+   "len_s": 0.846,
+   "loop": false,
+   "lufs": -21.8,
+   "peak_db": -3.8,
+   "ref": "hatch",
+   "ref_lufs": -21.6,
+   "speech": 0.014,
+   "src": "einzeln/488221__irolan__opening-and-closing-a-small-metal-hatch.wav"
+  },
+  "hatch_open": {
+   "bytes": 10478,
+   "cut": [
+    0.7,
+    1.6
+   ],
+   "len_s": 0.896,
+   "loop": false,
+   "lufs": -21.1,
+   "peak_db": -11.6,
+   "ref": "hatch",
+   "ref_lufs": -21.6,
+   "speech": 0.243,
+   "src": "einzeln/488221__irolan__opening-and-closing-a-small-metal-hatch.wav"
+  },
+  "hit_metal_1": {
+   "bytes": 7173,
+   "cut": [
+    2.45,
+    2.85
+   ],
+   "len_s": 0.396,
+   "loop": false,
+   "lufs": -20.1,
+   "peak_db": -10.1,
+   "ref": "hit_enemy",
+   "ref_lufs": -20.0,
+   "speech": 0.15,
+   "src": "4_treffer/675944__craigsmith__s20-47-50-cal-browning-machine-gun-bullet-impacts.wav"
+  },
+  "hit_metal_2": {
+   "bytes": 6806,
+   "cut": [
+    3.18,
+    3.58
+   ],
+   "len_s": 0.396,
+   "loop": false,
+   "lufs": -20.1,
+   "peak_db": -7.9,
+   "ref": "hit_enemy",
+   "ref_lufs": -20.0,
+   "speech": 0.095,
+   "src": "4_treffer/675944__craigsmith__s20-47-50-cal-browning-machine-gun-bullet-impacts.wav"
+  },
+  "hit_metal_3": {
+   "bytes": 6331,
+   "cut": [
+    5.5,
+    5.82
+   ],
+   "len_s": 0.316,
+   "loop": false,
+   "lufs": -20.1,
+   "peak_db": -7.1,
+   "ref": "hit_enemy",
+   "ref_lufs": -20.0,
+   "speech": 0.905,
+   "src": "4_treffer/675944__craigsmith__s20-47-50-cal-browning-machine-gun-bullet-impacts.wav"
+  },
+  "hit_metal_4": {
+   "bytes": 7810,
+   "cut": [
+    1.6,
+    2.1
+   ],
+   "len_s": 0.496,
+   "loop": false,
+   "lufs": -19.6,
+   "peak_db": -11.1,
+   "ref": "hit_enemy",
+   "ref_lufs": -20.0,
+   "speech": 0.293,
+   "src": "4_treffer/675951__craigsmith__s31-15-shooting-gallery-hitting-metal-targets.wav"
+  },
+  "hit_metal_5": {
+   "bytes": 8062,
+   "cut": [
+    5.33,
+    5.85
+   ],
+   "len_s": 0.516,
+   "loop": false,
+   "lufs": -20.0,
+   "peak_db": -8.7,
+   "ref": "hit_enemy",
+   "ref_lufs": -20.0,
+   "speech": 0.107,
+   "src": "4_treffer/675951__craigsmith__s31-15-shooting-gallery-hitting-metal-targets.wav"
+  },
+  "hit_wood_1": {
+   "bytes": 6306,
+   "cut": [
+    1.33,
+    1.7
+   ],
+   "len_s": 0.366,
+   "loop": false,
+   "lufs": -19.4,
+   "peak_db": -8.0,
+   "ref": "hit_own",
+   "ref_lufs": -19.4,
+   "speech": 0.129,
+   "src": "4_treffer/675945__craigsmith__s31-21-artillery-bullets-hitting-nearby-overhead.wav"
+  },
+  "hit_wood_2": {
+   "bytes": 6322,
+   "cut": [
+    1.73,
+    2.1
+   ],
+   "len_s": 0.366,
+   "loop": false,
+   "lufs": -19.5,
+   "peak_db": -4.1,
+   "ref": "hit_own",
+   "ref_lufs": -19.4,
+   "speech": 0.018,
+   "src": "4_treffer/675945__craigsmith__s31-21-artillery-bullets-hitting-nearby-overhead.wav"
+  },
+  "hit_wood_3": {
+   "bytes": 6429,
+   "cut": [
+    4.27,
+    4.62
+   ],
+   "len_s": 0.346,
+   "loop": false,
+   "lufs": -19.4,
+   "peak_db": -6.5,
+   "ref": "hit_own",
+   "ref_lufs": -19.4,
+   "speech": 0.26,
+   "src": "4_treffer/675945__craigsmith__s31-21-artillery-bullets-hitting-nearby-overhead.wav"
+  },
+  "mg_int": {
+   "bytes": 9455,
+   "cut": [
+    2.0,
+    4.0
+   ],
+   "grains": 10,
+   "guns": 2,
+   "len_s": 1.252,
+   "loop": true,
+   "lufs": -15.0,
+   "peak_db": -2.3,
+   "perspective": "innen",
+   "ref": "mg_loop",
+   "ref_lufs": -14.9,
+   "rpm": 1150.0,
+   "seam_db": -0.14,
+   "seam_jump": 0.04,
+   "speech": 0.014,
+   "src": "3_maschinengewehre/486042__craigsmith__r12-04-browning-machine-gun.wav"
+  },
+  "mg_loop": {
+   "bytes": 13822,
+   "cut": [
+    2.0,
+    4.0
+   ],
+   "grains": 10,
+   "guns": 2,
+   "len_s": 1.252,
+   "loop": true,
+   "lufs": -15.1,
+   "peak_db": -2.5,
+   "perspective": "aussen",
+   "ref": "mg_loop",
+   "ref_lufs": -14.9,
+   "rpm": 1150.0,
+   "seam_db": 0.87,
+   "seam_jump": 0.0,
+   "speech": 0.022,
+   "src": "3_maschinengewehre/486042__craigsmith__r12-04-browning-machine-gun.wav"
+  },
+  "mg_tail": {
+   "bytes": 16391,
+   "cut": [
+    1.66,
+    3.2
+   ],
+   "len_s": 1.54,
+   "loop": false,
+   "lufs": -15.7,
+   "peak_db": 0.4,
+   "ref": "mg_loop",
+   "ref_lufs": -14.9,
+   "speech": 0.021,
+   "src": "3_maschinengewehre/486040__craigsmith__r11-49-machine-gun-with-reverb.wav"
+  },
+  "ricochet_1": {
+   "bytes": 7759,
+   "cut": [
+    1.63,
+    2.12
+   ],
+   "len_s": 0.506,
+   "loop": false,
+   "lufs": -20.3,
+   "peak_db": -13.3,
+   "ref": "hit_enemy",
+   "ref_lufs": -20.0,
+   "speech": 0.209,
+   "src": "4_treffer/675953__craigsmith__s25-16-machine-gun-ricochets.wav"
+  },
+  "ricochet_2": {
+   "bytes": 8104,
+   "cut": [
+    6.2,
+    6.72
+   ],
+   "len_s": 0.516,
+   "loop": false,
+   "lufs": -20.2,
+   "peak_db": -13.2,
+   "ref": "hit_enemy",
+   "ref_lufs": -20.0,
+   "speech": 0.132,
+   "src": "4_treffer/675953__craigsmith__s25-16-machine-gun-ricochets.wav"
+  },
+  "ricochet_3": {
+   "bytes": 10403,
+   "cut": [
+    3.6,
+    4.45
+   ],
+   "len_s": 0.846,
+   "loop": false,
+   "lufs": -20.2,
+   "peak_db": -10.8,
+   "ref": "hit_enemy",
+   "ref_lufs": -20.0,
+   "speech": 0.202,
+   "src": "4_treffer/675955__craigsmith__s20-02-rifle-ricochets.wav"
+  },
+  "ricochet_4": {
+   "bytes": 8402,
+   "cut": [
+    5.17,
+    5.75
+   ],
+   "len_s": 0.576,
+   "loop": false,
+   "lufs": -20.2,
+   "peak_db": -11.0,
+   "ref": "hit_enemy",
+   "ref_lufs": -20.0,
+   "speech": 0.077,
+   "src": "4_treffer/675955__craigsmith__s20-02-rifle-ricochets.wav"
+  },
+  "tool": {
+   "bytes": 66934,
+   "cut": [
+    2.0,
+    10.0
+   ],
+   "len_s": 7.846,
+   "loop": true,
+   "lufs": -23.1,
+   "peak_db": -0.6,
+   "ref": "tool",
+   "ref_lufs": -22.9,
+   "seam_db": -2.77,
+   "seam_jump": 0.0,
+   "speech": 0.225,
+   "src": "8_metall/486288__craigsmith__r16-36-screwdriver-on-metal.wav",
+   "xfade_corr": 0.26
+  },
+  "truck_drive": {
+   "bytes": 70253,
+   "cut": [
+    1.0,
+    10.5
+   ],
+   "len_s": 8.856,
+   "loop": true,
+   "lufs": -15.8,
+   "peak_db": -3.5,
+   "ref": "truck_idle",
+   "ref_lufs": -15.7,
+   "seam_db": -0.5,
+   "seam_jump": 0.04,
+   "speech": 0.127,
+   "src": "6_lkw/487151__craigsmith__r03-29-large-truck-constant-engine.wav",
+   "xfade_corr": 0.17
+  },
+  "truck_idle": {
+   "bytes": 96532,
+   "cut": [
+    20.0,
+    32.0
+   ],
+   "len_s": 11.236,
+   "loop": true,
+   "lufs": -15.8,
+   "peak_db": -3.2,
+   "ref": "truck_idle",
+   "ref_lufs": -15.7,
+   "seam_db": -0.52,
+   "seam_jump": 0.18,
+   "speech": 0.168,
+   "src": "6_lkw/487161__craigsmith__r19-48-old-large-truck-start-idle-out.wav",
+   "xfade_corr": 0.1
+  },
+  "truck_start": {
+   "bytes": 49747,
+   "cut": [
+    0.25,
+    6.0
+   ],
+   "len_s": 5.75,
+   "loop": false,
+   "lufs": -16.4,
+   "peak_db": 0.1,
+   "ref": "truck_idle",
+   "ref_lufs": -15.7,
+   "speech": 0.164,
+   "src": "6_lkw/487161__craigsmith__r19-48-old-large-truck-start-idle-out.wav"
+  },
+  "whiz_1": {
+   "bytes": 9009,
+   "cut": [
+    6.3,
+    6.95
+   ],
+   "len_s": 0.646,
+   "loop": false,
+   "lufs": -19.5,
+   "peak_db": -10.8,
+   "ref": "hit_own",
+   "ref_lufs": -19.4,
+   "speech": 0.102,
+   "src": "4_treffer/675946__craigsmith__s20-40-bullets-flying-overhead-and-hitting-objects.wav"
+  },
+  "whiz_2": {
+   "bytes": 7959,
+   "cut": [
+    8.55,
+    9.1
+   ],
+   "len_s": 0.546,
+   "loop": false,
+   "lufs": -19.6,
+   "peak_db": -9.4,
+   "ref": "hit_own",
+   "ref_lufs": -19.4,
+   "speech": 0.28,
+   "src": "4_treffer/675946__craigsmith__s20-40-bullets-flying-overhead-and-hitting-objects.wav"
+  },
+  "whiz_3": {
+   "bytes": 8382,
+   "cut": [
+    9.32,
+    9.9
+   ],
+   "len_s": 0.576,
+   "loop": false,
+   "lufs": -19.6,
+   "peak_db": -10.6,
+   "ref": "hit_own",
+   "ref_lufs": -19.4,
+   "speech": 0.427,
+   "src": "4_treffer/675946__craigsmith__s20-40-bullets-flying-overhead-and-hitting-objects.wav"
+  },
+  "wind": {
+   "bytes": 181095,
+   "cut": [
+    30.0,
+    52.0
+   ],
+   "len_s": 21.801,
+   "loop": true,
+   "lufs": -12.6,
+   "peak_db": -0.5,
+   "ref": "wind",
+   "ref_lufs": -12.5,
+   "seam_db": -0.1,
+   "seam_jump": 0.19,
+   "speech": 0.149,
+   "src": "einzeln/136287__juskiddink__storm-wind.wav",
+   "xfade_corr": 0.11
+  }
+ },
+ "sr": 32000
+}
