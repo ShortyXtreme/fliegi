@@ -36,6 +36,42 @@ extends Resource
 ## Drehzahl Leerlauf / Vollgas (U/min) für den Motorklang.
 @export var engine_rpm_idle: float = 850.0
 @export var engine_rpm_max: float = 2800.0
+## M3.11: Propeller-Drehzahl (U/min, Verstellpropeller hält sie konstant) für das Drehmoment
+## Q = P/ω. DB 601: 2.400 U/min × 0,645 ≈ 1.550; Merlin: 3.000 × 0,477 ≈ 1.430.
+@export var prop_rpm: float = 1500.0
+## +1 = rechtsdrehend von hinten gesehen (Linksdrall: Flugzeug zieht beim Start nach links).
+@export var prop_rotation: float = 1.0
+## Stil B: Anteil der physikalischen Propellerwirkungen (Rückdrehmoment, P-Faktor, Drall am
+## Seitenleitwerk). 1,0 = voll; 0,6 = beherrschbar mit ≈ 30 % Seitenruder beim Start.
+@export var prop_effects_scale: float = 0.6
+## P-Faktor: seitlicher Schubversatz je rad Anstellwinkel der Propellerachse, Anteil des
+## Propellerradius (0,5 -> ≈ 0,09 R bei 10°).
+@export var p_factor_per_rad: float = 0.5
+## Drall im Strahl am Seitenleitwerk: Wirkungsgrad (Ausrichtung durch Rumpf/Flügel, Flosse
+## nur teilweise im Strahl).
+@export var swirl_efficiency: float = 0.35
+## Fest eingestellte Trimmkanten (Querruder/Seitenruder) gleichen die Propellerwirkungen
+## bei dieser Fahrt mit Vollgas im Horizontalflug aus (m/s). 0 = keine.
+@export var prop_rigging_speed: float = 380.0 / 3.6
+## M3.11 Kühlung (Flüssigkeitskühler, thermostatische Kühlerklappe).
+## Wärmekapazität Motor + Kühlmittel (J/K), Anteil der Wellenleistung ins Kühlmittel.
+@export var coolant_heat_capacity: float = 600000.0
+@export var coolant_heat_fraction: float = 0.6
+## Wärmeabgabe (W/K) bei offener Klappe und Bezugsfahrt; ∝ (v/v_ref)^0,8, mindestens 30 %.
+## Ausgelegt: Vollgas-Steigflug mit 230 km/h und offener Klappe hält 100 °C bei 15 °C Luft.
+@export var radiator_conductance: float = 4940.0
+@export var radiator_ref_speed: float = 230.0 / 3.6
+## Kühlerklappe: zu (Anteil) unter / ganz offen ab (°C).
+@export var radiator_flap_min: float = 0.25
+@export var radiator_open_from: float = 80.0
+@export var radiator_open_full: float = 90.0
+## Zusatzwiderstand der Klappe über/unter halb offen (m², in fuselage_drag_area enthalten bei 0,5).
+@export var radiator_drag_area: float = 0.02
+## Grenzen: Warnung, Leistungsabfall (bis −40 % bei +20 K), Motorschaden (HP/s je K darüber).
+@export var coolant_warn: float = 105.0
+@export var coolant_hot: float = 115.0
+@export var coolant_damage: float = 125.0
+@export var coolant_damage_rate: float = 0.5
 
 @export_group("Aerodynamik")
 @export var surfaces: Array[AeroSurfaceDef] = []

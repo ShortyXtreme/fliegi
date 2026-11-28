@@ -56,8 +56,9 @@ func is_leaking() -> bool:
 
 
 ## Verbrauch und Lecks eines Ticks. Der Motor zieht gleichmäßig aus beiden Tanks
-## (aus dem verbliebenen, wenn einer leer ist).
-func tick(dt: float, throttle: float, running: bool) -> void:
+## (aus dem verbliebenen, wenn einer leer ist). M3.11: load = abgegebene Wellenleistung /
+## Nennleistung (vorher Gashebel; in Bodennähe ohne Schaden identisch).
+func tick(dt: float, load: float, running: bool) -> void:
 	for k in 2:
 		if leak_lps[k] > 0.0 and liters[k] > 0.0:
 			var l := minf(leak_lps[k] * dt, liters[k])
@@ -65,7 +66,7 @@ func tick(dt: float, throttle: float, running: bool) -> void:
 			leaked_total += l
 	if not running:
 		return
-	var need := lerpf(burn_idle_lps, burn_full_lps, clampf(throttle, 0.0, 1.0)) * dt
+	var need := lerpf(burn_idle_lps, burn_full_lps, clampf(load, 0.0, 1.0)) * dt
 	var tanks := 0
 	for k in 2:
 		if liters[k] > 0.0:

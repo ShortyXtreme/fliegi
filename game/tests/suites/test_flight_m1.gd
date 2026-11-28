@@ -43,6 +43,8 @@ func test_takeoff_speed() -> Array:
 		i.throttle = 1.0
 		i.flaps = 0.5
 		i.yaw = Autopilot.hold_heading(ac.global_transform.basis, -t.angular_velocity_local.y, TestWorld.RUNWAY_DIR)
+		# M3.11: Rückdrehmoment des Propellers -> Flügel mit dem Querruder waagerecht halten
+		i.roll = clampf(ac.global_transform.basis.x.y * 3.0, -1.0, 1.0)
 		# Klassische Spornrad-Technik: Knüppel leicht nach vorn bis ~110 km/h, dann ziehen
 		i.pitch = -0.2 if t.airspeed < 30.0 else 0.35)
 	for f in 60 * 60:

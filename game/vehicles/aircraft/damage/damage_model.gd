@@ -280,8 +280,16 @@ func tick(dt: float) -> void:
 	for k in 2:
 		var z := Zone.FUEL_L + k
 		fuel.leak_lps[k] = profile.leak_max_lps * (1.0 - hp_fraction(z))
-	var thr: float = t.throttle_actual if t != null else 0.0
-	fuel.tick(dt, thr, not modifiers.engine_failed)
+	# M3.11: Verbrauch nach abgegebener Wellenleistung (Anteil der Nennleistung) statt nach
+	# Gashebel: über der Volldruckhöhe, mit Motorschaden oder Überhitzung weniger.
+	var load: float = t.engine_power_fraction if t != null else 0.0
+	fuel.tick(dt, load, not modifiers.engine_failed)
+	# M3.11: Überhitzung -> Motorschaden (Zone Motor verliert HP je K über der Grenze)
+	if t != null and aircraft != null and aircraft.get("data") != null:
+		var ad = aircraft.data
+		var over: float = float(t.coolant_temp) - float(ad.coolant_damage)
+		if over > 0.0 and hp[Zone.ENGINE] > 0.0:
+			_damage_zone(Zone.ENGINE, over * float(ad.coolant_damage_rate) * dt)
 	# Festfressen
 	if seize_timer >= 0.0:
 		seize_timer -= dt

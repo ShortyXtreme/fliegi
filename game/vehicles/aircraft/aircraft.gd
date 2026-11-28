@@ -243,6 +243,11 @@ func place(xf: Transform3D, speed: float = 0.0, throttle: float = 0.0,
 	if visual:
 		visual.snap_gear(flight.gear.extension)
 	flight.engine.throttle_actual = throttle
+	# M3.11: in der Luft betriebswarm, am Boden neu = kalt (Lufttemperatur)
+	if speed > 0.0:
+		flight.engine.coolant_temp = 80.0
+	elif refill:
+		flight.engine.coolant_temp = FlightModel.air_temperature(xf.origin.y) - 273.15
 	reset_physics_interpolation()
 
 

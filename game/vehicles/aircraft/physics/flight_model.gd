@@ -48,6 +48,13 @@ var _wing_cl_ref := 0.0               # Flügel-CL bei Rumpf-AoA 0 (Bezug für d
 var _downwash := 0.0                  # verzögerter Abwindwinkel am Leitwerk (rad)
 var _tail_arm := 5.4
 var _prev_aoa := 0.0
+## M3.11: Seitenleitwerk (Drall im Strahl): Lage, Fläche × Auftriebsanstieg, Strahlanteil.
+var _fin_pos := Vector3(0, 0.8, 5.5)
+var _fin_cla := 0.0
+var _fin_wash := 0.0
+## Moment der festen Trimmkanten bei prop_rigging_speed (Körper, N m) und dessen Staudruck.
+var _rig_moment := Vector3.ZERO
+var _rig_q := 1.0
 
 
 func _init(d: AircraftData) -> void:
@@ -81,6 +88,18 @@ func _init(d: AircraftData) -> void:
 			telemetry.stall_aoa = s.body_stall_aoa()
 			break
 	telemetry.stall_aoa_base = telemetry.stall_aoa
+	for s in surfaces:
+		if s.def.control_axis == AeroSurfaceDef.ControlAxis.YAW and s.def.prop_wash > 0.0:
+			_fin_pos = s.def.position
+			_fin_cla = s.area * s.lift_slope
+			_fin_wash = s.def.prop_wash
+			break
+	# Feste Trimmung: Vollgas-Horizontalflug bei prop_rigging_speed (Meereshöhe, α ≈ 1,5°)
+	if d.prop_rigging_speed > 1.0:
+		var vr := d.prop_rigging_speed
+		var tr := d.prop_efficiency * d.engine_power_w / vr
+		_rig_q = 0.5 * SEA_LEVEL_RHO * vr * vr
+		_rig_moment = prop_moments(vr, tr, d.engine_power_w, deg_to_rad(1.5), SEA_LEVEL_RHO)
 
 
 ## Temperatur (K) der Normatmosphäre.
@@ -112,6 +131,40 @@ static func wave_drag_coef(mach: float, mach_crit: float) -> float:
 		return 0.0
 	var u := (mach - mach_crit) / WAVE_SPAN
 	return WAVE_K * u * u * u
+
+
+## M3.11: Propellerwirkungen als Moment im Körpersystem (N m; x Nicken, y Gieren, z Rollen;
+## +y = Nase links, +z = links rollen), ohne Trimmung und Flughilfe. Für rechtsdrehende
+## Propeller (prop_rotation +1, von hinten gesehen im Uhrzeigersinn):
+## - Rückdrehmoment Q = P/ω rollt nach links (Gegenmoment zur Propellerdrehung).
+## - P-Faktor: bei Anstellwinkel α hat das abwärtslaufende (rechte) Blatt mehr Anstellung,
+##   der Schubschwerpunkt wandert um p_factor_per_rad·α·R nach rechts -> Nase links.
+## - Drall: der Strahl dreht mit dem Propeller; oben (am Seitenleitwerk) strömt er nach
+##   rechts -> Seitenkraft nach rechts am Heck -> Nase links. Umfangsgeschwindigkeit aus
+##   dem Drehimpulsstrom v_t = Q/(ṁ·0,7R), ṁ = ρA(v + Δv/2).
+## Skaliert mit prop_effects_scale (Stil B).
+func prop_moments(v_ax: float, thrust: float, shaft_power: float, alpha: float, rho: float) -> Vector3:
+	var d := data
+	var k := d.prop_effects_scale * d.prop_rotation
+	if k == 0.0 or shaft_power <= 0.0 and thrust <= 0.0:
+		return Vector3.ZERO
+	var omega := maxf(d.prop_rpm, 100.0) * TAU / 60.0
+	var radius := d.prop_diameter * 0.5
+	var q_torque := maxf(shaft_power, 0.0) / omega
+	var m := Vector3(0.0, 0.0, q_torque)
+	m.y += maxf(thrust, 0.0) * radius * d.p_factor_per_rad * clampf(alpha, -0.35, 0.35)
+	if _fin_cla > 0.0:
+		var va := maxf(v_ax, 0.0)
+		var disk := PI * radius * radius
+		var dv := sqrt(va * va + 2.0 * maxf(thrust, 0.0) / (rho * maxf(disk, 0.1))) - va
+		var mdot := rho * disk * (va + 0.5 * dv)
+		var vt := q_torque / maxf(mdot * 0.7 * radius, 1.0) * _fin_wash * d.swirl_efficiency
+		var vf := va + dv * _fin_wash
+		if vf > 1.0:
+			var side := 0.5 * rho * vf * vf * _fin_cla * atan(vt / vf)
+			# Kraft +x am Seitenleitwerk (r = _fin_pos): Moment r × F
+			m += _fin_pos.cross(Vector3(side, 0.0, 0.0))
+	return m * k
 
 
 ## Leistungsfaktor des Motors (Lader): bis zur Volldruckhöhe 1, darüber ∝ Luftdichte.
@@ -210,7 +263,7 @@ func integrate(state: PhysicsDirectBodyState3D, cmd: ControlCommands, exclude: A
 	# --- Rumpf- und Fahrwerkswiderstand ---
 	var q := 0.5 * rho
 	var drag_area := data.fuselage_drag_area + data.gear_drag_area * gear.extension \
-		+ modifiers.extra_drag_area
+		+ modifiers.extra_drag_area + data.radiator_drag_area * (engine.radiator - 0.5)
 	var fus_local := Vector3(
 		-v_local.x * absf(v_local.x) * q * data.fuselage_side_area * 0.5,
 		-v_local.y * absf(v_local.y) * q * data.fuselage_side_area * 0.5,
@@ -230,6 +283,14 @@ func integrate(state: PhysicsDirectBodyState3D, cmd: ControlCommands, exclude: A
 	var thrust_vec := -b.z * thrust
 	var r_eng := b * data.engine_position
 	state.apply_force(thrust_vec, r_eng)
+	# M3.11: Propellerwirkungen, feste Trimmkanten (∝ q), Ausgleich der Flughilfe
+	var alpha_p := atan2(-v_local.y, maxf(-v_local.z, 1.0))
+	var m_prop := prop_moments(axial, thrust, engine.shaft_power, alpha_p, rho)
+	m_prop -= _rig_moment * (q_dyn / _rig_q)
+	m_prop *= 1.0 - clampf(cmd.prop_compensation, 0.0, 1.0)
+	state.apply_torque(b * m_prop)
+	# M3.11: Kühlung
+	engine.update_cooling(dt, speed, wash_dv, air_temperature(xf.origin.y) - 273.15)
 	if dbg != null:
 		dbg.append([xf.origin + r_eng, thrust_vec, Color(1.0, 0.6, 0.1)])
 
@@ -253,6 +314,10 @@ func integrate(state: PhysicsDirectBodyState3D, cmd: ControlCommands, exclude: A
 	t.prop_wash = wash_dv
 	t.thrust = thrust
 	t.throttle_actual = engine.throttle_actual
+	t.engine_power_fraction = engine.power_fraction
+	t.coolant_temp = engine.coolant_temp
+	t.radiator = engine.radiator
+	t.prop_moment = m_prop
 	t.wheels_in_contact = contacts
 	t.belly_contact = gear.belly_contacts > 0
 	t.on_ground = contacts > 0 or t.belly_contact

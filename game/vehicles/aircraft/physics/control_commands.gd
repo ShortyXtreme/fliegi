@@ -13,6 +13,8 @@ var brakes: float = 0.0
 var gear_down: bool = true
 ## Arcade-Hilfe: Bremsen automatisch lösen, wenn das Heck abhebt (Überschlagschutz).
 var anti_nose_over: bool = false
+## M3.11: Anteil der Propellerwirkungen, den die Flughilfe ausgleicht (Arcade 0,9).
+var prop_compensation: float = 0.0
 
 
 func axis_value(axis: int) -> float:

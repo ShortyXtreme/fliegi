@@ -98,6 +98,11 @@ static func lamps(aircraft: Aircraft, player, t, w: Array) -> Array:
 	var running: bool = aircraft.flight.engine.running and (dm == null or not dm.is_engine_failed())
 	if not running and not t.on_ground:
 		put.call("motor", 2, true, "Motor aus!")
+	elif running and t.coolant_temp >= aircraft.data.coolant_warn:
+		# M3.11: Kühlmitteltemperatur
+		var hot: bool = t.coolant_temp >= aircraft.data.coolant_hot
+		put.call("motor", 2 if hot else 1, hot, "Motor überhitzt %d °C – Gas weg, Fahrt aufnehmen" % int(t.coolant_temp) \
+				if hot else "Kühlmittel %d °C" % int(t.coolant_temp))
 	elif dm != null and dm.hp_fraction(DamageModel.Zone.ENGINE) < 0.5 and not dm.is_destroyed:
 		put.call("motor", 2 if dm.hp_fraction(DamageModel.Zone.ENGINE) < 0.25 else 1, false, "Motor heiß / beschädigt")
 	elif not running and t.on_ground and ec != null:

@@ -25,6 +25,11 @@ const LOW_SPEED_PITCH_MAX := deg_to_rad(80.0)
 ## Begrenzung setzt ab LOW_SPEED_START · arcade_low_speed weich ein.
 const LOW_SPEED_START := 1.25
 
+## M3.11: Anteil der Propellerwirkungen, den Arcade ausgleicht.
+const ARCADE_PROP_COMP := 0.9
+## M3.11: Arcade am Boden (ab 20 m/s): Seitenruder gegen die Gierrate (s).
+const GROUND_YAW_DAMP := 1.5
+
 var _cmd := ControlCommands.new()
 var _pitch_i := 0.0
 ## Letzter Begrenzer-Eingriff (Diagnose/Telemetrie): 0 = keiner.
@@ -72,6 +77,8 @@ func apply(intent: PilotIntent, t: FlightTelemetry, dt: float) -> ControlCommand
 	c.brakes = intent.brakes
 	c.gear_down = intent.gear_down
 	c.anti_nose_over = intent.assist_mode == Mode.ARCADE
+	# M3.11: Arcade gleicht Rückdrehmoment, P-Faktor und Drall weitgehend aus.
+	c.prop_compensation = ARCADE_PROP_COMP if intent.assist_mode == Mode.ARCADE else 0.0
 	limiter_amount = 0.0
 	var w := t.angular_velocity_local
 	var v := maxf(t.airspeed, 15.0)
@@ -150,6 +157,7 @@ func apply(intent: PilotIntent, t: FlightTelemetry, dt: float) -> ControlCommand
 	c.elevator = clampf(elev, -1.0, 1.0)
 
 	# Gieren: Spieler-Seitenruder + Schiebewinkel-Ausgleich (koordinierte Kurve).
-	c.rudder = clampf(intent.yaw + (t.sideslip * 2.5 + w.y * 0.4 if not t.on_ground else 0.0),
-		-1.0, 1.0)
+	# M3.11: am Boden Gierdämpfung (Ausbrechen durch den restlichen Propeller-Linksdrall).
+	c.rudder = clampf(intent.yaw + (t.sideslip * 2.5 + w.y * 0.4 if not t.on_ground \
+		else w.y * GROUND_YAW_DAMP), -1.0, 1.0)
 	return c
