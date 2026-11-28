@@ -1,11 +1,11 @@
-# Flugkern M3.11 – Testversion „Motor und Pilot“
+# Flugkern M3.12 – Testversion „Feedback-Taste“
 
 ## Installation
 1. Die vorhandene **Flugkern.exe** (Godot 4.7.2) bleibt unverändert.
 2. **Alle vier .pck-Dateien** in denselben Ordner wie Flugkern.exe kopieren (alte Flugkern.pck überschreiben):
    `Flugkern.pck`, `Flugkern_modelle.pck`, `Flugkern_karte.pck`, `Flugkern_audio.pck`.
    Fehlt Modelle oder Karte, zeigt das Spiel eine Meldung; fehlt Audio, läuft es ohne Ton.
-3. Flugkern.exe starten. Der Fenstertitel muss „Flugkern M3.11“ zeigen.
+3. Flugkern.exe starten. Der Fenstertitel muss „Flugkern M3.12“ zeigen.
 
 ## Feedback geben
 - **F8 = Feedback speichern; den Ordner feedback/… an Claude schicken (Dateien in den Chat ziehen).**
@@ -15,6 +15,11 @@
   schreibgeschützt, unter `%APPDATA%\Godot\app_userdata\Flugkern M2\feedback\`; das Spiel zeigt den Pfad an).
   Darin: Bildschirmfoto, Bericht, Log und Flugdaten der letzten Minute.
 - Die Taste lässt sich unter Einstellungen › Tastenbelegung ändern. Das Tutorial überspringt Schritte jetzt mit **F6** (vorher F8).
+
+## Neu in M3.12
+
+- Feedback-Taste F8 (Controller: View halten + Y): speichert Bild, deine Notiz, Einstellungen, Bildrate, Flugzeugzustand, KI in der Nähe, Log und Flugdaten der letzten Minute in den Ordner feedback/ neben der Flugkern.exe. Den Ordner einfach in den Chat ziehen.
+- Tutorial: Schritt überspringen jetzt mit F6 (vorher F8), F7 beendet das Tutorial.
 
 ## Neu in M3.11
 
